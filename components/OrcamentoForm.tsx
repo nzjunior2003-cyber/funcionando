@@ -1,0 +1,1269 @@
+
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { OrcamentoData, OrcamentoItemGroup, OrcamentoPrice, OrcamentoFornecedor, TabelaConsupItem, VALORES_CONSUP_2024, LABELS_ESCOLARIDADE } from '../types';
+import { AiAssistant } from './AiAssistant';
+
+interface OrcamentoFormProps {
+  data: OrcamentoData;
+  setData: React.Dispatch<React.SetStateAction<OrcamentoData>>;
+}
+
+const Section: React.FC<{ title: string, children: React.ReactNode, instruction?: string }> = ({ title, children, instruction }) => (
+    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6 dark:bg-gray-700/50 dark:border-gray-600">
+        <h2 className="text-xl font-bold text-cbmpa-red mb-4 pb-2 border-b-2 border-cbmpa-red">{title}</h2>
+        {instruction && <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 italic">{instruction}</p>}
+        {children}
+    </div>
+);
+
+const Field: React.FC<{ label: string, required?: boolean, children: React.ReactNode, note?: string }> = ({ label, required, children, note }) => (
+    <div className="mb-4">
+        <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">
+            {label} {required && <span className="text-red-500">*</span>}
+        </label>
+        {children}
+        {note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{note}</p>}
+    </div>
+);
+
+const RadioGroup: React.FC<{ name: keyof OrcamentoData, value: string | undefined, options: {val: string, label: string}[], onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }> = ({ name, value, options, onChange }) => (
+    <div className="flex flex-col gap-y-2">
+        {options.map(opt => (
+            <div key={opt.val} className="flex items-start">
+                <input type="radio" id={`${name}-${opt.val}`} name={name} value={opt.val} checked={value === opt.val} onChange={onChange} className="mr-2 h-4 w-4 cursor-pointer"/>
+                <label htmlFor={`${name}-${opt.val}`} className="dark:text-gray-300 cursor-pointer">{opt.label}</label>
+            </div>
+        ))}
+    </div>
+);
+
+const parseValue = (value: string | undefined, tipoValor: 'moeda' | 'percentual' = 'moeda'): number | null => {
+  if (!value) return null;
+  const num = parseFloat(
+    value
+      .toString()
+      .replace(/[^\d,.-]/g, '') 
+      .replace(/\./g, '')       
+      .replace(',', '.')       
+  );
+  return isNaN(num) ? null : num;
+};
+
+// Helper para formatar moeda na input
+const formatCurrencyInput = (value: number): string => {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | '', tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
+  const validPrices = prices.map(p => parseValue(p, tipoValor)).filter((p): p is number => p !== null && (tipoValor === 'percentual' || p > 0));
+  
+  if (validPrices.length === 0) return 0;
+
+  switch (methodology) {
+    case 'menor':
+      return Math.min(...validPrices);
+    case 'media':
+      const sum = validPrices.reduce((a, b) => a + b, 0);
+      return sum / validPrices.length;
+    case 'mediana':
+      const sorted = [...validPrices].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+    default:
+      return 0;
+  }
+};
+
+const orcamentoCargoOptions = [
+    'Vol. Civil', 'SD QBM', 'CB QBM', '3° SGT QBM', '2° SGT QBM', '1° SGT QBM', 'ST QBM',
+    '2° TEN QOBM', '2° TEN QOABM', '1° TEN QOBM', '1° TEN QOABM',
+    'CAP QOBM', 'CAP QOABM', 'MAJ QOBM', 'MAJ QOABM',
+    'TEN CEL QOBM', 'TEN CEL QOCBM', 'TEN CEL QOSBM',
+    'CEL QOCBM', 'CEL QOSBM', 'CEL QOBM'
+];
+
+const allFontesOptions = [
+    { val: 'simas', label: 'Simas' },
+    { val: 'nfe', label: 'Base Nacional de Notas fiscais Eletrônicas' },
+    { val: 'pncp', label: 'Portal Nacional de Compras Públicas - PNCP' },
+    { val: 'siteEspecializado', label: 'Mídia especializada' },
+    { val: 'contratacaoSimilar', label: 'Contratações Similares feitas pela administração pública' },
+    { val: 'direta', label: 'Pesquisa direta com fornecedor' }
+];
+
+const ATA_SRP_OPTION = { val: 'preco_ata_srp', label: 'Preço da ATA de SRP' };
+
+const ufOptions = [
+    { val: 'AC', label: 'Acre' },
+    { val: 'AL', label: 'Alagoas' },
+    { val: 'AP', label: 'Amapá' },
+    { val: 'AM', label: 'Amazonas' },
+    { val: 'BA', label: 'Bahia' },
+    { val: 'CE', label: 'Ceará' },
+    { val: 'DF', label: 'Distrito Federal' },
+    { val: 'ES', label: 'Espírito Santo' },
+    { val: 'GO', label: 'Goiás' },
+    { val: 'MA', label: 'Maranhão' },
+    { val: 'MT', label: 'Mato Grosso' },
+    { val: 'MS', label: 'Mato Grosso do Sul' },
+    { val: 'MG', label: 'Minas Gerais' },
+    { val: 'PA', label: 'Pará' },
+    { val: 'PB', label: 'Paraíba' },
+    { val: 'PR', label: 'Paraná' },
+    { val: 'PE', label: 'Pernambuco' },
+    { val: 'PI', label: 'Piauí' },
+    { val: 'RJ', label: 'Rio de Janeiro' },
+    { val: 'RN', label: 'Rio Grande do Norte' },
+    { val: 'RS', label: 'Rio Grande do Sul' },
+    { val: 'RO', label: 'Rondônia' },
+    { val: 'RR', label: 'Roraima' },
+    { val: 'SC', label: 'Santa Catarina' },
+    { val: 'SP', label: 'São Paulo' },
+    { val: 'SE', label: 'Sergipe' },
+    { val: 'TO', label: 'Tocantins' }
+];
+
+const ItemForm: React.FC<{
+    group: OrcamentoItemGroup;
+    onRemove: (id: string) => void;
+    onGroupChange: (id: string, field: keyof OrcamentoItemGroup, value: string | number) => void;
+    inputClasses: string;
+    isSelected: boolean;
+    onToggleSelect: (id: string) => void;
+    tipoOrcamento: string;
+}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento }) => {
+    
+    // Estado local para o input de preço direto (Gerenciador da Ata)
+    const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
+    // Estado local para o Valor Unitário do Contrato (Aditivo)
+    const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
+
+    // Sincroniza estado local se o valor mudar externamente
+    useEffect(() => {
+        setLocalPrice(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
+    }, [group.estimativaUnitaria]);
+
+    useEffect(() => {
+        setContractPrice(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
+    }, [group.valorUnitarioContrato]);
+
+    const handlePriceBlur = () => {
+        const numericVal = parseValue(localPrice, group.tipoValor) || 0;
+        onGroupChange(group.id, 'estimativaUnitaria', numericVal);
+        setLocalPrice(formatCurrencyInput(numericVal));
+    };
+
+    const handleContractPriceBlur = () => {
+        const numericVal = parseValue(contractPrice, group.tipoValor) || 0;
+        onGroupChange(group.id, 'valorUnitarioContrato', numericVal);
+        setContractPrice(formatCurrencyInput(numericVal));
+    };
+
+    const isAditivo = tipoOrcamento === 'aditivo_contratual';
+
+    return (
+        <div className={`border rounded-lg p-4 mb-4 transition-all ${isSelected ? 'border-cbmpa-blue-start bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600'}`}>
+            <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                    {/* Checkbox de seleção para agrupar - Desabilitado para Gerenciador, Adesão e Aditivo */}
+                    {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
+                        <input 
+                            type="checkbox" 
+                            checked={isSelected} 
+                            onChange={() => onToggleSelect(group.id)} 
+                            className="h-5 w-5 rounded border-gray-300 text-cbmpa-blue-start focus:ring-cbmpa-blue-start cursor-pointer"
+                            title="Selecionar para agrupar"
+                        />
+                    )}
+                    <span className="font-bold text-gray-700 dark:text-gray-300 text-lg">Item {group.itemTR}</span>
+                    {group.loteId && (
+                        <span className="bg-cbmpa-blue-end text-white text-xs font-bold px-2 py-1 rounded-full shadow-sm">
+                            Lote: {group.loteId}
+                        </span>
+                    )}
+                </div>
+                <button onClick={() => onRemove(group.id)} className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center gap-1">
+                    🗑️ <span className="hidden sm:inline">Remover</span>
+                </button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="col-span-1">
+                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Descrição Detalhada</label>
+                    <div className="relative">
+                        <textarea value={group.descricao} onChange={(e) => onGroupChange(group.id, 'descricao', e.target.value)} className={`${inputClasses} min-h-[80px] pr-10`} />
+                        <AiAssistant fieldName={`Descrição do Item ${group.itemTR}`} onGeneratedText={(text) => onGroupChange(group.id, 'descricao', text)} />
+                    </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="block text-sm font-medium mb-1 dark:text-gray-300">Código SIMAS</label>
+                        <input type="text" value={group.codigoSimas} onChange={(e) => onGroupChange(group.id, 'codigoSimas', e.target.value)} className={inputClasses} />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium mb-1 dark:text-gray-300">Unidade</label>
+                        <input type="text" value={group.unidade} onChange={(e) => onGroupChange(group.id, 'unidade', e.target.value)} className={inputClasses} placeholder="Ex: UN, CX, KG" />
+                    </div>
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1 dark:text-gray-300">
+                            {tipoOrcamento === 'gerenciador_ata' ? 'Quantidade Solicitada' : 'Quantidade Original (Contrato)'}
+                        </label>
+                        <input type="number" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
+                    </div>
+                    
+                    <div className="col-span-2">
+                        <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipo de Valor da Pesquisa</label>
+                        <select 
+                            value={group.tipoValor || 'moeda'} 
+                            onChange={(e) => onGroupChange(group.id, 'tipoValor', e.target.value)} 
+                            className={inputClasses}
+                        >
+                            <option value="moeda">Moeda (R$)</option>
+                            <option value="percentual">Percentual (%)</option>
+                        </select>
+                    </div>
+
+                    {/* Campo Específico para Gerenciador da Ata - Valor Unitário */}
+                    {tipoOrcamento === 'gerenciador_ata' && (
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado (R$)</label>
+                            <input 
+                                type="text" 
+                                value={localPrice} 
+                                onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))}
+                                onBlur={handlePriceBlur}
+                                className={inputClasses}
+                                placeholder="0,00"
+                            />
+                        </div>
+                    )}
+
+                    {/* Campos Específicos para Aditivo Contratual */}
+                    {isAditivo && (
+                        <div className="col-span-2">
+                            <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Contrato (R$)</label>
+                            <input 
+                                type="text" 
+                                value={contractPrice} 
+                                onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))}
+                                onBlur={handleContractPriceBlur}
+                                className={inputClasses}
+                                placeholder="0,00"
+                            />
+                        </div>
+                    )}
+                </div>
+                
+                {/* Exibição das Cotas Calculadas (Não exibir se for Gerenciador, Adesão ou Aditivo) */}
+                {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
+                    <div className="col-span-1 md:col-span-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-2 rounded text-xs">
+                        <span className="font-bold text-gray-600 dark:text-gray-300">Distribuição de Cotas (Automático):</span>
+                        <div className="flex gap-4 mt-1">
+                            {group.cotas.map((c, idx) => (
+                                <span key={idx} className={`${c.tipo.includes('ME/EPP') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                    {c.tipo}: <strong>{c.quantidade}</strong>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) => {
+  const inputClasses = "w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
+  
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [loteName, setLoteName] = useState('');
+
+  const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
+
+  // 1. Recálculo de Preço Unitário Estimado
+  useEffect(() => {
+    setData(prevData => {
+      // Se for gerenciador da ata, o preço é manual, não calcula
+      if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
+      
+      // Se for aditivo, calculamos o preço estimado de MERCADO, mas não o do contrato. 
+      // O preço de mercado serve para o comparativo.
+      if (prevData.tipoOrcamento !== 'licitacao' && prevData.tipoOrcamento !== 'dispensa_licitacao' && prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') return prevData;
+      if (!prevData.metodologia) return prevData;
+
+      const newItemGroups = prevData.itemGroups.map(group => {
+        const itemPrices = prevData.precosEncontrados[group.id] || [];
+        const includedPrices = itemPrices.filter(p => prevData.precosIncluidos[p.id] ?? true);
+        const newEstimate = calculateEstimate(includedPrices.map(p => p.value), prevData.metodologia, group.tipoValor || 'moeda');
+        
+        return group.estimativaUnitaria !== newEstimate ? { ...group, estimativaUnitaria: newEstimate } : group;
+      });
+      return JSON.stringify(newItemGroups) !== JSON.stringify(prevData.itemGroups) ? { ...prevData, itemGroups: newItemGroups } : prevData;
+    });
+  }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, data.itemGroups, setData]);
+
+  // 2. Cálculo de Cotas
+  useEffect(() => {
+    // Não calcular cotas complexas para gerenciador, adesão ou aditivo
+    if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
+
+    const LIMITE_SRP_COTA = 80000;
+    const TETO_VALOR_LOTE = 4800000;
+    const PERCENTUAL_COTA = 0.25;
+
+    const calculateCotas = () => {
+        const itemGroups = [...data.itemGroups];
+        let hasChanges = false;
+
+        const lotes: Record<string, typeof itemGroups> = {};
+        const itemsWithoutLote: typeof itemGroups = [];
+
+        itemGroups.forEach(item => {
+            if (item.loteId) {
+                if (!lotes[item.loteId]) lotes[item.loteId] = [];
+                lotes[item.loteId].push(item);
+            } else {
+                itemsWithoutLote.push(item);
+            }
+        });
+
+        const processItems = (items: typeof itemGroups, isLote: boolean) => {
+            const valorTotal = items.reduce((acc, item) => acc + (item.quantidadeTotal * item.estimativaUnitaria), 0);
+            let percentualEfetivoCota = 0;
+
+            if (valorTotal > TETO_VALOR_LOTE) {
+                percentualEfetivoCota = 0;
+            } else {
+                let valorCotaCalculada = valorTotal * PERCENTUAL_COTA;
+                if (data.modalidadeLicitacao === 'pregao_eletronico_rp' && valorCotaCalculada > LIMITE_SRP_COTA) {
+                    valorCotaCalculada = LIMITE_SRP_COTA;
+                }
+                if (valorTotal > 0) {
+                    percentualEfetivoCota = valorCotaCalculada / valorTotal;
+                }
+            }
+
+            items.forEach(item => {
+                const qtdCota = Math.floor(item.quantidadeTotal * percentualEfetivoCota);
+                const qtdAmpla = item.quantidadeTotal - qtdCota;
+
+                const novasCotas = [
+                    { id: 'ampla', ordemTR: '1', tipo: 'AMPLA CONCORRÊNCIA', quantidade: qtdAmpla },
+                    ...(qtdCota > 0 ? [{ id: 'cota', ordemTR: '2', tipo: 'COTA RESERVADA ME/EPP', quantidade: qtdCota }] : [])
+                ];
+
+                if (JSON.stringify(item.cotas) !== JSON.stringify(novasCotas)) {
+                    item.cotas = novasCotas;
+                    hasChanges = true;
+                }
+            });
+        };
+
+        Object.values(lotes).forEach(loteItems => processItems(loteItems, true));
+        itemsWithoutLote.forEach(item => processItems([item], false));
+
+        if (hasChanges) {
+             setData(prev => ({...prev, itemGroups: [...itemGroups]}));
+        }
+    };
+    
+    calculateCotas();
+
+  }, [
+      JSON.stringify(data.itemGroups.map(g => ({
+          id: g.id, 
+          lote: g.loteId, 
+          qtd: g.quantidadeTotal, 
+          val: g.estimativaUnitaria
+      }))),
+      data.modalidadeLicitacao,
+      data.tipoOrcamento
+  ]);
+
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    setData({ ...data, [e.target.name]: e.target.value });
+  };
+  
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, checked } = e.target;
+    
+    if (name === 'fontesPesquisa') {
+         setData(prev => {
+            const currentArr = prev.fontesPesquisa || [];
+            const newFontes = checked ? [...currentArr, value] : currentArr.filter(v => v !== value);
+            
+            const newPrecos = { ...prev.precosEncontrados };
+            
+            if (checked) {
+                prev.itemGroups.forEach(g => {
+                    const existing = newPrecos[g.id] || [];
+                    if (!existing.some(p => p.source === value)) {
+                        newPrecos[g.id] = [
+                            ...existing, 
+                            { id: Date.now().toString() + Math.random().toString(), source: value, value: '' }
+                        ];
+                    }
+                });
+            } else {
+                 Object.keys(newPrecos).forEach(gId => {
+                     newPrecos[gId] = newPrecos[gId].filter(p => p.source !== value);
+                 });
+            }
+
+            return { 
+                ...prev, 
+                fontesPesquisa: newFontes,
+                precosEncontrados: newPrecos
+            };
+         });
+         return;
+    }
+
+    setData(prev => {
+        const field = name as keyof OrcamentoData;
+        const currentArr = (prev[field] as string[]) || [];
+        return {
+            ...prev,
+            [name]: checked ? [...currentArr, value] : currentArr.filter(v => v !== value)
+        };
+    });
+  };
+  
+  const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: string | number) => {
+    setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(group => group.id === id ? { ...group, [field]: value } : group) }));
+  };
+
+  const handleAditivoCalculation = (id: string, type: 'pct' | 'qtd' | 'total', rawValue: string) => {
+    // Helper to parse localized float
+    const cleanValue = rawValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
+    const value = parseFloat(cleanValue) || 0;
+
+    setData(prev => {
+        return {
+            ...prev,
+            itemGroups: prev.itemGroups.map(item => {
+                if (item.id !== id) return item;
+
+                // Base variables
+                const qtdOriginal = item.quantidadeTotal || 0;
+                const vUnitContrato = item.valorUnitarioContrato || 0;
+                const pctReajuste = (prev.haveraReajuste === 'sim' ? (prev.porcentagemReajuste || 0) : 0);
+                const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
+
+                if (vUnitReajustado === 0) return item; 
+
+                let newQtd = 0;
+                let newPct = 0;
+                let newTotal = 0;
+
+                if (type === 'qtd') {
+                    newQtd = value;
+                    newTotal = newQtd * vUnitReajustado;
+                    newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0;
+                } else if (type === 'pct') {
+                    newPct = value;
+                    newQtd = (qtdOriginal * newPct) / 100;
+                    newTotal = newQtd * vUnitReajustado;
+                } else if (type === 'total') {
+                    newTotal = value;
+                    newQtd = newTotal / vUnitReajustado;
+                    newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0;
+                }
+
+                return {
+                    ...item,
+                    aditivoQuantidade: newQtd,
+                    aditivoPercentual: newPct,
+                    aditivoValorTotal: newTotal
+                };
+            })
+        };
+    });
+  };
+
+  const addGroup = () => {
+      const newId = Date.now().toString();
+      const newItem = { 
+          id: newId, 
+          itemTR: (data.itemGroups.length + 1).toString(), 
+          descricao: '', 
+          estimativaUnitaria: 0, 
+          codigoSimas: '', 
+          unidade: '', 
+          quantidadeTotal: 0, 
+          cotas: [] 
+      };
+
+      setData(prev => {
+          const initialPrices = prev.fontesPesquisa.map(source => ({
+              id: Date.now().toString() + Math.random().toString(),
+              source,
+              value: ''
+          }));
+
+          return { 
+              ...prev, 
+              itemGroups: [...prev.itemGroups, newItem],
+              precosEncontrados: {
+                  ...prev.precosEncontrados,
+                  [newId]: initialPrices
+              }
+          };
+      });
+  };
+
+  const removeGroup = (id: string) => setData(prev => ({ ...prev, itemGroups: prev.itemGroups.filter(g => g.id !== id) }));
+  
+  const addPrice = (itemGroupId: string, source: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: [...(prev.precosEncontrados[itemGroupId] || []), { id: Date.now().toString(), source, value: '' }] } }));
+  const handlePriceChange = (itemGroupId: string, priceId: string, value: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: (prev.precosEncontrados[itemGroupId] || []).map(p => p.id === priceId ? {...p, value} : p) } }));
+  const removePrice = (itemGroupId: string, priceId: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: (prev.precosEncontrados[itemGroupId] || []).filter(p => p.id !== priceId) } }));
+  const handleInclusionChange = (pId: string, inc: boolean) => setData(prev => ({ ...prev, precosIncluidos: { ...prev.precosIncluidos, [pId]: inc } }));
+
+  const toggleSelect = (id: string) => {
+      setSelectedItemIds(prev => {
+          const newSet = new Set(prev);
+          if (newSet.has(id)) newSet.delete(id);
+          else newSet.add(id);
+          return newSet;
+      });
+  };
+
+  const handleAgruparLote = () => {
+      if (selectedItemIds.size === 0) {
+          alert('Selecione pelo menos um item para agrupar.');
+          return;
+      }
+      if (!loteName.trim()) {
+          alert('Digite um nome ou número para o Lote.');
+          return;
+      }
+      
+      setData(prev => ({
+          ...prev,
+          itemGroups: prev.itemGroups.map(item => 
+              selectedItemIds.has(item.id) ? { ...item, loteId: loteName.trim() } : item
+          )
+      }));
+      setSelectedItemIds(new Set());
+      setLoteName('');
+  };
+
+  const handleDesagrupar = () => {
+      if (selectedItemIds.size === 0) {
+          alert('Selecione os itens que deseja desagrupar.');
+          return;
+      }
+      setData(prev => ({
+          ...prev,
+          itemGroups: prev.itemGroups.map(item => 
+              selectedItemIds.has(item.id) ? { ...item, loteId: undefined } : item
+          )
+      }));
+      setSelectedItemIds(new Set());
+  };
+
+  const handleAddFornecedor = () => {
+      if (!novoFornecedor.nome || !novoFornecedor.justificativa) {
+          alert("Preencha o nome e a justificativa para adicionar.");
+          return;
+      }
+      setData(prev => ({
+          ...prev,
+          fornecedoresDiretos: [
+              ...prev.fornecedoresDiretos,
+              { 
+                  id: Date.now().toString(), 
+                  nome: novoFornecedor.nome, 
+                  justificativa: novoFornecedor.justificativa,
+                  requisitos: 'sim' // Padrão
+              }
+          ]
+      }));
+      setNovoFornecedor({ nome: '', justificativa: '' });
+  };
+
+  const handleRemoveFornecedor = (id: string) => {
+      setData(prev => ({
+          ...prev,
+          fornecedoresDiretos: prev.fornecedoresDiretos.filter(f => f.id !== id)
+      }));
+  };
+
+  const sortedItems = useMemo(() => {
+      return [...data.itemGroups].sort((a, b) => {
+          // Lotes primeiro
+          if (a.loteId && !b.loteId) return -1;
+          if (!a.loteId && b.loteId) return 1;
+          // Ordenar por nome do lote
+          if (a.loteId && b.loteId) {
+              const loteCompare = a.loteId.localeCompare(b.loteId, undefined, { numeric: true });
+              if (loteCompare !== 0) return loteCompare;
+          }
+          // Ordenar por itemTR
+          return parseInt(a.itemTR) - parseInt(b.itemTR);
+      });
+  }, [data.itemGroups]);
+
+  const selectedFontes = useMemo(() => allFontesOptions.filter(o => data.fontesPesquisa.includes(o.val)), [data.fontesPesquisa]);
+  
+  const isOnlyDireta = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+
+  const currentPaeParts = data.pae ? data.pae.split('/') : [];
+  const currentYear = currentPaeParts[0] || '2025';
+  const currentNum = currentPaeParts[1] || '';
+
+  const handlePaeYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const newYear = e.target.value;
+      setData(prev => ({...prev, pae: `${newYear}/${currentNum}`}));
+  };
+
+  const handlePaeNumChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const newNum = e.target.value.replace(/\D/g, '');
+      setData(prev => ({...prev, pae: `${currentYear}/${newNum}`}));
+  };
+
+  return (
+    <div className="space-y-6">
+      <Section title="Dados Gerais do Orçamento">
+          <div className="grid md:grid-cols-2 gap-4">
+              {/* Nova Linha: PAE e Setor */}
+              <Field label="PAE nº" required note="Formato: AAAA/NNNNNNNN">
+                <input 
+                  type="text" 
+                  name="pae" 
+                  value={data.pae} 
+                  onChange={handleChange} 
+                  required 
+                  className={inputClasses} 
+                  placeholder="Ex: 2026/325698745" 
+                />
+              </Field>
+              
+              <Field label="Setor" required>
+                <input 
+                  type="text" 
+                  name="setor" 
+                  value={data.setor || ''} 
+                  onChange={handleChange} 
+                  required 
+                  className={inputClasses} 
+                  placeholder="Ex: DL/DAL" 
+                />
+              </Field>
+
+              <Field label="Tipo de Orçamento">
+                  <select name="tipoOrcamento" value={data.tipoOrcamento} onChange={handleChange} className={inputClasses}>
+                      <option value="licitacao">Licitação</option>
+                      <option value="adesao_ata">Adesão à Ata de Registro de Preços</option>
+                      <option value="gerenciador_ata">Gerenciador da Ata</option>
+                      <option value="dispensa_licitacao">Dispensa de Licitação</option>
+                      <option value="aditivo_contratual">Aditivo Contratual</option>
+                  </select>
+              </Field>
+              
+              {/* Campos Adicionais para Aditivo Contratual */}
+              {data.tipoOrcamento === 'aditivo_contratual' && (
+                  <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 animate-fade-in-down">
+                      <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 border-b border-blue-200 pb-2">Dados do Contrato</h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                          <Field label="Número do Contrato" required>
+                              <input type="text" name="numeroContrato" value={data.numeroContrato || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 001/2023" />
+                          </Field>
+                          <Field label="Ano do Contrato" required>
+                              <select name="anoContrato" value={data.anoContrato || '2024'} onChange={handleChange} className={inputClasses}>
+                                  <option value="2022">2022</option>
+                                  <option value="2023">2023</option>
+                                  <option value="2024">2024</option>
+                                  <option value="2025">2025</option>
+                                  <option value="2026">2026</option>
+                              </select>
+                          </Field>
+                      </div>
+                  </div>
+              )}
+
+              {data.tipoOrcamento === 'licitacao' && (
+                  <Field label="Modalidade da Licitação">
+                      <select name="modalidadeLicitacao" value={data.modalidadeLicitacao} onChange={handleChange} className={inputClasses}>
+                          <option value="pregao_eletronico_comum">Pregão Eletrônico (Comum)</option>
+                          <option value="pregao_eletronico_rp">Pregão Eletrônico (SRP)</option>
+                      </select>
+                  </Field>
+              )}
+              {data.tipoOrcamento === 'adesao_ata' && (
+                 <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 animate-fade-in-down">
+                     <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Dados da Ata de Registro de Preços (Carona)</h3>
+                     <div className="grid md:grid-cols-2 gap-4">
+                         <Field label="Número da Ata" required>
+                             <input type="text" name="numeroAta" value={data.numeroAta} onChange={handleChange} className={inputClasses} placeholder="Ex: 001/2024" />
+                         </Field>
+                         <Field label="Ano da Ata" required>
+                             <select name="anoAta" value={data.anoAta} onChange={handleChange} className={inputClasses}>
+                                 <option value="2023">2023</option>
+                                 <option value="2024">2024</option>
+                                 <option value="2025">2025</option>
+                                 <option value="2026">2026</option>
+                             </select>
+                         </Field>
+                         <Field label="Órgão Gerenciador" required>
+                             <input type="text" name="orgaoAta" value={data.orgaoAta} onChange={handleChange} className={inputClasses} placeholder="Ex: Secretaria de Estado..." />
+                         </Field>
+                         <Field label="Estado" required>
+                             <select name="estadoAta" value={data.estadoAta} onChange={handleChange} className={inputClasses}>
+                                 <option value="">Selecione um Estado</option>
+                                 {ufOptions.map(uf => (
+                                     <option key={uf.val} value={uf.val}>{uf.val} - {uf.label}</option>
+                                 ))}
+                             </select>
+                         </Field>
+                     </div>
+                 </div>
+              )}
+              {/* Novo Bloco para Gerenciador da Ata */}
+              {data.tipoOrcamento === 'gerenciador_ata' && (
+                  <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 animate-fade-in-down">
+                      <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Dados da Ata Própria</h3>
+                      <div className="grid md:grid-cols-2 gap-4">
+                          <Field label="Número da Ata" required>
+                              <input type="text" name="numeroAta" value={data.numeroAta} onChange={handleChange} className={inputClasses} placeholder="Ex: 001" />
+                          </Field>
+                          <Field label="Ano da Ata" required>
+                              <select name="anoAta" value={data.anoAta} onChange={handleChange} className={inputClasses}>
+                                  <option value="2023">2023</option>
+                                  <option value="2024">2024</option>
+                                  <option value="2025">2025</option>
+                                  <option value="2026">2026</option>
+                              </select>
+                          </Field>
+                      </div>
+                  </div>
+              )}
+          </div>
+      </Section>
+
+      {/* 1. Itens da Contratação */}
+      <Section title="Itens da Contratação (Descrição e Quantidade)">
+          
+          {/* Barra de Ferramentas de Lote - Oculta se for Gerenciador, Adesão ou Aditivo */}
+          {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && selectedItemIds.size > 0 && (
+              <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm animate-fade-in-down">
+                  <span className="font-bold text-cbmpa-blue-start">{selectedItemIds.size} item(s) selecionado(s)</span>
+                  <div className="flex items-center gap-2 flex-grow">
+                      <input 
+                          type="text" 
+                          placeholder="Nome do Lote (Ex: 01)" 
+                          value={loteName}
+                          onChange={(e) => setLoteName(e.target.value)}
+                          className="p-2 border rounded dark:bg-gray-700 dark:border-gray-500 dark:text-white flex-grow min-w-[150px]"
+                      />
+                      <button 
+                          onClick={handleAgruparLote}
+                          className="bg-cbmpa-blue-start hover:bg-cbmpa-blue-end text-white font-bold py-2 px-4 rounded shadow transition-colors"
+                      >
+                          Agrupar
+                      </button>
+                      <button 
+                          onClick={handleDesagrupar}
+                          className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded shadow transition-colors"
+                      >
+                          Desagrupar
+                      </button>
+                  </div>
+              </div>
+          )}
+
+          <div className="space-y-4">
+              {sortedItems.map(g => (
+                  <ItemForm 
+                      key={g.id} 
+                      group={g} 
+                      onRemove={removeGroup} 
+                      onGroupChange={handleGroupChange} 
+                      inputClasses={inputClasses} 
+                      isSelected={selectedItemIds.has(g.id)}
+                      onToggleSelect={toggleSelect}
+                      tipoOrcamento={data.tipoOrcamento}
+                  />
+              ))}
+          </div>
+
+          <button onClick={addGroup} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition shadow-md mt-6">
+              <span className="text-xl">➕</span> Adicionar Item
+          </button>
+      </Section>
+
+      {/* NOVA SEÇÃO: DADOS DO REAJUSTE (Apenas Aditivo) */}
+      {data.tipoOrcamento === 'aditivo_contratual' && (
+          <Section title="Dados do Reajuste">
+              <div className="space-y-6">
+                  <div className="border-b pb-4 dark:border-gray-600">
+                      <Field label="Tempo?">
+                          <div className="flex gap-6">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="aditivoTempo" value="sim" checked={data.aditivoTempo === 'sim'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Sim</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="aditivoTempo" value="nao" checked={data.aditivoTempo === 'nao'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Não</span>
+                              </label>
+                          </div>
+                      </Field>
+                      {data.aditivoTempo === 'sim' && (
+                          <div className="flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
+                              <span className="dark:text-gray-300">Prazo:</span>
+                              <input 
+                                  type="text" 
+                                  name="aditivoTempoQuantidade" 
+                                  value={data.aditivoTempoQuantidade || ''} 
+                                  onChange={handleChange} 
+                                  className={`${inputClasses} w-32`} 
+                                  placeholder="Qtd"
+                              />
+                              <select 
+                                  name="aditivoTempoUnidade" 
+                                  value={data.aditivoTempoUnidade || 'meses'} 
+                                  onChange={handleChange} 
+                                  className={inputClasses}
+                              >
+                                  <option value="meses">meses</option>
+                                  <option value="anos">ano(s)</option>
+                              </select>
+                          </div>
+                      )}
+                  </div>
+
+                  <div>
+                      <Field label="Haverá reajuste?">
+                          <div className="flex gap-6">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="haveraReajuste" value="sim" checked={data.haveraReajuste === 'sim'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Sim</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="haveraReajuste" value="nao" checked={data.haveraReajuste === 'nao'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Não</span>
+                              </label>
+                          </div>
+                      </Field>
+                      {data.haveraReajuste === 'sim' && (
+                          <div className="grid md:grid-cols-2 gap-4 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
+                              <Field label="Porcentagem de Reajuste (%)" required>
+                                  <input 
+                                      type="number" 
+                                      name="porcentagemReajuste" 
+                                      value={data.porcentagemReajuste || ''} 
+                                      onChange={(e) => setData({...data, porcentagemReajuste: parseFloat(e.target.value)})} 
+                                      className={inputClasses} 
+                                      placeholder="Ex: 5.0"
+                                  />
+                              </Field>
+                              <Field label="Índice" required>
+                                  <select name="indiceReajuste" value={data.indiceReajuste || ''} onChange={handleChange} className={inputClasses}>
+                                      <option value="">Selecione o Índice</option>
+                                      <option value="IPCA">IPCA</option>
+                                      <option value="IGP-M">IGP-M</option>
+                                      <option value="INPC">INPC</option>
+                                      <option value="IPC-Fipe">IPC-Fipe</option>
+                                  </select>
+                              </Field>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </Section>
+      )}
+
+      {/* NOVA SEÇÃO: CÁLCULO DO VALOR DO ADITIVO (Apenas Aditivo) */}
+      {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
+          <Section title="Cálculo do Valor do Aditivo" instruction="De quanto será o aditivo? Edite o Percentual, a Quantidade ou o Valor Total. O cálculo utiliza o valor com reajuste (se houver).">
+              <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs text-left">
+                      <thead className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
+                          <tr>
+                              <th className="px-2 py-2">ITEM</th>
+                              <th className="px-2 py-2">DESCRIÇÃO</th>
+                              <th className="px-2 py-2 text-center">QTD ORIGINAL</th>
+                              <th className="px-2 py-2 text-right">V. UNIT. CONTRATO</th>
+                              <th className="px-2 py-2 text-right">V. TOTAL BASE</th>
+                              <th className="px-2 py-2 text-center w-24">ADITIVO (%)</th>
+                              <th className="px-2 py-2 text-center w-24">ADITIVO (QTD)</th>
+                              <th className="px-2 py-2 text-right w-32">ADITIVO TOTAL (R$)</th>
+                              <th className="px-2 py-2 text-right">NOVO V. GLOBAL</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {sortedItems.map(item => {
+                              const qtdOriginal = item.quantidadeTotal || 0;
+                              const vUnitContrato = item.valorUnitarioContrato || 0;
+                              const pctReajuste = (data.haveraReajuste === 'sim' ? (data.porcentagemReajuste || 0) : 0);
+                              
+                              // Valor unitário com reajuste aplicado
+                              const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
+                              
+                              // Valor total original do contrato (pós reajuste se houver)
+                              const vTotalBase = qtdOriginal * vUnitReajustado;
+                              
+                              const qtdAditivo = item.aditivoQuantidade || 0;
+                              const vTotalAditivo = item.aditivoValorTotal || (qtdAditivo * vUnitReajustado);
+                              const pctAditivo = item.aditivoPercentual || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0);
+                              const novoVGlobal = vTotalBase + vTotalAditivo;
+
+                              return (
+                                  <tr key={item.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                      <td className="px-2 py-2 font-bold">{item.itemTR}</td>
+                                      <td className="px-2 py-2 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td>
+                                      <td className="px-2 py-2 text-center">{qtdOriginal}</td>
+                                      <td className="px-2 py-2 text-right">{vUnitContrato.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className="px-2 py-2 text-right text-blue-600 font-semibold">{vTotalBase.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className="px-2 py-2 text-center">
+                                          <input 
+                                            type="text" 
+                                            value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
+                                            onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)}
+                                            className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white"
+                                            placeholder="%"
+                                          />
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                          <input 
+                                            type="text" 
+                                            value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
+                                            onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)}
+                                            className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold"
+                                            placeholder="Qtd"
+                                          />
+                                      </td>
+                                      <td className="px-2 py-2 text-right">
+                                          <input 
+                                            type="text" 
+                                            value={vTotalAditivo ? vTotalAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''}
+                                            onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)}
+                                            className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600"
+                                            placeholder="R$"
+                                          />
+                                      </td>
+                                      <td className="px-2 py-2 text-right font-bold">{novoVGlobal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+          </Section>
+      )}
+
+      {/* Seções de Pesquisa - Ocultas se for Gerenciador da Ata */}
+      {data.tipoOrcamento !== 'gerenciador_ata' && (
+      <>
+        {/* 2. Fontes Consultadas */}
+        <Section 
+            title="Fontes Consultadas para a Pesquisa de Preço" 
+            instruction="Selecione as fontes que foram utilizadas. Apenas as fontes selecionadas aparecerão como opção ao adicionar preços."
+        >
+            <div className="grid md:grid-cols-2 gap-4">
+                {allFontesOptions.map(f => (
+                    <label key={f.val} className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            name="fontesPesquisa"
+                            value={f.val} 
+                            checked={data.fontesPesquisa.includes(f.val)} 
+                            onChange={handleCheckboxChange} 
+                            className="h-5 w-5 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red"
+                        /> 
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.label}</span>
+                    </label>
+                ))}
+            </div>
+            
+            {isOnlyDireta && (
+                <div className="mt-6 p-5 bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-600 rounded-lg space-y-6 animate-fade-in-down">
+                    <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200 border-b pb-2">Detalhamento da Pesquisa Direta</h3>
+                    
+                    <Field label="Justificativa da Ausência de Pesquisa de Preço no SIMAS, PNCP ou em Contratações Similares" note="Obrigatório se 'Pesquisa Direta' for a única fonte.">
+                        <textarea 
+                            name="justificativaAusenciaFonte" 
+                            value={data.justificativaAusenciaFonte} 
+                            onChange={handleChange} 
+                            className={`${inputClasses} h-24`} 
+                            placeholder="(Caso não tenha sido realizada a pesquisa de preço em uma dessas fontes, justifique aqui)."
+                        />
+                    </Field>
+
+                    <Field label="Justificativa da Pesquisa Direta com Fornecedores">
+                        <textarea 
+                            name="justificativaPesquisaDireta" 
+                            value={data.justificativaPesquisaDireta} 
+                            onChange={handleChange} 
+                            className={`${inputClasses} h-24`} 
+                            placeholder="(Justificar o motivo de ter sido utilizada essa fonte e quais os critérios de escolha dos fornecedores consultados)."
+                        />
+                    </Field>
+
+                    <div>
+                        <h4 className="font-bold text-md text-gray-800 dark:text-gray-200 mb-2">Fornecedores Cotados</h4>
+                        <p className="text-sm text-gray-500 mb-3">Adicione os fornecedores consultados, suas justificativas e se atenderam aos requisitos.</p>
+                        
+                        <div className="grid md:grid-cols-2 gap-4 mb-3">
+                            <div>
+                                <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Nome do Fornecedor</label>
+                                <input 
+                                    type="text" 
+                                    value={novoFornecedor.nome}
+                                    onChange={(e) => setNovoFornecedor(prev => ({ ...prev, nome: e.target.value }))}
+                                    placeholder="Nome da empresa"
+                                    className={inputClasses}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-1 dark:text-gray-300">Qual a razão da escolha?</label>
+                                <input 
+                                    type="text" 
+                                    value={novoFornecedor.justificativa}
+                                    onChange={(e) => setNovoFornecedor(prev => ({ ...prev, justificativa: e.target.value }))}
+                                    placeholder="Justificativa"
+                                    className={inputClasses}
+                                />
+                            </div>
+                        </div>
+                        <button 
+                            onClick={handleAddFornecedor}
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md"
+                        >
+                            Adicionar
+                        </button>
+
+                        {data.fornecedoresDiretos.length > 0 && (
+                            <div className="mt-4 overflow-x-auto">
+                                <table className="min-w-full text-sm text-left">
+                                    <thead className="bg-gray-200 dark:bg-gray-600">
+                                        <tr>
+                                            <th className="px-4 py-2">Fornecedor</th>
+                                            <th className="px-4 py-2">Justificativa da Escolha</th>
+                                            <th className="px-4 py-2 text-center">Ação</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {data.fornecedoresDiretos.map(f => (
+                                            <tr key={f.id} className="border-b dark:border-gray-600 bg-white dark:bg-gray-800">
+                                                <td className="px-4 py-2 font-medium">{f.nome}</td>
+                                                <td className="px-4 py-2">{f.justificativa}</td>
+                                                <td className="px-4 py-2 text-center">
+                                                    <button onClick={() => handleRemoveFornecedor(f.id)} className="text-red-500 hover:text-red-700 font-bold">Excluir</button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </Section>
+
+        {/* 3. Metodologia */}
+        <Section 
+            title="Metodologia da Estimativa de Preço"
+            instruction="Selecione uma metodologia para calcular o preço estimado (Média de Mercado)."
+        >
+            <RadioGroup 
+                name="metodologia" 
+                value={data.metodologia} 
+                options={[
+                    {val:'menor',label:'Menor preço'},
+                    {val:'media',label:'Média aritmética'},
+                    {val:'mediana',label:'Mediana'}
+                ]} 
+                onChange={handleChange}
+            />
+        </Section>
+
+        {/* 4. Resultado da Pesquisa */}
+        <Section 
+            title="Resultado da Pesquisa (Preços Encontrados)"
+            instruction="Adicione os preços pesquisados para comparação."
+        >
+            <div className="mb-6">
+                <AiAssistant 
+                    data={data}
+                    setData={setData}
+                    addPrice={addPrice}
+                    availableSources={selectedFontes}
+                />
+            </div>
+
+            {data.itemGroups.length === 0 ? (
+                <div className="py-8 text-center text-gray-500 dark:text-gray-400 italic">
+                    Adicione um item para inserir preços.
+                </div>
+            ) : (
+                <div className="space-y-6">
+                    {sortedItems.map(group => (
+                        <div key={group.id} className={`p-4 border-l-4 ${group.loteId ? 'border-cbmpa-blue-end' : 'border-cbmpa-red'} bg-white dark:bg-gray-800 shadow-sm rounded-r-lg relative`}>
+                            {group.loteId && (
+                                <div className="absolute top-0 right-0 bg-cbmpa-blue-end text-white text-xs px-2 py-1 rounded-bl-lg font-bold">
+                                    Lote: {group.loteId}
+                                </div>
+                            )}
+                            <div className="flex justify-between items-center mb-3">
+                                <h3 className="font-bold text-gray-800 dark:text-gray-200 pr-16">Item {group.itemTR}: {group.descricao.substring(0, 50)}...</h3>
+                                <div className="relative inline-block text-left">
+                                    <select 
+                                        className="p-2 text-xs border rounded-md dark:bg-gray-700 cursor-pointer"
+                                        onChange={(e) => {
+                                            if (e.target.value) {
+                                                addPrice(group.id, e.target.value);
+                                                e.target.value = "";
+                                            }
+                                        }}
+                                    >
+                                        <option value="">➕ Adicionar Preço (Manual)</option>
+                                        {data.tipoOrcamento === 'adesao_ata' && (
+                                            <option value={ATA_SRP_OPTION.val}>{ATA_SRP_OPTION.label}</option>
+                                        )}
+                                        {selectedFontes.map(s => <option key={s.val} value={s.val}>{s.label}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-2">
+                                {(data.precosEncontrados[group.id] || []).length === 0 && (
+                                    <p className="text-sm text-gray-400 italic">Nenhuma fonte selecionada ou preço adicionado.</p>
+                                )}
+                                {(data.precosEncontrados[group.id] || []).map(p => (
+                                    <div key={p.id} className="flex flex-wrap items-center gap-4 p-2 border-b dark:border-gray-700">
+                                        <div className="flex-1 min-w-[150px]">
+                                            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                                {p.source === ATA_SRP_OPTION.val 
+                                                    ? ATA_SRP_OPTION.label 
+                                                    : (allFontesOptions.find(f => f.val === p.source)?.label || p.source)
+                                                }
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
+                                            <input 
+                                                type="text" 
+                                                value={p.value} 
+                                                onChange={(e) => handlePriceChange(group.id, p.id, e.target.value)}
+                                                placeholder={group.tipoValor === 'percentual' ? "0,00" : "0,00"}
+                                                className="w-32 p-1 border rounded text-right dark:bg-gray-900 focus:ring-2 focus:ring-cbmpa-red"
+                                            />
+                                        </div>
+                                        <label className="flex items-center gap-1 cursor-pointer">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={data.precosIncluidos[p.id] ?? true} 
+                                                onChange={(e) => handleInclusionChange(p.id, e.target.checked)}
+                                                className="h-4 w-4"
+                                            />
+                                            <span className="text-xs">Incluir</span>
+                                        </label>
+                                        <button onClick={() => removePrice(group.id, p.id)} className="text-red-500 hover:text-red-700 text-sm font-bold ml-2">Remover</button>
+                                    </div>
+                                ))}
+                            </div>
+                            
+                            <div className="mt-3 flex justify-end gap-6 items-center">
+                                {/* Visualização rápida das cotas (Oculta se for Gerenciador ou Adesão) */}
+                                {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
+                                    <div className="text-xs text-gray-500 italic">
+                                        Cota: {group.cotas.find(c => c.id === 'cota')?.quantidade || 0} | Ampla: {group.cotas.find(c => c.id === 'ampla')?.quantidade || 0}
+                                    </div>
+                                )}
+                                <span className="text-sm font-bold text-cbmpa-red">Estimativa Unitária (Mercado): {group.tipoValor === 'percentual' ? `${group.estimativaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : group.estimativaUnitaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="mt-8 border-t pt-4 dark:border-gray-600">
+                <Field label="Houve descarte de preço?">
+                    <div className="flex gap-6 mt-1">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="houveDescarte" value="sim" checked={data.houveDescarte === 'sim'} onChange={handleChange} className="h-4 w-4"/>
+                            <span className="text-sm dark:text-gray-300">Sim</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="houveDescarte" value="nao" checked={data.houveDescarte === 'nao'} onChange={handleChange} className="h-4 w-4"/>
+                            <span className="text-sm dark:text-gray-300">Não</span>
+                        </label>
+                    </div>
+                </Field>
+                {data.houveDescarte === 'sim' && (
+                    <Field label="Justificativa do Descarte" required>
+                        <textarea name="justificativaDescarte" value={data.justificativaDescarte} onChange={handleChange} className={`${inputClasses} h-20`} placeholder="Explique os motivos técnicos para descartar cotações discrepantes..."/>
+                    </Field>
+                )}
+            </div>
+        </Section>
+      </>
+      )}
+
+      {/* NOVA SEÇÃO: COMPARATIVO (Apenas Aditivo) */}
+      {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
+          <Section title="Comparativo: Novo Valor do Contrato x Média de Mercado">
+              <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs text-left">
+                      <thead className="bg-gray-800 text-white">
+                          <tr>
+                              <th className="px-4 py-2">ITEM</th>
+                              <th className="px-4 py-2">DESCRIÇÃO</th>
+                              <th className="px-4 py-2 text-right">NOVO V. UNITÁRIO (CONTRATO + ADITIVO)</th>
+                              <th className="px-4 py-2 text-right">V. MÉDIO MERCADO</th>
+                              <th className="px-4 py-2 text-right">DIFERENÇA</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {sortedItems.map(item => {
+                              const vUnitContrato = item.valorUnitarioContrato || 0;
+                              const pctReajuste = (data.haveraReajuste === 'sim' ? (data.porcentagemReajuste || 0) : 0);
+                              const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
+                              const vMercado = item.estimativaUnitaria || 0;
+                              const diff = vMercado - vUnitReajustado;
+                              const isAdvantageous = diff >= 0;
+
+                              return (
+                                  <tr key={item.id} className="border-b dark:border-gray-700 bg-white dark:bg-gray-800">
+                                      <td className="px-4 py-3 font-bold">{item.itemTR}</td>
+                                      <td className="px-4 py-3 truncate max-w-[200px]">{item.descricao}</td>
+                                      <td className="px-4 py-3 text-right font-bold">{vUnitReajustado.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className="px-4 py-3 text-right">{vMercado.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className={`px-4 py-3 text-right font-bold ${isAdvantageous ? 'text-green-600' : 'text-red-500'}`}>
+                                          {diff.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+          </Section>
+      )}
+
+      <Section title="Assinatura">
+        <div className="grid md:grid-cols-2 gap-6">
+            <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade} onChange={handleChange} required className={inputClasses} /></Field>
+            <Field label="Data" required><input type="date" name="data" value={data.data} onChange={handleChange} required className={inputClasses} /></Field>
+        </div>
+        <div className="grid md:grid-cols-2 gap-6 mt-6">
+             <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 1 (Responsável)</p>
+                <Field label="Nome Completo"><input type="text" name="assinante1Nome" value={data.assinante1Nome} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
+                <Field label="Função"><input type="text" name="assinante1Funcao" value={data.assinante1Funcao} onChange={handleChange} className={inputClasses} /></Field>
+            </div>
+            <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
+                <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 2 (Opcional)</p>
+                <Field label="Nome Completo"><input type="text" name="assinante2Nome" value={data.assinante2Nome} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
+                <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao} onChange={handleChange} className={inputClasses} /></Field>
+            </div>
+        </div>
+      </Section>
+    </div>
+  );
+};
