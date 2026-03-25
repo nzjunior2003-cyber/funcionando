@@ -46,13 +46,11 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         y += h;
     };
 
-    // Gancho mágico para desenhar os quadradinhos nas tabelas
     const checkboxHook = (data: any) => {
         if (data.cell.raw && data.cell.raw.hasCheckboxes) {
             const states = data.cell.raw.checkboxStates;
             let startX = data.cell.x + 3;
             
-            // Se o texto for centralizado, calculamos a posição do quadradinho para ficar colado no texto
             if (data.cell.styles.halign === 'center') {
                 const firstLine = data.cell.text[0] || '';
                 doc.setFont('helvetica', data.cell.styles.fontStyle);
@@ -67,7 +65,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             states.forEach((isChecked: boolean, i: number) => {
                 const rectY = startY + (i * lineHeight);
                 doc.setLineWidth(0.2);
-                doc.rect(startX, rectY, 3, 3); // Desenha o quadradinho
+                doc.rect(startX, rectY, 3, 3); 
                 if (isChecked) {
                     doc.setFont('helvetica', 'bold');
                     doc.text('X', startX + 0.6, rectY + 2.3);
@@ -94,7 +92,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     data.itemGroups.forEach(g => {
         s1Body.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } }, 
-            { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
+            { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
             { content: g.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } }, 
             { content: g.unidade, styles: { halign: 'center', valign: 'middle' } }, 
             { content: (g.quantidadeTotal || 0).toString(), styles: { halign: 'center', valign: 'middle' } }
@@ -166,7 +164,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Sec 5 - Corrigida para centralizar o texto e os quadradinhos juntos
+    // Sec 5
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const met = data.metodologia;
     autoTable(doc, {
@@ -241,7 +239,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final
+    // Tabela Final com a lógica matemática infalível para AMPLA e ME/EPP
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
@@ -259,12 +257,24 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
         if (cotasValidas && cotasValidas.length > 0) {
+            // Descobre qual cota possui a maior quantidade de todas para aquele item
+            const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
+
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
+                
+                // Se a cota tiver a quantidade máxima estipulada, ela é automaticamente "AMPLA"
+                let label = (cQtd === maxQtd) ? 'AMPLA' : 'ME/EPP';
+                
+                // Medida de segurança: se existir apenas uma cota válida, ela é absoluta (AMPLA)
+                if (cotasValidas.length === 1) {
+                    label = 'AMPLA';
+                }
+
                 fb.push([
                     seqItem.toString(), 
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
-                    c.id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP', 
+                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, 
+                    label, 
                     formatValue(est, g.tipoValor), 
                     cQtd, 
                     formatValue(cQtd * est, g.tipoValor)
@@ -273,13 +283,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             });
         } else {
             let cotaLabel = 'AMPLA'; 
-            if (g.cotas && g.cotas.length > 0) {
-                cotaLabel = g.cotas[0].id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP';
-            }
-
             fb.push([
                 seqItem.toString(), 
-                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
+                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, 
                 cotaLabel, 
                 formatValue(est, g.tipoValor), 
                 qtdTotal, 
@@ -298,7 +304,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Função de Assinatura com linha fina e nome/cargo na mesma linha
     const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
         if (!nome) return;
         
@@ -323,8 +328,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     
     const centerX = PAGE_WIDTH / 2; 
 
-    // O código agora usa o nomeGuerra como rede de segurança caso a variável cargo esteja vazia
-    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || '';
+    // Rede de segurança para pegar o "Vol. Civil" mesmo quando a tela esquecer de avisar que ele foi selecionado
+    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
     const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
 
     drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
@@ -335,15 +340,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
     }
 
-    // Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         if (i === totalPages) {
-            // Imprime o rodapé institucional completo na última página
             drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
         } else {
-            // Nas outras páginas, imprime apenas o número da página no canto inferior direito
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
             doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
