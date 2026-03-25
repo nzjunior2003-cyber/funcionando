@@ -48,12 +48,10 @@ const parseValue = (value: string | undefined, tipoValor: 'moeda' | 'percentual'
   return isNaN(num) ? null : num;
 };
 
-// Helper para formatar moeda na input
 const formatCurrencyInput = (value: number): string => {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// CORREÇÃO 1: Fallback salva-vidas na metodologia
 const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | string, tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
   const validPrices = prices.map(p => parseValue(p, tipoValor)).filter((p): p is number => p !== null && (tipoValor === 'percentual' || p > 0));
   
@@ -111,7 +109,7 @@ const ufOptions = [
 const ItemForm: React.FC<{
     group: OrcamentoItemGroup;
     onRemove: (id: string) => void;
-    onGroupChange: (id: string, field: keyof OrcamentoItemGroup, value: string | number) => void;
+    onGroupChange: (id: string, field: keyof OrcamentoItemGroup, value: any) => void;
     inputClasses: string;
     isSelected: boolean;
     onToggleSelect: (id: string) => void;
@@ -190,6 +188,22 @@ const ItemForm: React.FC<{
                         </label>
                         <input type="number" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
                     </div>
+
+                    {/* NOVO: Botão para habilitar/desabilitar a divisão de cota */}
+                    {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
+                        <div className="col-span-2 mt-1 mb-2 bg-yellow-50 dark:bg-yellow-900/20 p-2 rounded border border-yellow-200 dark:border-yellow-700/50">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    // Se for indefinido, assume true (ligado por padrão)
+                                    checked={group.aplicarCotaMeEpp !== false} 
+                                    onChange={(e) => onGroupChange(group.id, 'aplicarCotaMeEpp', e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red cursor-pointer"
+                                />
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Aplicar regra de divisão de Cota ME/EPP (25%) neste item</span>
+                            </label>
+                        </div>
+                    )}
                     
                     <div className="col-span-2">
                         <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipo de Valor da Pesquisa</label>
@@ -242,6 +256,9 @@ const ItemForm: React.FC<{
                                 </span>
                             ))}
                         </div>
+                        {group.aplicarCotaMeEpp === false && (
+                            <div className="text-cbmpa-red font-bold mt-1">Item exclusivo para AMPLA concorrência.</div>
+                        )}
                     </div>
                 )}
             </div>
@@ -262,8 +279,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     setData(prevData => {
       if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
       if (prevData.tipoOrcamento !== 'licitacao' && prevData.tipoOrcamento !== 'dispensa_licitacao' && prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') return prevData;
-      
-      // CORREÇÃO 2: Removida a trava (!prevData.metodologia) que impedia o cálculo e zerava tudo.
 
       const newItemGroups = prevData.itemGroups.map(group => {
         const itemPrices = prevData.precosEncontrados[group.id] || [];
@@ -276,7 +291,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     });
   }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, data.itemGroups, setData]);
 
-  // 2. Cálculo de Cotas
+  // 2. Cálculo de Cotas (AGORA RESPEITANDO A ESCOLHA DO USUÁRIO POR ITEM)
   useEffect(() => {
     if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
 
@@ -285,7 +300,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     const PERCENTUAL_COTA = 0.25;
 
     const calculateCotas = () => {
-        // CORREÇÃO 3: Deep copy para impedir a mutação proibida do React nas cotas
         const itemGroups = data.itemGroups.map(g => ({...g}));
         let hasChanges = false;
 
@@ -318,8 +332,14 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             }
 
             items.forEach(item => {
-                const qtdCota = Math.floor(item.quantidadeTotal * percentualEfetivoCota);
-                const qtdAmpla = item.quantidadeTotal - qtdCota;
+                let qtdCota = 0;
+                let qtdAmpla = item.quantidadeTotal;
+
+                // Só aplica a matemática da cota se o usuário não tiver desligado a chave deste item
+                if (item.aplicarCotaMeEpp !== false) {
+                    qtdCota = Math.floor(item.quantidadeTotal * percentualEfetivoCota);
+                    qtdAmpla = item.quantidadeTotal - qtdCota;
+                }
 
                 const novasCotas = [
                     { id: 'ampla', ordemTR: '1', tipo: 'AMPLA CONCORRÊNCIA', quantidade: qtdAmpla },
@@ -348,7 +368,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           id: g.id, 
           lote: g.loteId, 
           qtd: g.quantidadeTotal, 
-          val: g.estimativaUnitaria
+          val: g.estimativaUnitaria,
+          cotaHabilitada: g.aplicarCotaMeEpp // A mudança no botão também recalcula as cotas na hora!
       }))),
       data.modalidadeLicitacao,
       data.tipoOrcamento
@@ -403,7 +424,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     });
   };
   
-  const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: string | number) => {
+  const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: any) => {
     setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(group => group.id === id ? { ...group, [field]: value } : group) }));
   };
 
@@ -455,7 +476,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
   const addGroup = () => {
       const newId = Date.now().toString();
-      const newItem = { 
+      const newItem: OrcamentoItemGroup = { 
           id: newId, 
           itemTR: (data.itemGroups.length + 1).toString(), 
           descricao: '', 
@@ -463,7 +484,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           codigoSimas: '', 
           unidade: '', 
           quantidadeTotal: 0, 
-          cotas: [] 
+          cotas: [],
+          aplicarCotaMeEpp: true // Itens novos já nascem com a regra ligada
       };
 
       setData(prev => {

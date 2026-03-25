@@ -142,6 +142,7 @@ export interface OrcamentoItemGroup {
   aditivoPercentual?: number; // Percentual do aditivo
   aditivoValorTotal?: number; // Valor total do aditivo
   tipoValor?: 'moeda' | 'percentual'; // Tipo do valor da pesquisa de preços
+  aplicarCotaMeEpp?: boolean; // <-- ADICIONE ESTA LINHA
 }
 
 export interface OrcamentoPrice {
