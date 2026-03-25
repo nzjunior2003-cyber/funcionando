@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { OrcamentoData, OrcamentoItemGroup, OrcamentoPrice, OrcamentoFornecedor, TabelaConsupItem, VALORES_CONSUP_2024, LABELS_ESCOLARIDADE } from '../types';
 import { AiAssistant } from './AiAssistant';
@@ -54,23 +53,27 @@ const formatCurrencyInput = (value: number): string => {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | '', tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
+// CORREÇÃO 1: Fallback salva-vidas na metodologia
+const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | string, tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
   const validPrices = prices.map(p => parseValue(p, tipoValor)).filter((p): p is number => p !== null && (tipoValor === 'percentual' || p > 0));
   
   if (validPrices.length === 0) return 0;
 
-  switch (methodology) {
+  const safeMethodology = methodology || 'media';
+
+  switch (safeMethodology) {
     case 'menor':
       return Math.min(...validPrices);
     case 'media':
-      const sum = validPrices.reduce((a, b) => a + b, 0);
-      return sum / validPrices.length;
+      const sumMedia = validPrices.reduce((a, b) => a + b, 0);
+      return sumMedia / validPrices.length;
     case 'mediana':
       const sorted = [...validPrices].sort((a, b) => a - b);
       const mid = Math.floor(sorted.length / 2);
       return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
     default:
-      return 0;
+      const sumDefault = validPrices.reduce((a, b) => a + b, 0);
+      return sumDefault / validPrices.length;
   }
 };
 
@@ -94,33 +97,15 @@ const allFontesOptions = [
 const ATA_SRP_OPTION = { val: 'preco_ata_srp', label: 'Preço da ATA de SRP' };
 
 const ufOptions = [
-    { val: 'AC', label: 'Acre' },
-    { val: 'AL', label: 'Alagoas' },
-    { val: 'AP', label: 'Amapá' },
-    { val: 'AM', label: 'Amazonas' },
-    { val: 'BA', label: 'Bahia' },
-    { val: 'CE', label: 'Ceará' },
-    { val: 'DF', label: 'Distrito Federal' },
-    { val: 'ES', label: 'Espírito Santo' },
-    { val: 'GO', label: 'Goiás' },
-    { val: 'MA', label: 'Maranhão' },
-    { val: 'MT', label: 'Mato Grosso' },
-    { val: 'MS', label: 'Mato Grosso do Sul' },
-    { val: 'MG', label: 'Minas Gerais' },
-    { val: 'PA', label: 'Pará' },
-    { val: 'PB', label: 'Paraíba' },
-    { val: 'PR', label: 'Paraná' },
-    { val: 'PE', label: 'Pernambuco' },
-    { val: 'PI', label: 'Piauí' },
-    { val: 'RJ', label: 'Rio de Janeiro' },
-    { val: 'RN', label: 'Rio Grande do Norte' },
-    { val: 'RS', label: 'Rio Grande do Sul' },
-    { val: 'RO', label: 'Rondônia' },
-    { val: 'RR', label: 'Roraima' },
-    { val: 'SC', label: 'Santa Catarina' },
-    { val: 'SP', label: 'São Paulo' },
-    { val: 'SE', label: 'Sergipe' },
-    { val: 'TO', label: 'Tocantins' }
+    { val: 'AC', label: 'Acre' }, { val: 'AL', label: 'Alagoas' }, { val: 'AP', label: 'Amapá' },
+    { val: 'AM', label: 'Amazonas' }, { val: 'BA', label: 'Bahia' }, { val: 'CE', label: 'Ceará' },
+    { val: 'DF', label: 'Distrito Federal' }, { val: 'ES', label: 'Espírito Santo' }, { val: 'GO', label: 'Goiás' },
+    { val: 'MA', label: 'Maranhão' }, { val: 'MT', label: 'Mato Grosso' }, { val: 'MS', label: 'Mato Grosso do Sul' },
+    { val: 'MG', label: 'Minas Gerais' }, { val: 'PA', label: 'Pará' }, { val: 'PB', label: 'Paraíba' },
+    { val: 'PR', label: 'Paraná' }, { val: 'PE', label: 'Pernambuco' }, { val: 'PI', label: 'Piauí' },
+    { val: 'RJ', label: 'Rio de Janeiro' }, { val: 'RN', label: 'Rio Grande do Norte' }, { val: 'RS', label: 'Rio Grande do Sul' },
+    { val: 'RO', label: 'Rondônia' }, { val: 'RR', label: 'Roraima' }, { val: 'SC', label: 'Santa Catarina' },
+    { val: 'SP', label: 'São Paulo' }, { val: 'SE', label: 'Sergipe' }, { val: 'TO', label: 'Tocantins' }
 ];
 
 const ItemForm: React.FC<{
@@ -133,12 +118,9 @@ const ItemForm: React.FC<{
     tipoOrcamento: string;
 }> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento }) => {
     
-    // Estado local para o input de preço direto (Gerenciador da Ata)
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
-    // Estado local para o Valor Unitário do Contrato (Aditivo)
     const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
 
-    // Sincroniza estado local se o valor mudar externamente
     useEffect(() => {
         setLocalPrice(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
     }, [group.estimativaUnitaria]);
@@ -165,7 +147,6 @@ const ItemForm: React.FC<{
         <div className={`border rounded-lg p-4 mb-4 transition-all ${isSelected ? 'border-cbmpa-blue-start bg-blue-50 dark:bg-blue-900/20' : 'border-gray-300 bg-white dark:bg-gray-800 dark:border-gray-600'}`}>
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
-                    {/* Checkbox de seleção para agrupar - Desabilitado para Gerenciador, Adesão e Aditivo */}
                     {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
                         <input 
                             type="checkbox" 
@@ -222,7 +203,6 @@ const ItemForm: React.FC<{
                         </select>
                     </div>
 
-                    {/* Campo Específico para Gerenciador da Ata - Valor Unitário */}
                     {tipoOrcamento === 'gerenciador_ata' && (
                         <div className="col-span-2">
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado (R$)</label>
@@ -237,7 +217,6 @@ const ItemForm: React.FC<{
                         </div>
                     )}
 
-                    {/* Campos Específicos para Aditivo Contratual */}
                     {isAditivo && (
                         <div className="col-span-2">
                             <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Contrato (R$)</label>
@@ -253,7 +232,6 @@ const ItemForm: React.FC<{
                     )}
                 </div>
                 
-                {/* Exibição das Cotas Calculadas (Não exibir se for Gerenciador, Adesão ou Aditivo) */}
                 {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
                     <div className="col-span-1 md:col-span-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-2 rounded text-xs">
                         <span className="font-bold text-gray-600 dark:text-gray-300">Distribuição de Cotas (Automático):</span>
@@ -282,13 +260,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   // 1. Recálculo de Preço Unitário Estimado
   useEffect(() => {
     setData(prevData => {
-      // Se for gerenciador da ata, o preço é manual, não calcula
       if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
-      
-      // Se for aditivo, calculamos o preço estimado de MERCADO, mas não o do contrato. 
-      // O preço de mercado serve para o comparativo.
       if (prevData.tipoOrcamento !== 'licitacao' && prevData.tipoOrcamento !== 'dispensa_licitacao' && prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') return prevData;
-      if (!prevData.metodologia) return prevData;
+      
+      // CORREÇÃO 2: Removida a trava (!prevData.metodologia) que impedia o cálculo e zerava tudo.
 
       const newItemGroups = prevData.itemGroups.map(group => {
         const itemPrices = prevData.precosEncontrados[group.id] || [];
@@ -303,7 +278,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
   // 2. Cálculo de Cotas
   useEffect(() => {
-    // Não calcular cotas complexas para gerenciador, adesão ou aditivo
     if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
 
     const LIMITE_SRP_COTA = 80000;
@@ -311,7 +285,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     const PERCENTUAL_COTA = 0.25;
 
     const calculateCotas = () => {
-        const itemGroups = [...data.itemGroups];
+        // CORREÇÃO 3: Deep copy para impedir a mutação proibida do React nas cotas
+        const itemGroups = data.itemGroups.map(g => ({...g}));
         let hasChanges = false;
 
         const lotes: Record<string, typeof itemGroups> = {};
@@ -362,7 +337,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
         itemsWithoutLote.forEach(item => processItems([item], false));
 
         if (hasChanges) {
-             setData(prev => ({...prev, itemGroups: [...itemGroups]}));
+             setData(prev => ({...prev, itemGroups}));
         }
     };
     
@@ -378,7 +353,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       data.modalidadeLicitacao,
       data.tipoOrcamento
   ]);
-
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setData({ ...data, [e.target.name]: e.target.value });
@@ -434,7 +408,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   };
 
   const handleAditivoCalculation = (id: string, type: 'pct' | 'qtd' | 'total', rawValue: string) => {
-    // Helper to parse localized float
     const cleanValue = rawValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
     const value = parseFloat(cleanValue) || 0;
 
@@ -444,7 +417,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             itemGroups: prev.itemGroups.map(item => {
                 if (item.id !== id) return item;
 
-                // Base variables
                 const qtdOriginal = item.quantidadeTotal || 0;
                 const vUnitContrato = item.valorUnitarioContrato || 0;
                 const pctReajuste = (prev.haveraReajuste === 'sim' ? (prev.porcentagemReajuste || 0) : 0);
@@ -575,7 +547,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   id: Date.now().toString(), 
                   nome: novoFornecedor.nome, 
                   justificativa: novoFornecedor.justificativa,
-                  requisitos: 'sim' // Padrão
+                  requisitos: 'sim'
               }
           ]
       }));
@@ -591,15 +563,12 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
   const sortedItems = useMemo(() => {
       return [...data.itemGroups].sort((a, b) => {
-          // Lotes primeiro
           if (a.loteId && !b.loteId) return -1;
           if (!a.loteId && b.loteId) return 1;
-          // Ordenar por nome do lote
           if (a.loteId && b.loteId) {
               const loteCompare = a.loteId.localeCompare(b.loteId, undefined, { numeric: true });
               if (loteCompare !== 0) return loteCompare;
           }
-          // Ordenar por itemTR
           return parseInt(a.itemTR) - parseInt(b.itemTR);
       });
   }, [data.itemGroups]);
@@ -626,7 +595,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     <div className="space-y-6">
       <Section title="Dados Gerais do Orçamento">
           <div className="grid md:grid-cols-2 gap-4">
-              {/* Nova Linha: PAE e Setor */}
               <Field label="PAE nº" required note="Formato: AAAA/NNNNNNNN">
                 <input 
                   type="text" 
@@ -661,7 +629,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   </select>
               </Field>
               
-              {/* Campos Adicionais para Aditivo Contratual */}
               {data.tipoOrcamento === 'aditivo_contratual' && (
                   <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 animate-fade-in-down">
                       <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 border-b border-blue-200 pb-2">Dados do Contrato</h3>
@@ -719,7 +686,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                      </div>
                  </div>
               )}
-              {/* Novo Bloco para Gerenciador da Ata */}
               {data.tipoOrcamento === 'gerenciador_ata' && (
                   <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 animate-fade-in-down">
                       <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Dados da Ata Própria</h3>
@@ -741,10 +707,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </div>
       </Section>
 
-      {/* 1. Itens da Contratação */}
       <Section title="Itens da Contratação (Descrição e Quantidade)">
-          
-          {/* Barra de Ferramentas de Lote - Oculta se for Gerenciador, Adesão ou Aditivo */}
           {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && selectedItemIds.size > 0 && (
               <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm animate-fade-in-down">
                   <span className="font-bold text-cbmpa-blue-start">{selectedItemIds.size} item(s) selecionado(s)</span>
@@ -792,7 +755,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </button>
       </Section>
 
-      {/* NOVA SEÇÃO: DADOS DO REAJUSTE (Apenas Aditivo) */}
       {data.tipoOrcamento === 'aditivo_contratual' && (
           <Section title="Dados do Reajuste">
               <div className="space-y-6">
@@ -874,7 +836,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </Section>
       )}
 
-      {/* NOVA SEÇÃO: CÁLCULO DO VALOR DO ADITIVO (Apenas Aditivo) */}
       {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
           <Section title="Cálculo do Valor do Aditivo" instruction="De quanto será o aditivo? Edite o Percentual, a Quantidade ou o Valor Total. O cálculo utiliza o valor com reajuste (se houver).">
               <div className="overflow-x-auto">
@@ -898,10 +859,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               const vUnitContrato = item.valorUnitarioContrato || 0;
                               const pctReajuste = (data.haveraReajuste === 'sim' ? (data.porcentagemReajuste || 0) : 0);
                               
-                              // Valor unitário com reajuste aplicado
                               const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
                               
-                              // Valor total original do contrato (pós reajuste se houver)
                               const vTotalBase = qtdOriginal * vUnitReajustado;
                               
                               const qtdAditivo = item.aditivoQuantidade || 0;
@@ -918,29 +877,29 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                       <td className="px-2 py-2 text-right text-blue-600 font-semibold">{vTotalBase.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
                                       <td className="px-2 py-2 text-center">
                                           <input 
-                                            type="text" 
-                                            value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
-                                            onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)}
-                                            className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white"
-                                            placeholder="%"
+                                              type="text" 
+                                              value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
+                                              onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)}
+                                              className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white"
+                                              placeholder="%"
                                           />
                                       </td>
                                       <td className="px-2 py-2 text-center">
                                           <input 
-                                            type="text" 
-                                            value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
-                                            onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)}
-                                            className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold"
-                                            placeholder="Qtd"
+                                              type="text" 
+                                              value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''}
+                                              onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)}
+                                              className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold"
+                                              placeholder="Qtd"
                                           />
                                       </td>
                                       <td className="px-2 py-2 text-right">
                                           <input 
-                                            type="text" 
-                                            value={vTotalAditivo ? vTotalAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''}
-                                            onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)}
-                                            className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600"
-                                            placeholder="R$"
+                                              type="text" 
+                                              value={vTotalAditivo ? vTotalAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''}
+                                              onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)}
+                                              className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600"
+                                              placeholder="R$"
                                           />
                                       </td>
                                       <td className="px-2 py-2 text-right font-bold">{novoVGlobal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
@@ -953,10 +912,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </Section>
       )}
 
-      {/* Seções de Pesquisa - Ocultas se for Gerenciador da Ata */}
       {data.tipoOrcamento !== 'gerenciador_ata' && (
       <>
-        {/* 2. Fontes Consultadas */}
         <Section 
             title="Fontes Consultadas para a Pesquisa de Preço" 
             instruction="Selecione as fontes que foram utilizadas. Apenas as fontes selecionadas aparecerão como opção ao adicionar preços."
@@ -1063,7 +1020,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             )}
         </Section>
 
-        {/* 3. Metodologia */}
         <Section 
             title="Metodologia da Estimativa de Preço"
             instruction="Selecione uma metodologia para calcular o preço estimado (Média de Mercado)."
@@ -1080,7 +1036,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             />
         </Section>
 
-        {/* 4. Resultado da Pesquisa */}
         <Section 
             title="Resultado da Pesquisa (Preços Encontrados)"
             instruction="Adicione os preços pesquisados para comparação."
@@ -1167,7 +1122,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                             </div>
                             
                             <div className="mt-3 flex justify-end gap-6 items-center">
-                                {/* Visualização rápida das cotas (Oculta se for Gerenciador ou Adesão) */}
                                 {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
                                     <div className="text-xs text-gray-500 italic">
                                         Cota: {group.cotas.find(c => c.id === 'cota')?.quantidade || 0} | Ampla: {group.cotas.find(c => c.id === 'ampla')?.quantidade || 0}
@@ -1203,7 +1157,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       </>
       )}
 
-      {/* NOVA SEÇÃO: COMPARATIVO (Apenas Aditivo) */}
       {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
           <Section title="Comparativo: Novo Valor do Contrato x Média de Mercado">
               <div className="overflow-x-auto">
