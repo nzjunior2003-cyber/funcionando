@@ -9,8 +9,6 @@ const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-
-// Aumentamos a margem de segurança para blindar o rodapé de atropelamentos
 const SAFE_BOTTOM_MARGIN = 45; 
 
 export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) => {
@@ -52,13 +50,24 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const checkboxHook = (data: any) => {
         if (data.cell.raw && data.cell.raw.hasCheckboxes) {
             const states = data.cell.raw.checkboxStates;
-            const startX = data.cell.x + 3;
+            let startX = data.cell.x + 3;
+            
+            // Se o texto for centralizado, calculamos a posição do quadradinho para ficar colado no texto
+            if (data.cell.styles.halign === 'center') {
+                const firstLine = data.cell.text[0] || '';
+                doc.setFont('helvetica', data.cell.styles.fontStyle);
+                doc.setFontSize(data.cell.styles.fontSize);
+                const textWidth = doc.getTextWidth(firstLine);
+                startX = data.cell.x + (data.cell.width / 2) - (textWidth / 2) - 4;
+            }
+
             const startY = data.cell.y + data.cell.padding('top') + 1.2; 
             const lineHeight = data.cell.styles.fontSize * 0.352777 * 1.15;
+            
             states.forEach((isChecked: boolean, i: number) => {
                 const rectY = startY + (i * lineHeight);
                 doc.setLineWidth(0.2);
-                doc.rect(startX, rectY, 3, 3); // Desenha o quadradinho padrão
+                doc.rect(startX, rectY, 3, 3); // Desenha o quadradinho
                 if (isChecked) {
                     doc.setFont('helvetica', 'bold');
                     doc.text('X', startX + 0.6, rectY + 2.3);
@@ -68,10 +77,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
-    // Header Institucional
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
-    // Sec 1 - Título corrigido
+    // Sec 1
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
     
     const s1Body: any[] = [];
@@ -86,7 +94,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     data.itemGroups.forEach(g => {
         s1Body.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } }, 
-            { content: g.descricao, styles: { halign: 'right', valign: 'middle' } }, // Descrição alinhada à direita
+            { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
             { content: g.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } }, 
             { content: g.unidade, styles: { halign: 'center', valign: 'middle' } }, 
             { content: (g.quantidadeTotal || 0).toString(), styles: { halign: 'center', valign: 'middle' } }
@@ -126,7 +134,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', rowPageBreak: 'avoid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Sec 4 - Usando o gancho para fazer Quadradinhos idênticos
+    // Sec 4
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
     const s4b: any[] = [[
@@ -154,28 +162,27 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, 
         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, 
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
-        didDrawCell: checkboxHook // Dispara a mágica do quadradinho
+        didDrawCell: checkboxHook 
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Sec 5 - Também com quadradinhos reais
+    // Sec 5 - Corrigida para centralizar o texto e os quadradinhos juntos
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const met = data.metodologia;
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
         body: [[
-            { content: '      Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [met === 'menor'], styles: { fontStyle: met === 'menor' ? 'bold' : 'normal', halign: 'left' } },
-            { content: '      Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [met === 'media'], styles: { fontStyle: met === 'media' ? 'bold' : 'normal', halign: 'left' } },
-            { content: '      Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [met === 'mediana'], styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal', halign: 'left' } }
+            { content: 'Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [met === 'menor'], styles: { fontStyle: met === 'menor' ? 'bold' : 'normal', halign: 'center' } },
+            { content: 'Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [met === 'media'], styles: { fontStyle: met === 'media' ? 'bold' : 'normal', halign: 'center' } },
+            { content: 'Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [met === 'mediana'], styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal', halign: 'center' } }
         ]],
-        didDrawCell: checkboxHook // Dispara a mágica do quadradinho
+        didDrawCell: checkboxHook 
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Sec 6 - Dinâmica e alinhada com as fontes embaixo
+    // Sec 6
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
     
-    // Descobre quantas colunas de preço precisamos
     let maxPrices = 1;
     data.itemGroups.forEach(g => {
         const p = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
@@ -201,11 +208,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             else if(sourceName === 'direta') sourceName = 'Fornecedor';
             else if(sourceName === 'preco_ata_srp') sourceName = 'ATA SRP';
 
-            // O preço em cima, a fonte de forma elegante embaixo
             return `${formatValue(x.value, g.tipoValor)}\n(${sourceName})`;
         });
 
-        // Preenche células vazias caso este item tenha menos cotações que o máximo
         while(priceCells.length < maxPrices) {
             priceCells.push('-');
         }
@@ -236,14 +241,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final com Sequencial e Alinhada a Direita
+    // Tabela Final
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
     let total = 0;
     const fb: any[] = [];
-    let seqItem = 1; // O contador do novo sequencial da tabela final
+    let seqItem = 1; 
 
     data.itemGroups.forEach(g => {
         const est = Number(g.estimativaUnitaria) || 0;
@@ -258,13 +263,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 const cQtd = Number(c.quantidade) || 0;
                 fb.push([
                     seqItem.toString(), 
-                    { content: g.descricao, styles: { halign: 'right', valign: 'middle' } }, // Descrição direita
+                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
                     c.id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP', 
                     formatValue(est, g.tipoValor), 
                     cQtd, 
                     formatValue(cQtd * est, g.tipoValor)
                 ]);
-                seqItem++; // Pula o número
+                seqItem++; 
             });
         } else {
             let cotaLabel = 'AMPLA'; 
@@ -274,13 +279,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
             fb.push([
                 seqItem.toString(), 
-                { content: g.descricao, styles: { halign: 'right', valign: 'middle' } }, // Descrição direita
+                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } }, // Corrigido para esquerda
                 cotaLabel, 
                 formatValue(est, g.tipoValor), 
                 qtdTotal, 
                 formatValue(totalLinha, g.tipoValor)
             ]);
-            seqItem++; // Pula o número
+            seqItem++;
         }
     });
     
@@ -293,28 +298,24 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Lógica local para as assinaturas perfeitas (Linha fina + Nome e Cargo juntos)
+    // Função de Assinatura com linha fina e nome/cargo na mesma linha
     const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
         if (!nome) return;
         
-        // 1. Linha fina (0.2)
         doc.setLineWidth(0.2); 
         doc.line(xPos - 55, yPos, xPos + 55, yPos);
         
-        // 2. Nome - Cargo
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
         const nomeCargo = cargo ? `${nome} - ${cargo}` : nome;
         doc.text(nomeCargo, xPos, yPos + 4, { align: 'center' });
         
-        // 3. Função embaixo
         if (funcao) {
             doc.setFont('helvetica', 'normal');
             doc.text(funcao, xPos, yPos + 8, { align: 'center' });
         }
     };
 
-    // Imprime o bloco de Assinaturas
     addPage(40);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
@@ -322,18 +323,30 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     
     const centerX = PAGE_WIDTH / 2; 
 
-    // Chama o nosso gerador exclusivo
-    drawSignatureLocal(data.assinante1Nome, data.assinante1Cargo, data.assinante1Funcao, centerX, y);
+    // O código agora usa o nomeGuerra como rede de segurança caso a variável cargo esteja vazia
+    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || '';
+    const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
+
+    drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
     
     if (data.assinante2Nome) {
         y += 45; 
         addPage(30); 
-        drawSignatureLocal(data.assinante2Nome, data.assinante2Cargo, data.assinante2Funcao, centerX, y);
+        drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
     }
 
+    // Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
-        drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        if (i === totalPages) {
+            // Imprime o rodapé institucional completo na última página
+            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        } else {
+            // Nas outras páginas, imprime apenas o número da página no canto inferior direito
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
     }
 };
