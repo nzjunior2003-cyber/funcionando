@@ -124,9 +124,8 @@ const ItemForm: React.FC<{
     onRemovePrice: (itemGroupId: string, priceId: string) => void;
     onTogglePriceInclusion: (priceId: string, included: boolean) => void;
     valorReferencia: number;
-    valorGlobal: number;
     isLoteItem?: boolean;
-}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, valorGlobal, isLoteItem }) => {
+}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, isLoteItem }) => {
     
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
     const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
@@ -156,10 +155,11 @@ const ItemForm: React.FC<{
     };
 
     const isAditivo = tipoOrcamento === 'aditivo_contratual';
-    const isAboveTeto = valorReferencia > 4800000 || valorGlobal > 4800000;
+    
+    // AQUI ESTAVA O PROBLEMA! O valorGlobal foi removido da trava. O Teto avalia apenas o Item ou o Lote individualmente!
+    const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
-    // Cálculo do Total do Item (Quantidade x Valor Unitário)
     const valorTotalItem = (Number(group.quantidadeTotal) || 0) * (Number(group.estimativaUnitaria) || 0);
 
     let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste item";
@@ -372,8 +372,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   }
               });
 
-              const valorGlobal = currentGroups.reduce((acc, item) => acc + ((Number(item.quantidadeTotal) || 0) * (Number(item.estimativaUnitaria) || 0)), 0);
-
               const processItems = (items: typeof currentGroups) => {
                   const valorTotal = items.reduce((acc, item) => acc + ((Number(item.quantidadeTotal) || 0) * (Number(item.estimativaUnitaria) || 0)), 0);
                   const aplicarCotaMeEpp = items[0]?.aplicarCotaMeEpp !== false;
@@ -381,7 +379,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   let tipoCotaUnica = '';
                   let divideCota = false;
 
-                  if (valorGlobal > TETO_VALOR_LOTE || valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
+                  // AQUI ESTÁ A CORREÇÃO: Removido o 'valorGlobal > TETO_VALOR_LOTE'. A trava de 4.8M avalia apenas o valorTotal do ITEM ou do LOTE!
+                  if (valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
                       tipoCotaUnica = 'AMPLA CONCORRÊNCIA';
                   } else if (valorTotal <= 80000 && valorTotal > 0) {
                       tipoCotaUnica = 'EXCLUSIVA ME/EPP';
@@ -558,8 +557,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const handlePaeYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => { const newYear = e.target.value; setData(prev => ({...prev, pae: `${newYear}/${currentNum}`})); };
   const handlePaeNumChange = (e: React.ChangeEvent<HTMLInputElement>) => { const newNum = e.target.value.replace(/\D/g, ''); setData(prev => ({...prev, pae: `${currentYear}/${newNum}`})); };
 
-  const valorGlobal = (data.itemGroups || []).reduce((acc, item) => acc + ((Number(item.quantidadeTotal) || 0) * (Number(item.estimativaUnitaria) || 0)), 0);
-  
   const lotesMap = new Map<string, OrcamentoItemGroup[]>();
   const avulsos: OrcamentoItemGroup[] = [];
   sortedItems.forEach(item => {
@@ -730,12 +727,12 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           <div className="space-y-6">
               {Array.from(lotesMap.entries()).map(([loteId, itemsLote]) => {
                   const valorTotalLote = itemsLote.reduce((acc, it) => acc + ((Number(it.quantidadeTotal) || 0) * (Number(it.estimativaUnitaria) || 0)), 0);
-                  const isAboveTeto = valorTotalLote > 4800000 || valorGlobal > 4800000;
+                  const isAboveTeto = valorTotalLote > 4800000;
                   const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
                   const aplicarCota = itemsLote[0]?.aplicarCotaMeEpp !== false;
 
                   let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste LOTE";
-                  if (isAboveTeto) cotaMessage = "Valor do Lote/Global acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
+                  if (isAboveTeto) cotaMessage = "Valor do Lote acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
                   else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Lote até R$ 80.000,00)";
 
                   let totalAmpla = 0; let totalCota = 0;
@@ -789,14 +786,17 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
                           <div className="p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
                               <h4 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-2">Itens que compõem este Lote</h4>
-                              {itemsLote.map(g => (
-                                  <ItemForm 
-                                      key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                                      tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
-                                      onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
-                                      valorReferencia={valorTotalLote} valorGlobal={valorGlobal} isLoteItem={true}
-                                  />
-                              ))}
+                              {itemsLote.map(g => {
+                                  const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
+                                  return (
+                                      <ItemForm 
+                                          key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
+                                          tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
+                                          valorReferencia={valorRef} valorGlobal={0} isLoteItem={true}
+                                      />
+                                  );
+                              })}
                           </div>
                       </div>
                   );
@@ -809,7 +809,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                           tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                           onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
-                          valorReferencia={valorRef} valorGlobal={valorGlobal}
+                          valorReferencia={valorRef} valorGlobal={0}
                       />
                   )
               })}
