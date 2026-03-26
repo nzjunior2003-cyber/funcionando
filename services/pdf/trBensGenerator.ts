@@ -315,14 +315,14 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             }
         },
         didDrawPage: (hookData) => {
-            // Renomeado para hookData para não atrapalhar a variável 'data' com os dados do formulário
-            // @ts-ignore
-            drawInstitutionalFooter(doc, data.setor || '', hookData.pageNumber, doc.internal.getNumberOfPages());
+            // Deixamos vazio aqui para processar o rodapé apenas no final do documento, de forma global
         }
     });
 
     // Assinatura Final
-    let finalY = (doc as any).lastAutoTable.finalY + 15;
+    const lastAutoTable = (doc as any).lastAutoTable;
+    let finalY = lastAutoTable ? lastAutoTable.finalY + 15 : MARGIN_TOP + 20;
+    
     if (finalY > PAGE_HEIGHT - 60) {
         doc.addPage();
         finalY = 30;
@@ -332,4 +332,17 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY, { align: 'center' });
     finalY = checkPageBreak(doc, finalY, 40);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + 15);
+
+    // Lógica do Rodapé: Institucional SOMENTE na última página
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (i === totalPages) {
+            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
+    }
 };

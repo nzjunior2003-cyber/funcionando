@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 import autoTable, { RowInput } from 'jspdf-autotable';
 import { EtpData } from '../../types';
@@ -413,12 +412,12 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             5: { cellWidth: 'auto' }
         },
         pageBreak: 'auto',
+        // O didDrawPage desenha elementos estáticos como linhas no cabeçalho ou rodapé se quiséssemos.
+        // Como vamos desenhar o rodapé dinâmico no final, deixamos esse vazio apenas para não quebrar.
         didDrawPage: (hookData) => {
             y = hookData.cursor?.y || y;
-            // @ts-ignore
-            drawInstitutionalFooter(doc, data.setor || '', hookData.pageNumber, doc.internal.getNumberOfPages());
         },
- willDrawCell: (hookData) => {
+        willDrawCell: (hookData) => {
             // Este bloco roda ANTES do texto ser impresso na página
             if (hookData.section === 'body') {
                 const cell = hookData.cell;
@@ -513,4 +512,17 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     // Função
     finalY = checkPageBreak(doc, finalY, 40);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + 15);
+
+    // Lógica do Rodapé: Institucional SOMENTE na última página
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (i === totalPages) {
+            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
+    }
 };

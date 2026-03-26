@@ -1,15 +1,15 @@
 import jsPDF from 'jspdf';
 import { DfdData } from '../../types';
 import { 
-    drawInstitutionalHeader, // <-- Importação do cabeçalho novo
-    drawInstitutionalFooter, // <-- Importação do rodapé novo
+    drawInstitutionalHeader, 
+    drawInstitutionalFooter, 
     checkPageBreak, 
     drawFormattedSignature, 
     formatDate, 
     setDefaultFont,
     drawCheckbox
 } from './pdfUtils';
-import { PAGE_WIDTH, TEXT_WIDTH, MARGIN_LEFT } from './pdfConstants';
+import { PAGE_WIDTH, PAGE_HEIGHT, TEXT_WIDTH, MARGIN_LEFT, MARGIN_RIGHT } from './pdfConstants';
 
 /**
  * Retorna o artigo correto (À/Ao) baseado no nome da unidade.
@@ -97,11 +97,16 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     yPos = checkPageBreak(doc, yPos, 30);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao || 'matrícula', PAGE_WIDTH / 2, yPos);
 
-    // 8. CARIMBO DE RODAPÉ (NOVO)
-    // Isso vai passar por todas as páginas geradas e colocar o rodapé preto padronizado a 2cm da borda.
+    // 8. Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
-        drawInstitutionalFooter(doc, '', i, totalPages);
+        if (i === totalPages) {
+            drawInstitutionalFooter(doc, '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
     }
 };
