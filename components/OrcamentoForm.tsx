@@ -297,106 +297,99 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const [loteName, setLoteName] = useState('');
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
 
-  // 1. Recálculo de Preço Unitário Estimado (CÉREBRO 1)
+  // MASTER EFFECT: Cérebro Unificado de Preços e Cotas (Evita Loops Infinitos)
   useEffect(() => {
-    setData(prevData => {
-      if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
-      if (prevData.tipoOrcamento !== 'licitacao' && prevData.tipoOrcamento !== 'dispensa_licitacao' && prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') return prevData;
+      if (data.tipoOrcamento === 'gerenciador_ata') return;
 
-      const newItemGroups = (prevData.itemGroups || []).map(group => {
-        const itemPrices = prevData.precosEncontrados?.[group.id] || [];
-        const includedPrices = itemPrices.filter(p => prevData.precosIncluidos?.[p.id] ?? true);
-        const newEstimate = calculateEstimate(includedPrices.map(p => p.value), prevData.metodologia, group.tipoValor || 'moeda');
-        return group.estimativaUnitaria !== newEstimate ? { ...group, estimativaUnitaria: newEstimate } : group;
-      });
-      return JSON.stringify(newItemGroups) !== JSON.stringify(prevData.itemGroups) ? { ...prevData, itemGroups: newItemGroups } : prevData;
-    });
-  // PROTEÇÃO CONTRA LOOP: Agora ele só recalcula os preços se houver uma mudança real nas fontes ou quantidades
-  }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, (data.itemGroups || []).length, setData]);
+      let hasChanges = false;
+      const currentGroups = (data.itemGroups || []).map(g => ({...g}));
 
-  // 2. CÁLCULO MESTRE DAS COTAS ME/EPP (CÉREBRO 2)
-  useEffect(() => {
-    if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
+      // Passo 1: Calcular Preços (Estimativa Unitária)
+      if (['licitacao', 'dispensa_licitacao', 'adesao_ata', 'aditivo_contratual'].includes(data.tipoOrcamento || '')) {
+          currentGroups.forEach(group => {
+              const itemPrices = data.precosEncontrados?.[group.id] || [];
+              const includedPrices = itemPrices.filter(p => data.precosIncluidos?.[p.id] ?? true);
+              const newEstimate = calculateEstimate(includedPrices.map(p => p.value), data.metodologia, group.tipoValor || 'moeda');
+              
+              if (group.estimativaUnitaria !== newEstimate) {
+                  group.estimativaUnitaria = newEstimate;
+                  hasChanges = true;
+              }
+          });
+      }
 
-    const LIMITE_SRP_COTA = 80000;
-    const TETO_VALOR_LOTE = 4800000;
-    const PERCENTUAL_COTA = 0.25;
+      // Passo 2: Calcular Cotas ME/EPP
+      if (data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual') {
+          const LIMITE_SRP_COTA = 80000;
+          const TETO_VALOR_LOTE = 4800000;
+          const PERCENTUAL_COTA = 0.25;
 
-    const calculateCotas = () => {
-        const itemGroups = (data.itemGroups || []).map(g => ({...g}));
-        let hasChanges = false;
-        
-        const lotes: Record<string, typeof itemGroups> = {};
-        const itemsWithoutLote: typeof itemGroups = [];
+          const lotes: Record<string, typeof currentGroups> = {};
+          const itemsWithoutLote: typeof currentGroups = [];
 
-        itemGroups.forEach(item => {
-            if (item.loteId) {
-                if (!lotes[item.loteId]) lotes[item.loteId] = [];
-                lotes[item.loteId].push(item);
-            } else {
-                itemsWithoutLote.push(item);
-            }
-        });
+          currentGroups.forEach(item => {
+              if (item.loteId) {
+                  if (!lotes[item.loteId]) lotes[item.loteId] = [];
+                  lotes[item.loteId].push(item);
+              } else {
+                  itemsWithoutLote.push(item);
+              }
+          });
 
-        const valorGlobal = itemGroups.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
+          const valorGlobal = currentGroups.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
 
-        const processItems = (items: typeof itemGroups) => {
-            const valorTotal = items.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
-            const aplicarCotaMeEpp = items[0]?.aplicarCotaMeEpp !== false;
+          const processItems = (items: typeof currentGroups) => {
+              const valorTotal = items.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
+              const aplicarCotaMeEpp = items[0]?.aplicarCotaMeEpp !== false;
 
-            let tipoCotaUnica = '';
-            let divideCota = false;
+              let tipoCotaUnica = '';
+              let divideCota = false;
 
-            if (valorGlobal > TETO_VALOR_LOTE || valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
-                tipoCotaUnica = 'AMPLA CONCORRÊNCIA';
-            } 
-            else if (valorTotal <= 80000 && valorTotal > 0) {
-                tipoCotaUnica = 'EXCLUSIVA ME/EPP';
-            } 
-            else {
-                divideCota = true;
-            }
+              if (valorGlobal > TETO_VALOR_LOTE || valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
+                  tipoCotaUnica = 'AMPLA CONCORRÊNCIA';
+              } else if (valorTotal <= 80000 && valorTotal > 0) {
+                  tipoCotaUnica = 'EXCLUSIVA ME/EPP';
+              } else {
+                  divideCota = true;
+              }
 
-            let percentualEfetivoCota = 0;
-            if (divideCota) {
-                let valorCotaCalculada = valorTotal * PERCENTUAL_COTA;
-                if (data.modalidadeLicitacao === 'pregao_eletronico_rp' && valorCotaCalculada > LIMITE_SRP_COTA) {
-                    valorCotaCalculada = LIMITE_SRP_COTA;
-                }
-                if (valorTotal > 0) percentualEfetivoCota = valorCotaCalculada / valorTotal;
-            }
+              let percentualEfetivoCota = 0;
+              if (divideCota) {
+                  let valorCotaCalculada = valorTotal * PERCENTUAL_COTA;
+                  if (data.modalidadeLicitacao === 'pregao_eletronico_rp' && valorCotaCalculada > LIMITE_SRP_COTA) {
+                      valorCotaCalculada = LIMITE_SRP_COTA;
+                  }
+                  if (valorTotal > 0) percentualEfetivoCota = valorCotaCalculada / valorTotal;
+              }
 
-            items.forEach(item => {
-                let novasCotas = [];
+              items.forEach(item => {
+                  let novasCotas = [];
+                  if (!divideCota) {
+                      novasCotas = [{ id: tipoCotaUnica === 'AMPLA CONCORRÊNCIA' ? 'ampla' : 'cota', ordemTR: '1', tipo: tipoCotaUnica, quantidade: item.quantidadeTotal || 0 }];
+                  } else {
+                      const qtdCota = Math.floor((item.quantidadeTotal || 0) * percentualEfetivoCota);
+                      const qtdAmpla = (item.quantidadeTotal || 0) - qtdCota;
+                      novasCotas = [
+                          { id: 'ampla', ordemTR: '1', tipo: 'AMPLA CONCORRÊNCIA', quantidade: qtdAmpla },
+                          ...(qtdCota > 0 ? [{ id: 'cota', ordemTR: '2', tipo: 'COTA RESERVADA ME/EPP', quantidade: qtdCota }] : [])
+                      ];
+                  }
 
-                if (!divideCota) {
-                    novasCotas = [{ id: tipoCotaUnica === 'AMPLA CONCORRÊNCIA' ? 'ampla' : 'cota', ordemTR: '1', tipo: tipoCotaUnica, quantidade: item.quantidadeTotal || 0 }];
-                } else {
-                    const qtdCota = Math.floor((item.quantidadeTotal || 0) * percentualEfetivoCota);
-                    const qtdAmpla = (item.quantidadeTotal || 0) - qtdCota;
+                  if (JSON.stringify(item.cotas) !== JSON.stringify(novasCotas)) {
+                      item.cotas = novasCotas;
+                      hasChanges = true;
+                  }
+              });
+          };
 
-                    novasCotas = [
-                        { id: 'ampla', ordemTR: '1', tipo: 'AMPLA CONCORRÊNCIA', quantidade: qtdAmpla },
-                        ...(qtdCota > 0 ? [{ id: 'cota', ordemTR: '2', tipo: 'COTA RESERVADA ME/EPP', quantidade: qtdCota }] : [])
-                    ];
-                }
+          Object.values(lotes).forEach(loteItems => processItems(loteItems));
+          itemsWithoutLote.forEach(item => processItems([item]));
+      }
 
-                if (JSON.stringify(item.cotas) !== JSON.stringify(novasCotas)) {
-                    item.cotas = novasCotas;
-                    hasChanges = true;
-                }
-            });
-        };
-
-        Object.values(lotes).forEach(loteItems => processItems(loteItems));
-        itemsWithoutLote.forEach(item => processItems([item]));
-
-        if (hasChanges) setData(prev => ({...prev, itemGroups}));
-    };
-    
-    calculateCotas();
-  // PROTEÇÃO CONTRA LOOP: Agora ele amarra o monitoramento apenas nos botões e regras de negócio essenciais
-  }, [JSON.stringify((data.itemGroups || []).map(g => ({id: g.id, lote: g.loteId, qtd: g.quantidadeTotal, val: g.estimativaUnitaria, cotaHabilitada: g.aplicarCotaMeEpp}))), data.modalidadeLicitacao, data.tipoOrcamento]);
+      if (hasChanges) {
+          setData(prev => ({ ...prev, itemGroups: currentGroups }));
+      }
+  }, [data.itemGroups, data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, data.modalidadeLicitacao, setData]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setData({ ...data, [e.target.name]: e.target.value });
@@ -414,7 +407,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                 (prev.itemGroups || []).forEach(g => {
                     const existing = newPrecos[g.id] || [];
                     if (!existing.some(p => p.source === value)) {
-                        newPrecos[g.id] = [...existing, { id: Date.now().toString() + Math.random().toString(), source: value, value: '' }];
+                        newPrecos[g.id] = [...existing, { id: Date.now().toString() + Math.random().toString(36).substring(2,9), source: value, value: '' }];
                     }
                 });
             } else {
@@ -472,18 +465,18 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   };
 
   const addGroup = () => {
-      const newId = Date.now().toString();
+      const newId = Date.now().toString() + Math.random().toString(36).substring(2,9);
       const newItem: OrcamentoItemGroup = { 
           id: newId, itemTR: ((data.itemGroups || []).length + 1).toString(), descricao: '', estimativaUnitaria: 0, codigoSimas: '', unidade: '', quantidadeTotal: 0, cotas: [], aplicarCotaMeEpp: true 
       };
       setData(prev => {
-          const initialPrices = (prev.fontesPesquisa || []).map(source => ({ id: Date.now().toString() + Math.random().toString(), source, value: '' }));
+          const initialPrices = (prev.fontesPesquisa || []).map(source => ({ id: Date.now().toString() + Math.random().toString(36).substring(2,9), source, value: '' }));
           return { ...prev, itemGroups: [...(prev.itemGroups || []), newItem], precosEncontrados: { ...(prev.precosEncontrados || {}), [newId]: initialPrices } };
       });
   };
 
   const removeGroup = (id: string) => setData(prev => ({ ...prev, itemGroups: (prev.itemGroups || []).filter(g => g.id !== id) }));
-  const addPrice = (itemGroupId: string, source: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: [...((prev.precosEncontrados || {})[itemGroupId] || []), { id: Date.now().toString(), source, value: '' }] } }));
+  const addPrice = (itemGroupId: string, source: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: [...((prev.precosEncontrados || {})[itemGroupId] || []), { id: Date.now().toString() + Math.random().toString(36).substring(2,9), source, value: '' }] } }));
   const handlePriceChange = (itemGroupId: string, priceId: string, value: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: ((prev.precosEncontrados || {})[itemGroupId] || []).map(p => p.id === priceId ? {...p, value} : p) } }));
   const removePrice = (itemGroupId: string, priceId: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: ((prev.precosEncontrados || {})[itemGroupId] || []).filter(p => p.id !== priceId) } }));
   const handleInclusionChange = (pId: string, inc: boolean) => setData(prev => ({ ...prev, precosIncluidos: { ...(prev.precosIncluidos || {}), [pId]: inc } }));
@@ -719,7 +712,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   });
 
                   return (
-                      <div key={loteId} className="border-2 border-cbmpa-blue-start rounded-lg mb-6 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
+                      <div key={`lote-${loteId}`} className="border-2 border-cbmpa-blue-start rounded-lg mb-6 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
                           <div className="bg-cbmpa-blue-start text-white p-4 flex justify-between items-center">
                               <h3 className="font-bold text-lg">📦 LOTE {loteId}</h3>
                               <div className="text-right">
