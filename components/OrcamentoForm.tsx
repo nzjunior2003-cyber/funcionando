@@ -281,7 +281,7 @@ const ItemForm: React.FC<{
                     
                     <div className="mt-4 flex justify-end items-center pt-3 border-t border-gray-200 dark:border-gray-700">
                         <span className="text-sm font-bold text-cbmpa-red bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-md shadow-sm border border-red-100 dark:border-red-800">
-                            Valor Estimado (Mercado): {group.tipoValor === 'percentual' ? `${group.estimativaUnitaria.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : group.estimativaUnitaria.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            Valor Estimado (Mercado): {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                     </div>
                 </div>
@@ -297,21 +297,24 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const [loteName, setLoteName] = useState('');
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
 
+  // 1. Recálculo de Preço Unitário Estimado (CÉREBRO 1)
   useEffect(() => {
     setData(prevData => {
       if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
       if (prevData.tipoOrcamento !== 'licitacao' && prevData.tipoOrcamento !== 'dispensa_licitacao' && prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') return prevData;
 
-      const newItemGroups = prevData.itemGroups.map(group => {
-        const itemPrices = prevData.precosEncontrados[group.id] || [];
-        const includedPrices = itemPrices.filter(p => prevData.precosIncluidos[p.id] ?? true);
+      const newItemGroups = (prevData.itemGroups || []).map(group => {
+        const itemPrices = prevData.precosEncontrados?.[group.id] || [];
+        const includedPrices = itemPrices.filter(p => prevData.precosIncluidos?.[p.id] ?? true);
         const newEstimate = calculateEstimate(includedPrices.map(p => p.value), prevData.metodologia, group.tipoValor || 'moeda');
         return group.estimativaUnitaria !== newEstimate ? { ...group, estimativaUnitaria: newEstimate } : group;
       });
       return JSON.stringify(newItemGroups) !== JSON.stringify(prevData.itemGroups) ? { ...prevData, itemGroups: newItemGroups } : prevData;
     });
-  }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, data.itemGroups, setData]);
+  // PROTEÇÃO CONTRA LOOP: Agora ele só recalcula os preços se houver uma mudança real nas fontes ou quantidades
+  }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, (data.itemGroups || []).length, setData]);
 
+  // 2. CÁLCULO MESTRE DAS COTAS ME/EPP (CÉREBRO 2)
   useEffect(() => {
     if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
 
@@ -320,7 +323,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     const PERCENTUAL_COTA = 0.25;
 
     const calculateCotas = () => {
-        const itemGroups = data.itemGroups.map(g => ({...g}));
+        const itemGroups = (data.itemGroups || []).map(g => ({...g}));
         let hasChanges = false;
         
         const lotes: Record<string, typeof itemGroups> = {};
@@ -335,11 +338,11 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             }
         });
 
-        const valorGlobal = itemGroups.reduce((acc, item) => acc + (item.quantidadeTotal * item.estimativaUnitaria), 0);
+        const valorGlobal = itemGroups.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
 
         const processItems = (items: typeof itemGroups) => {
-            const valorTotal = items.reduce((acc, item) => acc + (item.quantidadeTotal * item.estimativaUnitaria), 0);
-            const aplicarCotaMeEpp = items[0].aplicarCotaMeEpp !== false;
+            const valorTotal = items.reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
+            const aplicarCotaMeEpp = items[0]?.aplicarCotaMeEpp !== false;
 
             let tipoCotaUnica = '';
             let divideCota = false;
@@ -367,10 +370,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                 let novasCotas = [];
 
                 if (!divideCota) {
-                    novasCotas = [{ id: tipoCotaUnica === 'AMPLA CONCORRÊNCIA' ? 'ampla' : 'cota', ordemTR: '1', tipo: tipoCotaUnica, quantidade: item.quantidadeTotal }];
+                    novasCotas = [{ id: tipoCotaUnica === 'AMPLA CONCORRÊNCIA' ? 'ampla' : 'cota', ordemTR: '1', tipo: tipoCotaUnica, quantidade: item.quantidadeTotal || 0 }];
                 } else {
-                    const qtdCota = Math.floor(item.quantidadeTotal * percentualEfetivoCota);
-                    const qtdAmpla = item.quantidadeTotal - qtdCota;
+                    const qtdCota = Math.floor((item.quantidadeTotal || 0) * percentualEfetivoCota);
+                    const qtdAmpla = (item.quantidadeTotal || 0) - qtdCota;
 
                     novasCotas = [
                         { id: 'ampla', ordemTR: '1', tipo: 'AMPLA CONCORRÊNCIA', quantidade: qtdAmpla },
@@ -392,7 +395,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     };
     
     calculateCotas();
-  }, [JSON.stringify(data.itemGroups.map(g => ({id: g.id, lote: g.loteId, qtd: g.quantidadeTotal, val: g.estimativaUnitaria, cotaHabilitada: g.aplicarCotaMeEpp}))), data.modalidadeLicitacao, data.tipoOrcamento]);
+  // PROTEÇÃO CONTRA LOOP: Agora ele amarra o monitoramento apenas nos botões e regras de negócio essenciais
+  }, [JSON.stringify((data.itemGroups || []).map(g => ({id: g.id, lote: g.loteId, qtd: g.quantidadeTotal, val: g.estimativaUnitaria, cotaHabilitada: g.aplicarCotaMeEpp}))), data.modalidadeLicitacao, data.tipoOrcamento]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setData({ ...data, [e.target.name]: e.target.value });
@@ -404,10 +408,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
          setData(prev => {
             const currentArr = prev.fontesPesquisa || [];
             const newFontes = checked ? [...currentArr, value] : currentArr.filter(v => v !== value);
-            const newPrecos = { ...prev.precosEncontrados };
+            const newPrecos = { ...(prev.precosEncontrados || {}) };
             
             if (checked) {
-                prev.itemGroups.forEach(g => {
+                (prev.itemGroups || []).forEach(g => {
                     const existing = newPrecos[g.id] || [];
                     if (!existing.some(p => p.source === value)) {
                         newPrecos[g.id] = [...existing, { id: Date.now().toString() + Math.random().toString(), source: value, value: '' }];
@@ -427,7 +431,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     });
   };
   
-  const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: any) => setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(group => group.id === id ? { ...group, [field]: value } : group) }));
+  const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: any) => setData(prev => ({ ...prev, itemGroups: (prev.itemGroups || []).map(group => group.id === id ? { ...group, [field]: value } : group) }));
 
   const handleLoteCotaToggle = (loteId: string, checked: boolean, valorLote: number) => {
       if (!checked && valorLote <= 80000 && valorLote > 0) {
@@ -436,7 +440,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       }
       setData(prev => ({
           ...prev,
-          itemGroups: prev.itemGroups.map(g => g.loteId === loteId ? { ...g, aplicarCotaMeEpp: checked } : g)
+          itemGroups: (prev.itemGroups || []).map(g => g.loteId === loteId ? { ...g, aplicarCotaMeEpp: checked } : g)
       }));
   };
 
@@ -447,7 +451,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     setData(prev => {
         return {
             ...prev,
-            itemGroups: prev.itemGroups.map(item => {
+            itemGroups: (prev.itemGroups || []).map(item => {
                 if (item.id !== id) return item;
                 const qtdOriginal = item.quantidadeTotal || 0;
                 const vUnitContrato = item.valorUnitarioContrato || 0;
@@ -470,54 +474,54 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const addGroup = () => {
       const newId = Date.now().toString();
       const newItem: OrcamentoItemGroup = { 
-          id: newId, itemTR: (data.itemGroups.length + 1).toString(), descricao: '', estimativaUnitaria: 0, codigoSimas: '', unidade: '', quantidadeTotal: 0, cotas: [], aplicarCotaMeEpp: true 
+          id: newId, itemTR: ((data.itemGroups || []).length + 1).toString(), descricao: '', estimativaUnitaria: 0, codigoSimas: '', unidade: '', quantidadeTotal: 0, cotas: [], aplicarCotaMeEpp: true 
       };
       setData(prev => {
-          const initialPrices = prev.fontesPesquisa.map(source => ({ id: Date.now().toString() + Math.random().toString(), source, value: '' }));
-          return { ...prev, itemGroups: [...prev.itemGroups, newItem], precosEncontrados: { ...prev.precosEncontrados, [newId]: initialPrices } };
+          const initialPrices = (prev.fontesPesquisa || []).map(source => ({ id: Date.now().toString() + Math.random().toString(), source, value: '' }));
+          return { ...prev, itemGroups: [...(prev.itemGroups || []), newItem], precosEncontrados: { ...(prev.precosEncontrados || {}), [newId]: initialPrices } };
       });
   };
 
-  const removeGroup = (id: string) => setData(prev => ({ ...prev, itemGroups: prev.itemGroups.filter(g => g.id !== id) }));
-  const addPrice = (itemGroupId: string, source: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: [...(prev.precosEncontrados[itemGroupId] || []), { id: Date.now().toString(), source, value: '' }] } }));
-  const handlePriceChange = (itemGroupId: string, priceId: string, value: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: (prev.precosEncontrados[itemGroupId] || []).map(p => p.id === priceId ? {...p, value} : p) } }));
-  const removePrice = (itemGroupId: string, priceId: string) => setData(prev => ({ ...prev, precosEncontrados: { ...prev.precosEncontrados, [itemGroupId]: (prev.precosEncontrados[itemGroupId] || []).filter(p => p.id !== priceId) } }));
-  const handleInclusionChange = (pId: string, inc: boolean) => setData(prev => ({ ...prev, precosIncluidos: { ...prev.precosIncluidos, [pId]: inc } }));
+  const removeGroup = (id: string) => setData(prev => ({ ...prev, itemGroups: (prev.itemGroups || []).filter(g => g.id !== id) }));
+  const addPrice = (itemGroupId: string, source: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: [...((prev.precosEncontrados || {})[itemGroupId] || []), { id: Date.now().toString(), source, value: '' }] } }));
+  const handlePriceChange = (itemGroupId: string, priceId: string, value: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: ((prev.precosEncontrados || {})[itemGroupId] || []).map(p => p.id === priceId ? {...p, value} : p) } }));
+  const removePrice = (itemGroupId: string, priceId: string) => setData(prev => ({ ...prev, precosEncontrados: { ...(prev.precosEncontrados || {}), [itemGroupId]: ((prev.precosEncontrados || {})[itemGroupId] || []).filter(p => p.id !== priceId) } }));
+  const handleInclusionChange = (pId: string, inc: boolean) => setData(prev => ({ ...prev, precosIncluidos: { ...(prev.precosIncluidos || {}), [pId]: inc } }));
 
   const toggleSelect = (id: string) => { setSelectedItemIds(prev => { const newSet = new Set(prev); if (newSet.has(id)) newSet.delete(id); else newSet.add(id); return newSet; }); };
 
   const handleAgruparLote = () => {
       if (selectedItemIds.size === 0) { alert('Selecione pelo menos um item para agrupar.'); return; }
       if (!loteName.trim()) { alert('Digite um nome ou número para o Lote.'); return; }
-      setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(item => selectedItemIds.has(item.id) ? { ...item, loteId: loteName.trim() } : item) }));
+      setData(prev => ({ ...prev, itemGroups: (prev.itemGroups || []).map(item => selectedItemIds.has(item.id) ? { ...item, loteId: loteName.trim() } : item) }));
       setSelectedItemIds(new Set()); setLoteName('');
   };
 
   const handleDesagrupar = () => {
       if (selectedItemIds.size === 0) { alert('Selecione os itens que deseja desagrupar.'); return; }
-      setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(item => selectedItemIds.has(item.id) ? { ...item, loteId: undefined } : item) }));
+      setData(prev => ({ ...prev, itemGroups: (prev.itemGroups || []).map(item => selectedItemIds.has(item.id) ? { ...item, loteId: undefined } : item) }));
       setSelectedItemIds(new Set());
   };
 
   const handleAddFornecedor = () => {
       if (!novoFornecedor.nome || !novoFornecedor.justificativa) { alert("Preencha o nome e a justificativa para adicionar."); return; }
-      setData(prev => ({ ...prev, fornecedoresDiretos: [ ...prev.fornecedoresDiretos, { id: Date.now().toString(), nome: novoFornecedor.nome, justificativa: novoFornecedor.justificativa, requisitos: 'sim' } ] }));
+      setData(prev => ({ ...prev, fornecedoresDiretos: [ ...(prev.fornecedoresDiretos || []), { id: Date.now().toString(), nome: novoFornecedor.nome, justificativa: novoFornecedor.justificativa, requisitos: 'sim' } ] }));
       setNovoFornecedor({ nome: '', justificativa: '' });
   };
 
-  const handleRemoveFornecedor = (id: string) => setData(prev => ({ ...prev, fornecedoresDiretos: prev.fornecedoresDiretos.filter(f => f.id !== id) }));
+  const handleRemoveFornecedor = (id: string) => setData(prev => ({ ...prev, fornecedoresDiretos: (prev.fornecedoresDiretos || []).filter(f => f.id !== id) }));
 
   const sortedItems = useMemo(() => {
-      return [...data.itemGroups].sort((a, b) => {
+      return [...(data.itemGroups || [])].sort((a, b) => {
           if (a.loteId && !b.loteId) return -1;
           if (!a.loteId && b.loteId) return 1;
           if (a.loteId && b.loteId) { const loteCompare = a.loteId.localeCompare(b.loteId, undefined, { numeric: true }); if (loteCompare !== 0) return loteCompare; }
-          return parseInt(a.itemTR) - parseInt(b.itemTR);
+          return (parseInt(a.itemTR) || 0) - (parseInt(b.itemTR) || 0);
       });
   }, [data.itemGroups]);
 
-  const selectedFontes = useMemo(() => allFontesOptions.filter(o => data.fontesPesquisa.includes(o.val)), [data.fontesPesquisa]);
-  const isOnlyDireta = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+  const selectedFontes = useMemo(() => allFontesOptions.filter(o => (data.fontesPesquisa || []).includes(o.val)), [data.fontesPesquisa]);
+  const isOnlyDireta = (data.fontesPesquisa || []).length === 1 && (data.fontesPesquisa || []).includes('direta');
 
   const currentPaeParts = data.pae ? data.pae.split('/') : [];
   const currentYear = currentPaeParts[0] || '2025';
@@ -526,7 +530,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const handlePaeYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => { const newYear = e.target.value; setData(prev => ({...prev, pae: `${newYear}/${currentNum}`})); };
   const handlePaeNumChange = (e: React.ChangeEvent<HTMLInputElement>) => { const newNum = e.target.value.replace(/\D/g, ''); setData(prev => ({...prev, pae: `${currentYear}/${newNum}`})); };
 
-  const valorGlobal = data.itemGroups.reduce((acc, item) => acc + item.quantidadeTotal * (item.estimativaUnitaria || 0), 0);
+  const valorGlobal = (data.itemGroups || []).reduce((acc, item) => acc + ((item.quantidadeTotal || 0) * (item.estimativaUnitaria || 0)), 0);
   
   const lotesMap = new Map<string, OrcamentoItemGroup[]>();
   const avulsos: OrcamentoItemGroup[] = [];
@@ -620,7 +624,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             <div className="grid md:grid-cols-2 gap-4">
                 {allFontesOptions.map(f => (
                     <label key={f.val} className="flex items-center gap-3 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer">
-                        <input type="checkbox" name="fontesPesquisa" value={f.val} checked={data.fontesPesquisa.includes(f.val)} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red" /> 
+                        <input type="checkbox" name="fontesPesquisa" value={f.val} checked={(data.fontesPesquisa || []).includes(f.val)} onChange={handleCheckboxChange} className="h-5 w-5 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red" /> 
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{f.label}</span>
                     </label>
                 ))}
@@ -644,14 +648,14 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                         </div>
                         <button onClick={handleAddFornecedor} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg transition shadow-md">Adicionar</button>
 
-                        {data.fornecedoresDiretos.length > 0 && (
+                        {(data.fornecedoresDiretos || []).length > 0 && (
                             <div className="mt-4 overflow-x-auto">
                                 <table className="min-w-full text-sm text-left">
                                     <thead className="bg-gray-200 dark:bg-gray-600">
                                         <tr><th className="px-4 py-2">Fornecedor</th><th className="px-4 py-2">Justificativa da Escolha</th><th className="px-4 py-2 text-center">Ação</th></tr>
                                     </thead>
                                     <tbody>
-                                        {data.fornecedoresDiretos.map(f => (
+                                        {(data.fornecedoresDiretos || []).map(f => (
                                             <tr key={f.id} className="border-b dark:border-gray-600 bg-white dark:bg-gray-800">
                                                 <td className="px-4 py-2 font-medium">{f.nome}</td><td className="px-4 py-2">{f.justificativa}</td>
                                                 <td className="px-4 py-2 text-center"><button onClick={() => handleRemoveFornecedor(f.id)} className="text-red-500 hover:text-red-700 font-bold">Excluir</button></td>
@@ -682,7 +686,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </>
       )}
 
-      {/* 4. ITENS DA CONTRATAÇÃO (E PREÇOS EMBUTIDOS) */}
+      {/* 4. ITENS DA CONTRATAÇÃO */}
       <Section title="Itens da Contratação e Inserção de Preços">
           {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && selectedItemIds.size > 0 && (
               <div className="flex flex-wrap items-center gap-4 mb-6 p-4 bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-300 dark:border-gray-600 shadow-sm animate-fade-in-down">
@@ -697,10 +701,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
           <div className="space-y-6">
               {Array.from(lotesMap.entries()).map(([loteId, itemsLote]) => {
-                  const valorTotalLote = itemsLote.reduce((acc, it) => acc + (it.quantidadeTotal * (it.estimativaUnitaria || 0)), 0);
+                  const valorTotalLote = itemsLote.reduce((acc, it) => acc + ((it.quantidadeTotal || 0) * (it.estimativaUnitaria || 0)), 0);
                   const isAboveTeto = valorTotalLote > 4800000 || valorGlobal > 4800000;
                   const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
-                  const aplicarCota = itemsLote[0].aplicarCotaMeEpp !== false;
+                  const aplicarCota = itemsLote[0]?.aplicarCotaMeEpp !== false;
 
                   let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste LOTE";
                   if (isAboveTeto) cotaMessage = "Valor do Lote/Global acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
@@ -708,9 +712,9 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
                   let totalAmpla = 0; let totalCota = 0;
                   itemsLote.forEach(it => {
-                      it.cotas?.forEach(c => {
-                          if (c.id === 'ampla' || c.tipo?.includes('AMPLA')) totalAmpla += c.quantidade;
-                          if (c.id === 'cota' || c.tipo?.includes('COTA')) totalCota += c.quantidade;
+                      (it.cotas || []).forEach(c => {
+                          if (c.id === 'ampla' || c.tipo?.includes('AMPLA')) totalAmpla += (c.quantidade || 0);
+                          if (c.id === 'cota' || c.tipo?.includes('COTA')) totalCota += (c.quantidade || 0);
                       });
                   });
 
@@ -760,7 +764,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               {itemsLote.map(g => (
                                   <ItemForm 
                                       key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                                      tipoOrcamento={data.tipoOrcamento} precos={data.precosEncontrados[g.id] || []} precosIncluidos={data.precosIncluidos} fontesDisponiveis={selectedFontes}
+                                      tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                                       onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
                                       valorReferencia={valorTotalLote} valorGlobal={valorGlobal} isLoteItem={true}
                                   />
@@ -771,11 +775,11 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               })}
 
               {avulsos.map(g => {
-                  const valorRef = g.quantidadeTotal * (g.estimativaUnitaria || 0);
+                  const valorRef = (g.quantidadeTotal || 0) * (g.estimativaUnitaria || 0);
                   return (
                       <ItemForm 
                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                          tipoOrcamento={data.tipoOrcamento} precos={data.precosEncontrados[g.id] || []} precosIncluidos={data.precosIncluidos} fontesDisponiveis={selectedFontes}
+                          tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                           onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
                           valorReferencia={valorRef} valorGlobal={valorGlobal}
                       />
