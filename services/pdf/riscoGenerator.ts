@@ -1,4 +1,3 @@
-
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RiscoData } from '../../types';
@@ -8,7 +7,8 @@ import {
     formatDate, 
     COLOR_HEADER_BG, 
     ITEM_GRAY_BG,
-    checkPageBreak
+    checkPageBreak,
+    drawInstitutionalFooter // <-- Importação do rodapé adicionada aqui!
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from './pdfConstants';
 
@@ -52,4 +52,18 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
     doc.text(`${data.cidade || 'Belém'}, ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY + 10, { align: 'center' });
     finalY = checkPageBreak(doc, finalY, 40);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + 30);
+
+    // Lógica do Rodapé: Institucional SOMENTE na última página
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (i === totalPages) {
+            // Usa o setor se houver, senão joga vazio e o pdfUtils assume o padrão
+            drawInstitutionalFooter(doc, (data as any).setor || '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
+    }
 };
