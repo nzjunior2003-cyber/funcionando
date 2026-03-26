@@ -112,7 +112,7 @@ const ItemForm: React.FC<{
     onTogglePriceInclusion: (priceId: string, included: boolean) => void;
     valorReferencia: number;
     valorGlobal: number;
-    isLoteItem?: boolean; // NOVO: Flag para saber se o item está dentro de um Lote
+    isLoteItem?: boolean;
 }> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, valorGlobal, isLoteItem }) => {
     
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
@@ -159,7 +159,6 @@ const ItemForm: React.FC<{
                             <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(group.id)} className="h-5 w-5 rounded border-gray-300 text-cbmpa-blue-start focus:ring-cbmpa-blue-start cursor-pointer" title="Selecionar para agrupar"/>
                         )}
                         <span className="font-bold text-gray-700 dark:text-gray-300 text-lg">Item {group.itemTR}</span>
-                        {/* Esconde a badge de lote se estivermos renderizando dentro do LoteCard */}
                         {group.loteId && !isLoteItem && <span className="bg-cbmpa-blue-end text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">Lote: {group.loteId}</span>}
                     </div>
                     <button onClick={() => onRemove(group.id)} className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-md">
@@ -190,7 +189,6 @@ const ItemForm: React.FC<{
                             <input type="number" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
                         </div>
 
-                        {/* Oculta as regras de cota individuais se o item estiver agrupado em um Lote (O Lote passa a comandar a cota) */}
                         {!isLoteItem && tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
                             <div className={`col-span-2 mt-1 mb-1 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
                                 <label className="flex items-center gap-2 cursor-pointer">
@@ -229,13 +227,12 @@ const ItemForm: React.FC<{
                         )}
                     </div>
                     
-                    {/* Oculta a distribuição individual se estiver em um lote (O Lote mostrará a distribuição total) */}
                     {!isLoteItem && tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
                         <div className="col-span-1 md:col-span-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-2 rounded text-xs border dark:border-gray-600">
                             <span className="font-bold text-gray-600 dark:text-gray-300">Distribuição Final do Item:</span>
                             <div className="flex gap-4 mt-1">
                                 {group.cotas.map((c, idx) => (
-                                    <span key={idx} className={`${c.tipo.includes('ME/EPP') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
+                                    <span key={idx} className={`${c.tipo?.includes('ME/EPP') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
                                         {c.tipo}: <strong>{c.quantidade}</strong>
                                     </span>
                                 ))}
@@ -300,7 +297,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const [loteName, setLoteName] = useState('');
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
 
-  // 1. Recálculo de Preço Unitário Estimado
   useEffect(() => {
     setData(prevData => {
       if (prevData.tipoOrcamento === 'gerenciador_ata') return prevData;
@@ -316,7 +312,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
     });
   }, [data.precosEncontrados, data.precosIncluidos, data.metodologia, data.tipoOrcamento, data.itemGroups, setData]);
 
-  // 2. CÁLCULO MESTRE DAS COTAS ME/EPP (RESPEITANDO AGRUPAMENTOS POR LOTE)
   useEffect(() => {
     if (data.tipoOrcamento === 'gerenciador_ata' || data.tipoOrcamento === 'adesao_ata' || data.tipoOrcamento === 'aditivo_contratual') return;
 
@@ -340,28 +335,21 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             }
         });
 
-        // O valor global da licitação inteira dita se TUDO vira Ampla
         const valorGlobal = itemGroups.reduce((acc, item) => acc + (item.quantidadeTotal * item.estimativaUnitaria), 0);
 
         const processItems = (items: typeof itemGroups) => {
-            // Valor total do Lote (ou do item avulso)
             const valorTotal = items.reduce((acc, item) => acc + (item.quantidadeTotal * item.estimativaUnitaria), 0);
-            
-            // A regra de aplicar cota do Lote é ditada pelo primeiro item do Lote
             const aplicarCotaMeEpp = items[0].aplicarCotaMeEpp !== false;
 
             let tipoCotaUnica = '';
             let divideCota = false;
 
-            // REGRA 1: Estourou o teto global/lote OU usuário desmarcou a cota manualmente = 100% AMPLA
             if (valorGlobal > TETO_VALOR_LOTE || valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
                 tipoCotaUnica = 'AMPLA CONCORRÊNCIA';
             } 
-            // REGRA 2: Valor do lote/item abaixo de 80k = 100% ME/EPP Exclusivo
             else if (valorTotal <= 80000 && valorTotal > 0) {
                 tipoCotaUnica = 'EXCLUSIVA ME/EPP';
             } 
-            // REGRA 3: Intermediário = Aplica regra da cota de 25%
             else {
                 divideCota = true;
             }
@@ -369,7 +357,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             let percentualEfetivoCota = 0;
             if (divideCota) {
                 let valorCotaCalculada = valorTotal * PERCENTUAL_COTA;
-                // No SRP, a cota não pode passar de 80k em valor absoluto
                 if (data.modalidadeLicitacao === 'pregao_eletronico_rp' && valorCotaCalculada > LIMITE_SRP_COTA) {
                     valorCotaCalculada = LIMITE_SRP_COTA;
                 }
@@ -380,10 +367,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                 let novasCotas = [];
 
                 if (!divideCota) {
-                    // Item/Lote não dividido: Adota a cota única calculada nas Regras 1 e 2
                     novasCotas = [{ id: tipoCotaUnica === 'AMPLA CONCORRÊNCIA' ? 'ampla' : 'cota', ordemTR: '1', tipo: tipoCotaUnica, quantidade: item.quantidadeTotal }];
                 } else {
-                    // Item/Lote dividido: Repassa o percentual 25/75 para as quantidades deste item
                     const qtdCota = Math.floor(item.quantidadeTotal * percentualEfetivoCota);
                     const qtdAmpla = item.quantidadeTotal - qtdCota;
 
@@ -445,13 +430,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const handleGroupChange = (id: string, field: keyof OrcamentoItemGroup, value: any) => setData(prev => ({ ...prev, itemGroups: prev.itemGroups.map(group => group.id === id ? { ...group, [field]: value } : group) }));
 
   const handleLoteCotaToggle = (loteId: string, checked: boolean, valorLote: number) => {
-      // Alerta de segurança nativo do navegador para o lote todo
       if (!checked && valorLote <= 80000 && valorLote > 0) {
           const confirmJustificativa = window.confirm("ATENÇÃO: A Lei prevê exclusividade ME/EPP para Lotes até R$ 80.000,00.\n\nHá justificativa no processo para não atendimento desta previsão legal?");
           if (!confirmJustificativa) return;
       }
-      
-      // Aplica a regra para todos os itens do Lote
       setData(prev => ({
           ...prev,
           itemGroups: prev.itemGroups.map(g => g.loteId === loteId ? { ...g, aplicarCotaMeEpp: checked } : g)
@@ -546,7 +528,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
   const valorGlobal = data.itemGroups.reduce((acc, item) => acc + item.quantidadeTotal * (item.estimativaUnitaria || 0), 0);
   
-  // Agrupador visual para exibir Lotes consolidados na UI
   const lotesMap = new Map<string, OrcamentoItemGroup[]>();
   const avulsos: OrcamentoItemGroup[] = [];
   sortedItems.forEach(item => {
@@ -624,7 +605,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                           <Field label="Número da Ata" required><input type="text" name="numeroAta" value={data.numeroAta} onChange={handleChange} className={inputClasses} placeholder="Ex: 001" /></Field>
                           <Field label="Ano da Ata" required>
                               <select name="anoAta" value={data.anoAta} onChange={handleChange} className={inputClasses}>
-                                  <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+                                 <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                               </select>
                           </Field>
                       </div>
@@ -686,7 +667,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
         </Section>
       )}
 
-      {/* 3. METODOLOGIA E ASSISTENTE DE IA (VEM ANTES DOS ITENS AGORA) */}
+      {/* 3. METODOLOGIA E ASSISTENTE DE IA */}
       {data.tipoOrcamento !== 'gerenciador_ata' && (
           <>
             <Section title="Metodologia da Estimativa de Preço">
@@ -715,7 +696,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           )}
 
           <div className="space-y-6">
-              {/* RENDERIZAÇÃO DOS LOTES: AGRUPADOS VISUALMENTE COMO UM ÚNICO BLOCO */}
               {Array.from(lotesMap.entries()).map(([loteId, itemsLote]) => {
                   const valorTotalLote = itemsLote.reduce((acc, it) => acc + (it.quantidadeTotal * (it.estimativaUnitaria || 0)), 0);
                   const isAboveTeto = valorTotalLote > 4800000 || valorGlobal > 4800000;
@@ -729,8 +709,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   let totalAmpla = 0; let totalCota = 0;
                   itemsLote.forEach(it => {
                       it.cotas?.forEach(c => {
-                          if (c.id === 'ampla' || c.tipo.includes('AMPLA')) totalAmpla += c.quantidade;
-                          if (c.id === 'cota' || c.tipo.includes('COTA')) totalCota += c.quantidade;
+                          if (c.id === 'ampla' || c.tipo?.includes('AMPLA')) totalAmpla += c.quantidade;
+                          if (c.id === 'cota' || c.tipo?.includes('COTA')) totalCota += c.quantidade;
                       });
                   });
 
@@ -744,7 +724,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               </div>
                           </div>
                           
-                          {/* PAINEL DE CONTROLE DE COTA CENTRALIZADO NO LOTE */}
                           {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && (
                               <div className={`p-4 border-b ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
                                   <label className="flex items-center gap-2 cursor-pointer">
@@ -776,7 +755,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               </div>
                           )}
 
-                          {/* ITENS DENTRO DO LOTE (Com isLoteItem=true para esconder os controles individuais de cota) */}
                           <div className="p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
                               <h4 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-2">Itens que compõem este Lote</h4>
                               {itemsLote.map(g => (
@@ -784,8 +762,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                       key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                                       tipoOrcamento={data.tipoOrcamento} precos={data.precosEncontrados[g.id] || []} precosIncluidos={data.precosIncluidos} fontesDisponiveis={selectedFontes}
                                       onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
-                                      valorReferencia={valorTotalLote} valorGlobal={valorGlobal}
-                                      isLoteItem={true} // <-- Ativa a "camuflagem"
+                                      valorReferencia={valorTotalLote} valorGlobal={valorGlobal} isLoteItem={true}
                                   />
                               ))}
                           </div>
@@ -793,7 +770,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   );
               })}
 
-              {/* RENDERIZAÇÃO DOS ITENS AVULSOS */}
               {avulsos.map(g => {
                   const valorRef = g.quantidadeTotal * (g.estimativaUnitaria || 0);
                   return (
