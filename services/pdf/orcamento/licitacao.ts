@@ -239,7 +239,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final com a lógica matemática infalível para AMPLA e ME/EPP
+    // Tabela Final com a inteligência blindada do ME/EPP
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
@@ -257,18 +257,16 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
         if (cotasValidas && cotasValidas.length > 0) {
-            // Descobre qual cota possui a maior quantidade de todas para aquele item
             const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
 
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
                 
-                // Se a cota tiver a quantidade máxima estipulada, ela é automaticamente "AMPLA"
                 let label = (cQtd === maxQtd) ? 'AMPLA' : 'ME/EPP';
                 
-                // Medida de segurança: se existir apenas uma cota válida, ela é absoluta (AMPLA)
+                // Se a cota for unicamente EXCLUSIVA ME/EPP, ele obedece. Se for AMPLA, também.
                 if (cotasValidas.length === 1) {
-                    label = 'AMPLA';
+                    label = c.id === 'ampla' ? 'AMPLA' : 'ME/EPP';
                 }
 
                 fb.push([
@@ -328,7 +326,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     
     const centerX = PAGE_WIDTH / 2; 
 
-    // Rede de segurança para pegar o "Vol. Civil" mesmo quando a tela esquecer de avisar que ele foi selecionado
     const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
     const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
 
