@@ -1,4 +1,3 @@
-
 // ===== types.ts - VERSÃO COMPLETA ATUALIZADA =====
 
 export enum DocumentType {
@@ -143,6 +142,7 @@ export interface OrcamentoItemGroup {
   aditivoValorTotal?: number; // Valor total do aditivo
   tipoValor?: 'moeda' | 'percentual'; // Tipo do valor da pesquisa de preços
   aplicarCotaMeEpp?: boolean; // <-- ADICIONE ESTA LINHA
+  numeroAtaAditivo?: string; // NOVO: Número da ata de origem (por item)
 }
 
 export interface OrcamentoPrice {
@@ -230,6 +230,7 @@ export interface OrcamentoData {
   justificativaDescarte: string;
   
   // Campos específicos para Aditivo
+  subTipoAditivo?: 'contrato' | 'ata'; // NOVO: Para separar aditivo de contrato x ata
   numeroContrato?: string;
   anoContrato?: string;
   aditivoTempo?: 'sim' | 'nao' | '';

@@ -116,6 +116,7 @@ const ItemForm: React.FC<{
     isSelected: boolean;
     onToggleSelect: (id: string) => void;
     tipoOrcamento: string;
+    subTipoAditivo: string; // <-- NOVO: Precisamos saber o subTipo do aditivo no item
     precos: any[];
     precosIncluidos: Record<string, boolean>;
     fontesDisponiveis: {val: string, label: string}[];
@@ -125,7 +126,7 @@ const ItemForm: React.FC<{
     onTogglePriceInclusion: (priceId: string, included: boolean) => void;
     valorReferencia: number;
     isLoteItem?: boolean;
-}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, isLoteItem }) => {
+}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, isLoteItem }) => {
     
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
     const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
@@ -156,7 +157,6 @@ const ItemForm: React.FC<{
 
     const isAditivo = tipoOrcamento === 'aditivo_contratual';
     
-    // AQUI ESTAVA O PROBLEMA! O valorGlobal foi removido da trava. O Teto avalia apenas o Item ou o Lote individualmente!
     const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
@@ -236,10 +236,20 @@ const ItemForm: React.FC<{
                         )}
 
                         {isAditivo && (
-                            <div className="col-span-2">
-                                <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Contrato (R$)</label>
-                                <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
-                            </div>
+                            <>
+                                <div className={subTipoAditivo === 'ata' ? "col-span-1" : "col-span-2"}>
+                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem (R$)</label>
+                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
+                                </div>
+                                
+                                {/* NOVO: Campo para Nº da Ata (Aparece apenas se Aditivo de Ata for selecionado) */}
+                                {subTipoAditivo === 'ata' && (
+                                    <div className="col-span-1 animate-fade-in-down">
+                                        <label className="block text-sm font-medium mb-1 text-purple-600 dark:text-purple-400">Nº da Ata Origem</label>
+                                        <input type="text" value={group.numeroAtaAditivo || ''} onChange={(e) => onGroupChange(group.id, 'numeroAtaAditivo', e.target.value)} className={inputClasses} placeholder="Ex: 005/2023" />
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                     
@@ -379,7 +389,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   let tipoCotaUnica = '';
                   let divideCota = false;
 
-                  // AQUI ESTÁ A CORREÇÃO: Removido o 'valorGlobal > TETO_VALOR_LOTE'. A trava de 4.8M avalia apenas o valorTotal do ITEM ou do LOTE!
                   if (valorTotal > TETO_VALOR_LOTE || !aplicarCotaMeEpp) {
                       tipoCotaUnica = 'AMPLA CONCORRÊNCIA';
                   } else if (valorTotal <= 80000 && valorTotal > 0) {
@@ -588,15 +597,32 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               
               {data.tipoOrcamento === 'aditivo_contratual' && (
                   <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 animate-fade-in-down">
-                      <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 border-b border-blue-200 pb-2">Dados do Contrato</h3>
-                      <div className="grid md:grid-cols-2 gap-4">
-                          <Field label="Número do Contrato" required><input type="text" name="numeroContrato" value={data.numeroContrato || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 001/2023" /></Field>
-                          <Field label="Ano do Contrato" required>
-                              <select name="anoContrato" value={data.anoContrato || '2024'} onChange={handleChange} className={inputClasses}>
-                                  <option value="2022">2022</option><option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
-                              </select>
-                          </Field>
-                      </div>
+                      <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 border-b border-blue-200 pb-2">Dados da Alteração</h3>
+                      
+                      {/* NOVO: Radio Buttons para Escolher Contrato ou Ata */}
+                      <Field label="O que está sendo aditivado?">
+                          <div className="flex gap-4 mb-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="subTipoAditivo" value="contrato" checked={data.subTipoAditivo !== 'ata'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="font-semibold dark:text-gray-300">Contrato</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                  <input type="radio" name="subTipoAditivo" value="ata" checked={data.subTipoAditivo === 'ata'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="font-semibold dark:text-gray-300">Ata de Registro de Preços (ARP)</span>
+                              </label>
+                          </div>
+                      </Field>
+
+                      {data.subTipoAditivo !== 'ata' && (
+                          <div className="grid md:grid-cols-2 gap-4 animate-fade-in-down">
+                              <Field label="Número do Contrato" required><input type="text" name="numeroContrato" value={data.numeroContrato || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 001/2023" /></Field>
+                              <Field label="Ano do Contrato" required>
+                                  <select name="anoContrato" value={data.anoContrato || '2024'} onChange={handleChange} className={inputClasses}>
+                                      <option value="2022">2022</option><option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+                                  </select>
+                              </Field>
+                          </div>
+                      )}
                   </div>
               )}
 
@@ -749,7 +775,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               <h3 className="font-bold text-lg">📦 LOTE {loteId}</h3>
                               <div className="text-right">
                                   <span className="text-sm opacity-80 block">Valor Total do Lote</span>
-                                  <span className="font-bold text-xl">{formatCurrency(valorTotalLote)}</span>
+                                  <span className="font-bold text-xl">{formatCurrencyInput(valorTotalLote)}</span>
                               </div>
                           </div>
                           
@@ -791,9 +817,9 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                   return (
                                       <ItemForm 
                                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                                          tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                                          tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                                           onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
-                                          valorReferencia={valorRef} valorGlobal={0} isLoteItem={true}
+                                          valorReferencia={valorRef} isLoteItem={true}
                                       />
                                   );
                               })}
@@ -807,9 +833,9 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   return (
                       <ItemForm 
                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                          tipoOrcamento={data.tipoOrcamento} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                          tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                           onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
-                          valorReferencia={valorRef} valorGlobal={0}
+                          valorReferencia={valorRef}
                       />
                   )
               })}
