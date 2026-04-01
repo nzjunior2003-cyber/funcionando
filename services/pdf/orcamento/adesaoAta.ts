@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
+import { OrcamentoData } from '../../../types';
 import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from '../pdfConstants';
 
@@ -10,7 +10,6 @@ const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 
-// Helper matemático local para calcular o valor de mercado sem precisar do frontend
 const parseValueLocal = (value: string | number | undefined, tipoValor: 'moeda' | 'percentual' = 'moeda'): number | null => {
     if (value === undefined || value === null || value === '') return null;
     if (typeof value === 'number') return value;
@@ -53,38 +52,41 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     const drawHeader = (title: string, sub: string) => {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
         const lines = doc.splitTextToSize(title, USABLE_WIDTH - 4);
-        const h = lines.length * 4 + (sub ? 5 : 0) + 5;
+        const h = lines.length * 4 + (sub ? 5 : 0) + 6; 
         addPage(h + 10);
         doc.setFillColor(...BLUE); doc.rect(MARGIN_LEFT, y, USABLE_WIDTH, h, 'FD');
-        doc.setTextColor(255); doc.text(lines, PAGE_WIDTH / 2, y + 4, { align: 'center' });
+        
+        const centerY = y + (h / 2);
+        doc.setTextColor(255);
         if (sub) {
+            const titleY = centerY - 1.5 - ((lines.length - 1) * 2);
+            doc.text(lines, PAGE_WIDTH / 2, titleY, { align: 'center', baseline: 'middle' });
             doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-            doc.text(sub, PAGE_WIDTH / 2, y + lines.length * 4 + 4, { align: 'center' });
+            doc.text(sub, PAGE_WIDTH / 2, centerY + 2.5 + ((lines.length - 1) * 2), { align: 'center', baseline: 'middle' });
+        } else {
+            const titleY = centerY - ((lines.length - 1) * 2);
+            doc.text(lines, PAGE_WIDTH / 2, titleY, { align: 'center', baseline: 'middle' });
         }
         doc.setTextColor(0); y += h;
     };
 
-    // Cabeçalho Institucional
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
-    // Seção 1
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
-    const s1Body = data.itemGroups.map((g, i) => {
-        const row: any[] = [];
-        if (i === 0) row.push({ content: 'O QUE SERÁ\nPESQUISADO?', rowSpan: data.itemGroups.length, styles: { valign: 'middle', halign: 'right', fillColor: [255,255,255] } });
-        row.push({ content: g.itemTR, styles: { fillColor: GRAY } }, g.descricao, g.codigoSimas || '-', g.unidade, g.quantidadeTotal);
-        return row;
+    const s1Body = data.itemGroups.map((g) => {
+        return [
+            { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
+            g.descricao, g.codigoSimas || '-', g.unidade, g.quantidadeTotal
+        ];
     });
     autoTable(doc, {
-        startY: y, theme: 'grid', head: [['', 'Item', 'Descrição', 'Código\nSIMAS', 'Und', 'Qtd']], body: s1Body,
+        startY: y, theme: 'grid', head: [['Item', 'Descrição', 'Código\nSIMAS', 'Und', 'Qtd']], body: s1Body,
         headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center' },
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1, halign: 'center', valign: 'middle' },
-        columnStyles: { 0: { cellWidth: 35 }, 2: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT },
-        didParseCell: (d) => { if (d.section === 'head' && d.column.index === 0) d.cell.styles.fillColor = [255,255,255]; }
+        columnStyles: { 0: { cellWidth: 15 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Seção 2
     drawHeader('2 - FONTES CONSULTADAS PARA A PESQUISA DE PREÇO', '(art. 2º, III, e art. 4º do Decreto Estadual nº 2.734/2022)');
     const fMap = [
         ['simas', 'SIMAS (banco referencial de preço).'], ['nfe', 'Base nacional de notas fiscais eletrônicas.'],
@@ -100,17 +102,18 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y += 22;
 
-    // Seção 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
     autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Seção 4
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+    const boxDirSim = isDir ? '[ X ]' : '[   ]';
+    const boxDirNao = !isDir ? '[ X ]' : '[   ]';
+
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
-        { content: `[ ${isDir ? 'X' : ' '} ] Sim\n[ ${!isDir ? 'X' : ' '} ] Não`, styles: { halign: 'center' } },
+        { content: `${boxDirSim} Sim\n${boxDirNao} Não`, styles: { halign: 'center' } },
         { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
     ]];
     if (isDir && data.fornecedoresDiretos?.length) {
@@ -121,32 +124,35 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
             ]);
         });
         data.fornecedoresDiretos.forEach((f, i) => {
+            const boxReqSim = f.requisitos === 'sim' ? '[ X ]' : '[   ]';
+            const boxReqNao = f.requisitos === 'nao' ? '[ X ]' : '[   ]';
             s4b.push([
                 i === 0 ? { content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `[ ${f.requisitos === 'sim' ? 'X' : ' '} ] Sim\n[ ${f.requisitos === 'nao' ? 'X' : ' '} ] Não`, styles: { halign: 'center' } }
+                { content: f.nome, styles: { halign: 'center' } }, { content: `${boxReqSim} Sim\n${boxReqNao} Não`, styles: { halign: 'center' } }
             ]);
         });
     }
     autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Seção 5
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const met = data.metodologia || 'media';
+    const bMenor = met === 'menor' ? '[ X ]' : '[   ]';
+    const bMedia = met === 'media' ? '[ X ]' : '[   ]';
+    const bMediana = met === 'mediana' ? '[ X ]' : '[   ]';
+    
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
         body: [[
-            { content: `[ ${met === 'menor' ? 'X' : ' '} ] Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
-            { content: `[ ${met === 'media' ? 'X' : ' '} ] Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
-            { content: `[ ${met === 'mediana' ? 'X' : ' '} ] Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }
+            { content: `${bMenor} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
+            { content: `${bMedia} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
+            { content: `${bMediana} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }
         ]]
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Seção 6 - RESULTADO DA PESQUISA (A grelha lado-a-lado idêntica à foto)
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
     
-    // Descobre o item com mais preços para criar as colunas dinâmicas corretas
     const precosValidosTodos = data.itemGroups.map(g => (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false));
     const maxPrecos = Math.max(...precosValidosTodos.map(p => p.length), 1);
 
@@ -182,39 +188,52 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY;
 
-    // Tabela Descarte de Preço
     const desc = data.houveDescarte;
+    const bDescSim = desc === 'sim' ? '[ X ]' : '[   ]';
+    const bDescNao = desc === 'nao' ? '[ X ]' : '[   ]';
+
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         body: [[
             { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
-            { content: `[ ${desc === 'sim' ? 'X' : ' '} ] Sim.\n[ ${desc === 'nao' ? 'X' : ' '} ] Não.`, styles: { cellWidth: 30, halign: 'center' } },
+            { content: `${bDescSim} Sim.\n${bDescNao} Não.`, styles: { cellWidth: 30, halign: 'center' } },
             { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
         ]]
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Quadro Comparativo de Preços (Adesão à Ata)
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('QUADRO COMPARATIVO DE PREÇOS (ADESÃO À ATA)', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
+    
+    // Título do Quadro com os dados da ARP
+    const numAta = data.numeroAta || 'NNN';
+    const anoAta = data.anoAta || 'AAAA';
+    const orgaoAta = data.orgaoAta || 'ÓRGÃO';
+    const ufAta = data.estadoAta || 'UF';
+    doc.text(`QUADRO COMPARATIVO DE PREÇOS (ADESÃO À ARP ${numAta}/${anoAta} - ${orgaoAta}/${ufAta})`, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
 
     let metLabel = 'Média';
     if (met === 'menor') metLabel = 'Menor Preço';
     if (met === 'mediana') metLabel = 'Mediana';
 
+    const itensAdotados = new Map<string, number>(); 
+
     const qcb: any[] = [];
     data.itemGroups.forEach(g => {
         const pValidos = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
-        const pMercado = pValidos.filter(x => x.source !== 'preco_ata_srp'); // Isola tudo o que NÃO É a Ata
-        const pAta = pValidos.find(x => x.source === 'preco_ata_srp'); // Isola a Ata
+        const pMercado = pValidos.filter(x => x.source !== 'preco_ata_srp');
+        const pAta = pValidos.find(x => x.source === 'preco_ata_srp');
 
-        // Calcula o Valor de Mercado (Ignorando a Ata) usando a metodologia do orçamento
         const valMercado = calculateEstimateLocal(pMercado.map(x => x.value), met, g.tipoValor);
         const valAta = pAta ? parseValueLocal(pAta.value, g.tipoValor) || 0 : 0;
         
-        // O Preço adotado (Geralmente a estimativa da tela que já deve ser a menor/ata)
-        const adotado = g.estimativaUnitaria || valAta;
+        // A matemática cravada na Lei: O menor entre o Mercado e a Ata
+        let adotado = 0;
+        if (valMercado > 0 && valAta > 0) adotado = Math.min(valMercado, valAta);
+        else if (valAta > 0) adotado = valAta;
+        else adotado = valMercado;
+
+        itensAdotados.set(g.id, adotado);
 
         qcb.push([
             { content: g.itemTR, styles: { halign: 'center' } },
@@ -237,49 +256,53 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Quadro Final - PREÇO ESTIMADO DE MERCADO
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
+    doc.text('PREÇO ESTIMADO DA ADESÃO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
     let total = 0;
     const fb: any[] = [];
     data.itemGroups.forEach(g => {
-        const t = g.estimativaUnitaria * g.quantidadeTotal; total += t;
-        if (g.cotas?.length) {
-            g.cotas.forEach((c, i) => {
-                fb.push([
-                    i === 0 ? { content: g.itemTR, styles: { fillColor: GRAY } } : '',
-                    i === 0 ? g.descricao : '',
-                    String(c.tipo || '').includes('AMPLA') ? '-' : 'ME/EPP',
-                    formatValue(g.estimativaUnitaria, g.tipoValor), c.quantidade, formatValue(c.quantidade * g.estimativaUnitaria, g.tipoValor)
-                ]);
-            });
-        } else {
-            fb.push([{ content: g.itemTR, styles: { fillColor: GRAY } }, g.descricao, '-', formatValue(g.estimativaUnitaria, g.tipoValor), g.quantidadeTotal, formatValue(t, g.tipoValor)]);
-        }
+        const adotadoFinal = itensAdotados.get(g.id) || 0;
+        const t = adotadoFinal * g.quantidadeTotal; 
+        total += t;
+        
+        fb.push([
+            { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center' } }, 
+            g.descricao, 
+            formatValue(adotadoFinal, g.tipoValor), 
+            g.quantidadeTotal, 
+            formatValue(t, g.tipoValor)
+        ]);
     });
-    fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
+    fb.push([{ content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
     autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
+        startY: y, head: [['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 15 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Rodapé de Assinaturas
-    addPage(30);
+    // Assinaturas Verticalizadas e Centralizadas
+    addPage(50);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); y += 20;
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
     
-    const sig1X = MARGIN_LEFT + USABLE_WIDTH / 4; const sig2X = MARGIN_LEFT + USABLE_WIDTH * 0.75;
-    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sig1X, y);
-    if (data.assinante2Nome) drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sig2X, y);
-
-    const totalPages = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+    const sigX = PAGE_WIDTH / 2; // Exatamente no meio da página
+    
+    y += 30; // Espaço para Carimbo Digital Assinante 1
+    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
+    
+    if (data.assinante2Nome) {
+        y += 15;
+        addPage(40);
+        y += 25; // Espaço para Carimbo Digital Assinante 2
+        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
+
+    // Rodapé APENAS na última página
+    const totalPages = (doc as any).internal.getNumberOfPages();
+    doc.setPage(totalPages);
+    drawInstitutionalFooter(doc, data.setor || '', totalPages, totalPages);
 };
