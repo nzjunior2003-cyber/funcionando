@@ -69,6 +69,8 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const colorBlueHeader: [number, number, number] = [31, 78, 121];
     const colorYellowHeader: [number, number, number] = [252, 230, 157];
+    const colorGrayLabel: [number, number, number] = [242, 242, 242];
+    const colorWhiteLabel: [number, number, number] = [255, 255, 255];
     
     setDefaultFont(doc);
     const radio = (selected: boolean) => selected ? '[X]' : '[ ]';
@@ -90,9 +92,17 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         });
     }
 
+    // A Mágica da Ordem do Cabeçalho: O título azul agora é a PRIMEIRA linha do Head
     const t1Head: any[] = [];
-    if (hasLote) t1Head.push({ content: 'Lote', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } });
-    t1Head.push(
+    t1Head.push([{ 
+        content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', 
+        colSpan: hasLote ? 9 : 8, 
+        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } 
+    }]);
+
+    const colNamesRow: any[] = [];
+    if (hasLote) colNamesRow.push({ content: 'Grupo', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } });
+    colNamesRow.push(
         { content: 'Item', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Descrição', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Código SIMAS', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
@@ -102,16 +112,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         { content: 'V. Total', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Cota', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } }
     );
+    t1Head.push(colNamesRow);
 
     const t1Body: RowInput[] = [];
-    t1Body.push([{ content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', colSpan: hasLote ? 9 : 8, styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } }]);
-
     let totalGlobal = 0;
+    
     data.itens.forEach(item => {
         const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
         totalGlobal += subtotal;
 
-        // Regra ME/EPP: Se o Lote (ou o Item, se avulso) for <= 80.000,00, é Exclusiva ME/EPP.
+        // Regra ME/EPP
         const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
         const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva ME/EPP' : 'Ampla Concorrência';
 
@@ -131,22 +141,23 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     });
 
     t1Body.push([
-        { content: 'VALOR GLOBAL ESTIMADO', colSpan: hasLote ? 6 : 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: [242, 242, 242] } },
-        { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: [242, 242, 242] } }
+        { content: 'VALOR GLOBAL ESTIMADO', colSpan: hasLote ? 6 : 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } },
+        { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } }
     ]);
 
     autoTable(doc, {
         startY: currentY,
-        head: [t1Head],
+        head: t1Head,
         body: t1Body,
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
+        // A Mágica das Colunas: V. Unitário e V. Total aumentaram para 24, e Descrição se adapta ao que sobrar
         columnStyles: hasLote ? {
             0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 20 }, 7: { cellWidth: 20 }, 8: { cellWidth: 22 }
+            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 20 }
         } : {
             0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 20 }, 6: { cellWidth: 20 }, 7: { cellWidth: 25 }
+            4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 20 }
         },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
     });
@@ -209,7 +220,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     };
 
     // ============================================================================
-    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO (COM EFEITO ZEBRA)
+    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO (COM EFEITO ZEBRA E JUSTIFICADOS)
     // ============================================================================
     const t2Body: RowInput[] = [];
     let isZebra = false;
@@ -219,8 +230,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         isZebra = false; // Reseta a zebra a cada seção nova
     };
 
+    // Parâmetro "justificado" define se o texto da direita será justificado ou à esquerda
     const pushRow = (q: string, a: string, justificado: boolean = false) => {
-        const bg = isZebra ? [245, 245, 245] : [255, 255, 255];
+        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
@@ -229,15 +241,17 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     };
 
     const pushFullRow = (content: string, justificado: boolean = false) => {
-        const bg = isZebra ? [245, 245, 245] : [255, 255, 255];
+        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
         t2Body.push([{ content: content, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left', cellPadding: 3 } }]);
     };
 
     pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
+    // Seção 2: Justificada
     pushFullRow(data.justificativaAgrupamento || 'Não se aplica.', true);
 
     pushHeader('3. DESCRIÇÃO DA SOLUÇÃO\n(art. 6°, XXIII, c, da Lei Federal nº 14.133/21)');
+    // Seção 3.1: Justificada
     pushRow('3.1. QUAL O MOTIVO DA CONTRATAÇÃO?', data.motivoContratacao || '-', true);
 
     pushHeader('4. NATUREZA DO BEM\n(art. 6°, XXIII, a, da Lei Federal nº 14.133/21)');
@@ -260,6 +274,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     ].join('\n\n'));
     pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
     pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`);
+    // Seção 6.4: Justificada
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
     pushHeader('7. REQUISITOS DA CONTRATADA');
@@ -311,7 +326,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0, overflow: 'linebreak' },
         columnStyles: {
-            0: { cellWidth: 55 }, // Coluna das perguntas mais larga!
+            0: { cellWidth: 55 }, // Aumentado para 55, a coluna das perguntas não quebra mais de forma estranha
             1: { cellWidth: 'auto' }
         },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
