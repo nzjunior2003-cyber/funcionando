@@ -92,7 +92,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         });
     }
 
-    // A Mágica da Ordem do Cabeçalho: O título azul agora é a PRIMEIRA linha do Head
     const t1Head: any[] = [];
     t1Head.push([{ 
         content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', 
@@ -151,7 +150,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         body: t1Body,
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
-        // A Mágica das Colunas: V. Unitário e V. Total aumentaram para 24, e Descrição se adapta ao que sobrar
         columnStyles: hasLote ? {
             0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
             4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 20 }
@@ -181,7 +179,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                         checked: match[0] === '[X]'
                     });
                 }
-                // Limpa o texto invisivelmente para dar espaço ao desenho do quadrado
                 hookData.cell.text[i] = line.replace(/\[X\]|\[ \]/g, '   '); 
             }
         }
@@ -220,17 +217,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     };
 
     // ============================================================================
-    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO (COM EFEITO ZEBRA E JUSTIFICADOS)
+    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO
     // ============================================================================
     const t2Body: RowInput[] = [];
     let isZebra = false;
 
     const pushHeader = (title: string) => {
         t2Body.push([{ content: title, colSpan: 2, styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } }]);
-        isZebra = false; // Reseta a zebra a cada seção nova
+        isZebra = false;
     };
 
-    // Parâmetro "justificado" define se o texto da direita será justificado ou à esquerda
     const pushRow = (q: string, a: string, justificado: boolean = false) => {
         const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
@@ -247,11 +243,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     };
 
     pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
-    // Seção 2: Justificada
     pushFullRow(data.justificativaAgrupamento || 'Não se aplica.', true);
 
     pushHeader('3. DESCRIÇÃO DA SOLUÇÃO\n(art. 6°, XXIII, c, da Lei Federal nº 14.133/21)');
-    // Seção 3.1: Justificada
     pushRow('3.1. QUAL O MOTIVO DA CONTRATAÇÃO?', data.motivoContratacao || '-', true);
 
     pushHeader('4. NATUREZA DO BEM\n(art. 6°, XXIII, a, da Lei Federal nº 14.133/21)');
@@ -274,7 +268,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     ].join('\n\n'));
     pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
     pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`);
-    // Seção 6.4: Justificada
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
     pushHeader('7. REQUISITOS DA CONTRATADA');
@@ -291,7 +284,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     }).join('\n\n');
     pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText);
     
-    pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`);
+    // Agora o 7.6 também recebe o `true` no final para ficar justificado
+    pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, true);
+    
     pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`);
     pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`);
     pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`);
@@ -326,7 +321,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0, overflow: 'linebreak' },
         columnStyles: {
-            0: { cellWidth: 55 }, // Aumentado para 55, a coluna das perguntas não quebra mais de forma estranha
+            0: { cellWidth: 55 },
             1: { cellWidth: 'auto' }
         },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
@@ -346,7 +341,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY, { align: 'center' });
     
-    finalY += 30; // Respiro para carimbo do certificado digital
+    finalY += 30;
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY);
 
     const totalPages = (doc as any).internal.getNumberOfPages();
