@@ -73,7 +73,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
-    const s1Body = data.itemGroups.map((g) => {
+    const s1Body: any[] = data.itemGroups.map((g) => {
         return [
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
             g.descricao, g.codigoSimas || '-', g.unidade, g.quantidadeTotal
@@ -159,7 +159,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     const s6b: any[] = [];
     data.itemGroups.forEach(g => {
         const p = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
-        const row = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
+        const row: any[] = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
 
         if (p.length === 0) {
             row.push({ content: 'Nenhum preço inserido.', colSpan: maxPrecos, styles: { halign: 'center', fontStyle: 'italic', valign: 'middle' } });
@@ -205,7 +205,6 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     
-    // Título do Quadro com os dados da ARP
     const numAta = data.numeroAta || 'NNN';
     const anoAta = data.anoAta || 'AAAA';
     const orgaoAta = data.orgaoAta || 'ÓRGÃO';
@@ -224,10 +223,9 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
         const pMercado = pValidos.filter(x => x.source !== 'preco_ata_srp');
         const pAta = pValidos.find(x => x.source === 'preco_ata_srp');
 
-        const valMercado = calculateEstimateLocal(pMercado.map(x => x.value), met, g.tipoValor);
-        const valAta = pAta ? parseValueLocal(pAta.value, g.tipoValor) || 0 : 0;
+        const valMercado = calculateEstimateLocal(pMercado.map(x => x.value), met, g.tipoValor || 'moeda');
+        const valAta = pAta ? parseValueLocal(pAta.value, g.tipoValor || 'moeda') || 0 : 0;
         
-        // A matemática cravada na Lei: O menor entre o Mercado e a Ata
         let adotado = 0;
         if (valMercado > 0 && valAta > 0) adotado = Math.min(valMercado, valAta);
         else if (valAta > 0) adotado = valAta;
@@ -284,24 +282,22 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Assinaturas Verticalizadas e Centralizadas
     addPage(50);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
     
-    const sigX = PAGE_WIDTH / 2; // Exatamente no meio da página
+    const sigX = PAGE_WIDTH / 2;
     
-    y += 30; // Espaço para Carimbo Digital Assinante 1
+    y += 30;
     drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
     
     if (data.assinante2Nome) {
         y += 15;
         addPage(40);
-        y += 25; // Espaço para Carimbo Digital Assinante 2
+        y += 25;
         drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
 
-    // Rodapé APENAS na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
     doc.setPage(totalPages);
     drawInstitutionalFooter(doc, data.setor || '', totalPages, totalPages);

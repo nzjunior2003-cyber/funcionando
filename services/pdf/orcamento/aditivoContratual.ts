@@ -47,7 +47,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
-    const s1Body = data.itemGroups.map((g) => {
+    const s1Body: any[] = data.itemGroups.map((g) => {
         let desc = g.descricao;
         if (isAta && g.numeroAtaAditivo) desc += `\n(Ata Origem: ${g.numeroAtaAditivo})`;
 
@@ -136,7 +136,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const s6b: any[] = [];
     data.itemGroups.forEach(g => {
         const p = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
-        const row = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
+        const row: any[] = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
 
         if (p.length === 0) {
             row.push({ content: 'Nenhum preço inserido.', colSpan: maxPrecos, styles: { halign: 'center', fontStyle: 'italic', valign: 'middle' } });
@@ -313,19 +313,18 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
     
-    const sigX = PAGE_WIDTH / 2; // Exatamente no meio da página
+    const sigX = PAGE_WIDTH / 2;
     
-    y += 30; // Espaço para Carimbo Digital Assinante 1
+    y += 30;
     drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
     
     if (data.assinante2Nome) {
         y += 15;
         addPage(40);
-        y += 25; // Espaço para Carimbo Digital Assinante 2
+        y += 25;
         drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
 
-    // Rodapé APENAS na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
     doc.setPage(totalPages);
     drawInstitutionalFooter(doc, data.setor || '', totalPages, totalPages);
