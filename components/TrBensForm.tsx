@@ -546,13 +546,22 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                   ))}
               </div>
           </Field>
-          <Field label="7.6 Há critério de sustentabilidade?">
+       <Field label="7.6 Há critério de sustentabilidade?">
               <RadioGroup name="criterioSustentabilidade" value={data.criterioSustentabilidade} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.criterioSustentabilidade === 'sim' && <input name="criterioSustentabilidadeDesc" value={data.criterioSustentabilidadeDesc} onChange={handleChange} className={`${inputClasses} mt-2`} placeholder="Especificar critério"/>}
-          </Field>
-          <Field label="7.7 Há riscos a serem assumidos pela contratada?">
-              <RadioGroup name="riscosAssumidos" value={data.riscosAssumidos} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.riscosAssumidos === 'sim' && <textarea name="riscosAssumidosDesc" value={data.riscosAssumidosDesc} onChange={handleChange} className={`${inputClasses} mt-2 h-20`} placeholder="Especificar riscos conforme análise de risco"/>}
+              {data.criterioSustentabilidade === 'sim' && (
+                  <textarea 
+                      name="criterioSustentabilidadeDesc" 
+                      value={data.criterioSustentabilidadeDesc} 
+                      onChange={(e) => {
+                          handleChange(e);
+                          // A mágica para a caixa crescer sozinha conforme você digita:
+                          e.target.style.height = 'auto';
+                          e.target.style.height = (e.target.scrollHeight) + 'px';
+                      }} 
+                      className={`${inputClasses} mt-2 min-h-[100px] resize-none overflow-hidden`} 
+                      placeholder="Especificar critério (pressione Enter para pular linha)..."
+                  />
+              )}
           </Field>
           <Field label="7.8 Será permitida a participação de empresas reunidas em consórcio?">
               <RadioGroup name="participacaoConsorcio" value={data.participacaoConsorcio} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
