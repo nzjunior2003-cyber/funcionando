@@ -62,242 +62,233 @@ const mapQualificacaoTecnica: Record<string, string> = {
 
 const translateOptions = (selected: string[] | undefined, map: Record<string, string>) => {
     if (!selected || selected.length === 0) return 'Conforme Edital.';
-    return selected.map(opt => `• ${map[opt] || opt}`).join('\n\n');
+    return selected.map(opt => `${map[opt] || opt}`).join('\n\n');
 };
 // ============================================================================
 
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const colorBlueHeader: [number, number, number] = [31, 78, 121];
     const colorYellowHeader: [number, number, number] = [252, 230, 157];
-    const colorGrayLabel: [number, number, number] = [242, 242, 242];
-    const colorWhiteLabel: [number, number, number] = [255, 255, 255];
     
     setDefaultFont(doc);
-    const radio = (selected: boolean) => selected ? '[ X ]' : '[   ]';
-    let startY = drawInstitutionalHeader(doc, data.setor || '', "TERMO DE REFERÊNCIA DE BENS COMUNS", `PAE nº ${data.pae || 'aaaa/nnnn'}`);
-    const body: RowInput[] = [];
+    const radio = (selected: boolean) => selected ? '[X]' : '[ ]';
+    
+    let currentY = drawInstitutionalHeader(doc, data.setor || '', "TERMO DE REFERÊNCIA DE BENS COMUNS", `PAE nº ${data.pae || 'aaaa/nnnn'}`);
+    currentY += 5;
 
-    // --- 1. O QUE SERÁ CONTRATADO ---
-    body.push([{
-        content: '1.  O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', valign: 'middle', fontStyle: 'bold', fontSize: 9 }
-    }]);
-
-    body.push([
-        { content: 'Grupo', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Descrição', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Código SIMAS', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Und', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Qtd', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'V. Unitário Estimado', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'V. Total Estimado', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Cota', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', valign: 'middle' } }
-    ]);
-
-    let totalGlobal = 0;
-    if (data.itens && data.itens.length > 0) {
-        data.itens.forEach(item => {
-            const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
-            totalGlobal += subtotal;
-            body.push([
-                { content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } },
-                { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
-                { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: 2 } },
-                { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
-                { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
-                { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
-                { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
-                { content: formatCurrency(subtotal), styles: { halign: 'right', valign: 'middle' } },
-                { content: item.concorrencia || 'Ampla', styles: { halign: 'center', valign: 'middle' } }
-            ]);
+    // ============================================================================
+    // TABELA 1: ITENS DA CONTRATAÇÃO
+    // ============================================================================
+    const hasLote = data.itens.some(item => item.loteId && item.loteId.trim() !== '');
+    
+    const lotesTotal: Record<string, number> = {};
+    if (hasLote) {
+        data.itens.forEach(it => {
+            if (it.loteId) {
+                lotesTotal[it.loteId] = (lotesTotal[it.loteId] || 0) + ((it.quantidade || 0) * (it.valorUnitario || 0));
+            }
         });
     }
 
-    body.push([
-        { content: 'VALOR GLOBAL ESTIMADO', colSpan: 7, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } },
-        { content: formatCurrency(totalGlobal), colSpan: 2, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } }
+    const t1Head: any[] = [];
+    if (hasLote) t1Head.push({ content: 'Lote', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } });
+    t1Head.push(
+        { content: 'Item', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Descrição', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Código SIMAS', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Und', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Qtd', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'V. Unitário', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'V. Total', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Cota', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } }
+    );
+
+    const t1Body: RowInput[] = [];
+    t1Body.push([{ content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', colSpan: hasLote ? 9 : 8, styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } }]);
+
+    let totalGlobal = 0;
+    data.itens.forEach(item => {
+        const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
+        totalGlobal += subtotal;
+
+        // Regra ME/EPP: Se o Lote (ou o Item, se avulso) for <= 80.000,00, é Exclusiva ME/EPP.
+        const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
+        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva ME/EPP' : 'Ampla Concorrência';
+
+        const row: any[] = [];
+        if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
+        row.push(
+            { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: 2 } },
+            { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
+            { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
+            { content: formatCurrency(subtotal), styles: { halign: 'right', valign: 'middle' } },
+            { content: cotaStr, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
+        );
+        t1Body.push(row);
+    });
+
+    t1Body.push([
+        { content: 'VALOR GLOBAL ESTIMADO', colSpan: hasLote ? 6 : 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: [242, 242, 242] } },
+        { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: [242, 242, 242] } }
     ]);
 
-    // --- 2. JUSTIFICATIVA AGRUPAMENTO ---
-    body.push([{
-        content: '2.  JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([{
-        content: data.justificativaAgrupamento || 'Não se aplica.',
-        colSpan: 9,
-        styles: { fontStyle: 'normal', minCellHeight: 15, valign: 'middle', halign: 'justify', cellPadding: 3 }
-    }]);
+    autoTable(doc, {
+        startY: currentY,
+        head: [t1Head],
+        body: t1Body,
+        theme: 'grid',
+        styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
+        columnStyles: hasLote ? {
+            0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
+            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 20 }, 7: { cellWidth: 20 }, 8: { cellWidth: 22 }
+        } : {
+            0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
+            4: { cellWidth: 10 }, 5: { cellWidth: 20 }, 6: { cellWidth: 20 }, 7: { cellWidth: 25 }
+        },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
+    });
+    
+    currentY = (doc as any).lastAutoTable.finalY + 6;
 
-    // --- 3. DESCRIÇÃO DA SOLUÇÃO ---
-    body.push([{
-        content: '3.  DESCRIÇÃO DA SOLUÇÃO\n(art. 6°, XXIII, c, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: '3.1. QUAL O MOTIVO DA CONTRATAÇÃO?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: data.motivoContratacao || '', colSpan: 7, styles: { minCellHeight: 20, valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
+    // ============================================================================
+    // LÓGICA DE DESENHO DE QUADRADINHOS REAIS E SISTEMA ZEBRA
+    // ============================================================================
+    const handleCheckboxWillDraw = (hookData: any) => {
+        if (hookData.section === 'body' && hookData.cell.text) {
+            hookData.cell.raw._checkboxes = [];
+            for (let i = 0; i < hookData.cell.text.length; i++) {
+                let line = hookData.cell.text[i];
+                let match;
+                const regex = /\[X\]|\[ \]/g;
+                while ((match = regex.exec(line)) !== null) {
+                    hookData.cell.raw._checkboxes.push({
+                        lineIndex: i,
+                        textBefore: line.substring(0, match.index),
+                        checked: match[0] === '[X]'
+                    });
+                }
+                // Limpa o texto invisivelmente para dar espaço ao desenho do quadrado
+                hookData.cell.text[i] = line.replace(/\[X\]|\[ \]/g, '   '); 
+            }
+        }
+    };
 
-    // --- 4. NATUREZA DO BEM ---
-    body.push([{
-        content: '4.  NATUREZA DO BEM\n(art. 6°, XXIII, a, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([{
-        content: `${radio(data.naturezaBem === 'comum')} Comum.\n\n${radio(data.naturezaBem === 'especial')} Especial.`,
-        colSpan: 9,
-        styles: { halign: 'left', cellPadding: 3, valign: 'middle' }
-    }]);
+    const handleCheckboxDidDraw = (hookData: any) => {
+        if (hookData.section === 'body' && hookData.cell.raw._checkboxes && hookData.cell.raw._checkboxes.length > 0) {
+            doc.setFontSize(hookData.cell.styles.fontSize);
+            doc.setFont(hookData.cell.styles.font, hookData.cell.styles.fontStyle);
+            
+            const padTop = typeof hookData.cell.padding === 'function' ? hookData.cell.padding('top') : hookData.cell.padding.top || 0;
+            const padLeft = typeof hookData.cell.padding === 'function' ? hookData.cell.padding('left') : hookData.cell.padding.left || 0;
+            const lineHt = hookData.cell.styles.fontSize * 1.15 * 0.352777; 
+            
+            let textY = hookData.cell.y + padTop;
+            const totalTextHeight = hookData.cell.text.length * lineHt;
+            if (hookData.cell.styles.valign === 'middle') {
+                textY = hookData.cell.y + (hookData.cell.height - totalTextHeight) / 2;
+            }
 
-    // --- 5. QUALIDADE E ASSISTÊNCIA ---
-    body.push([{
-        content: '5.  PROVA DE QUALIDADE, RENDIMENTO, DURABILIDADE E SEGURANÇA DO BEM\n(art. 40, § 1°, I e III, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: '5.1. HAVERÁ PROVA DE QUALIDADE?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.provaQualidade === 'sim')} Sim. Justificativa: ${data.justificativaProvaQualidade || '-'}\n${radio(data.provaQualidade === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '5.2. O EDITAL EXIGIRÁ AMOSTRA?', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.amostra === 'sim')} Sim. Prazo: ${data.amostraPrazo || '-'} dias úteis.\n${radio(data.amostra === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '5.3. HAVERÁ GARANTIA DO BEM?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n${radio(data.garantiaBem === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses. MODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n${radio(data.assistenciaTecnica === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
+            hookData.cell.raw._checkboxes.forEach((cb: any) => {
+                const widthBefore = doc.getTextWidth(cb.textBefore);
+                const boxSize = 2.5;
+                const boxX = hookData.cell.x + padLeft + widthBefore + 0.5;
+                const boxY = textY + (cb.lineIndex * lineHt) - (boxSize / 2) + 1.2; 
 
-    // --- 6. CRITÉRIOS DE SELEÇÃO ---
-    body.push([{
-        content: '6.  CRITÉRIOS DE SELEÇÃO\n(art. 6°, XXIII, h, da Lei Federal nº 14.133/21)',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
+                doc.setDrawColor(0);
+                doc.setLineWidth(0.2);
+                doc.rect(boxX, boxY, boxSize, boxSize, 'S');
+                if (cb.checked) {
+                    doc.line(boxX, boxY, boxX + boxSize, boxY + boxSize);
+                    doc.line(boxX + boxSize, boxY, boxX, boxY + boxSize);
+                }
+            });
+        }
+    };
+
+    // ============================================================================
+    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO (COM EFEITO ZEBRA)
+    // ============================================================================
+    const t2Body: RowInput[] = [];
+    let isZebra = false;
+
+    const pushHeader = (title: string) => {
+        t2Body.push([{ content: title, colSpan: 2, styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } }]);
+        isZebra = false; // Reseta a zebra a cada seção nova
+    };
+
+    const pushRow = (q: string, a: string, justificado: boolean = false) => {
+        const bg = isZebra ? [245, 245, 245] : [255, 255, 255];
+        isZebra = !isZebra;
+        t2Body.push([
+            { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
+            { content: a, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left', cellPadding: 3 } }
+        ]);
+    };
+
+    const pushFullRow = (content: string, justificado: boolean = false) => {
+        const bg = isZebra ? [245, 245, 245] : [255, 255, 255];
+        isZebra = !isZebra;
+        t2Body.push([{ content: content, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left', cellPadding: 3 } }]);
+    };
+
+    pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
+    pushFullRow(data.justificativaAgrupamento || 'Não se aplica.', true);
+
+    pushHeader('3. DESCRIÇÃO DA SOLUÇÃO\n(art. 6°, XXIII, c, da Lei Federal nº 14.133/21)');
+    pushRow('3.1. QUAL O MOTIVO DA CONTRATAÇÃO?', data.motivoContratacao || '-', true);
+
+    pushHeader('4. NATUREZA DO BEM\n(art. 6°, XXIII, a, da Lei Federal nº 14.133/21)');
+    pushFullRow(`${radio(data.naturezaBem === 'comum')} Comum.\n\n${radio(data.naturezaBem === 'especial')} Especial.`, false);
+
+    pushHeader('5. PROVA DE QUALIDADE, RENDIMENTO, DURABILIDADE E SEGURANÇA\n(art. 40, § 1°, I e III, da Lei Federal nº 14.133/21)');
+    pushRow('5.1. HAVERÁ PROVA DE QUALIDADE?', `${radio(data.provaQualidade === 'sim')} Sim. Justificativa: ${data.justificativaProvaQualidade || '-'}\n\n${radio(data.provaQualidade === 'nao')} Não.`);
+    pushRow('5.2. O EDITAL EXIGIRÁ AMOSTRA?', `${radio(data.amostra === 'sim')} Sim. Prazo: ${data.amostraPrazo || '-'} dias úteis.\n\n${radio(data.amostra === 'nao')} Não.`);
+    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n\n${radio(data.garantiaBem === 'nao')} Não.`);
+    pushRow('5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses.\nMODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n\n${radio(data.assistenciaTecnica === 'nao')} Não.`);
+
+    pushHeader('6. CRITÉRIOS DE SELEÇÃO\n(art. 6°, XXIII, h, da Lei Federal nº 14.133/21)');
     const fC = data.formaContratacao || [];
-    body.push([
-        { content: '6.1. FORMA DE CONTRATAÇÃO', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: [
-            `${radio(fC.includes('inexigibilidade'))} Inexigibilidade (Art. 74, Inciso ${data.inexigibilidadeInciso || '...'})`,
-            `${radio(fC.includes('dispensa_valor'))} Dispensa por Valor (Art. 75, II)`,
-            `${radio(fC.includes('dispensa_art75'))} Dispensa (Art. 75, Inciso ${data.dispensaInciso || '...'})`,
-            `${radio(fC.includes('pregao'))} Pregão eletrônico`,
-            `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`
-        ].join('\n\n'), colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '6.2. CRITÉRIO DE JULGAMENTO', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '6.3. O ORÇAMENTO É SIGILOSO?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '6.4. ACEITABILIDADE', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: data.criterioAceitabilidade || '-', colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '6.5. EXCLUSIVIDADE ME/EPP?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.participacaoME === 'sim')} Sim. Itens Exclusivos: ${data.participacaoMEItens || '-'}\n${radio(data.participacaoME === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
+    pushRow('6.1. FORMA DE CONTRATAÇÃO', [
+        `${radio(fC.includes('inexigibilidade'))} Inexigibilidade (Art. 74, Inciso ${data.inexigibilidadeInciso || '...'})`,
+        `${radio(fC.includes('dispensa_valor'))} Dispensa por Valor (Art. 75, II)`,
+        `${radio(fC.includes('dispensa_art75'))} Dispensa (Art. 75, Inciso ${data.dispensaInciso || '...'})`,
+        `${radio(fC.includes('pregao'))} Pregão eletrônico`,
+        `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`
+    ].join('\n\n'));
+    pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
+    pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`);
+    pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
-    // --- 7. REQUISITOS DA CONTRATADA ---
-    body.push([{
-        content: '7.  REQUISITOS DA CONTRATADA',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: '7.1. HABILITAÇÃO JURÍDICA', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: translateOptions(data.habilitacaoJuridica, mapJuridica), colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.2. FISCAL / SOCIAL', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: translateOptions(data.habilitacaoFiscal, mapFiscal), colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.3. QUALIFICAÇÃO ECONÔMICA', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: translateOptions(data.qualificacaoEconomica, mapEconomica), colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-
+    pushHeader('7. REQUISITOS DA CONTRATADA');
+    pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
+    pushRow('7.2. FISCAL / SOCIAL', translateOptions(data.habilitacaoFiscal, mapFiscal));
+    pushRow('7.3. QUALIFICAÇÃO ECONÔMICA', translateOptions(data.qualificacaoEconomica, mapEconomica));
+    pushRow('7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`);
+    
     const qualifTec = data.qualificacoesTecnicas || [];
     const qualifTecText = qualifTec.length === 0 ? 'Conforme Edital.' : qualifTec.map(opt => {
-        const baseText = `• ${mapQualificacaoTecnica[opt] || opt}`;
+        const baseText = `${mapQualificacaoTecnica[opt] || opt}`;
         const just = data.qualificacoesTecnicasJustificativas?.[opt];
         return just ? `${baseText}\n  Justificativa: ${just}` : baseText;
     }).join('\n\n');
+    pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText);
+    
+    pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`);
+    pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`);
+    pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`);
+    pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`);
 
-    body.push([
-        { content: '7.5. COMPROVAÇÕES TÉCNICAS', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: qualifTecText, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.6. CRITÉRIO DE SUSTENTABILIDADE?', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.7. RISCOS', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n${radio(data.riscosAssumidos === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.8. CONSÓRCIO', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '7.9. SUBCONTRATAÇÃO?', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
+    pushHeader('8. FORMA DE ENTREGA DO BEM');
+    pushRow('8.1. FORMA', data.formaEntregaTipo === 'unica' ? 'Integral de uma só vez.' : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`);
+    pushRow('8.2. LOCAL E HORA', data.localEntrega || '-');
+    if (data.prazoValidadePereciveis) pushRow('8.3. VALIDADE (PERECÍVEIS)', `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`);
 
-    // --- 8. ENTREGA ---
-    body.push([{
-        content: '8.  FORMA DE ENTREGA DO BEM',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: '8.1. FORMA', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: data.formaEntregaTipo === 'unica' 
-            ? 'Integral de uma só vez.' 
-            : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`, 
-          colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '8.2. LOCAL E HORA', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: data.localEntrega || '-', colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    if (data.prazoValidadePereciveis) {
-        body.push([
-            { content: '8.3. VALIDADE (PERECÍVEIS)', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-            { content: `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-        ]);
-    }
-
-    // --- 9. PAGAMENTO E REAJUSTE ---
-    body.push([{
-        content: '9.  PRAZO, FORMA DE PAGAMENTO E GARANTIA DO CONTRATO',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: '9.1. PRAZO DO CONTRATO', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.\nPossibilidade de Prorrogação: ${data.possibilidadeProrrogacao === 'sim' ? 'Sim' : 'Não'}.`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
-
+    pushHeader('9. PRAZO, FORMA DE PAGAMENTO E GARANTIA DO CONTRATO');
+    pushRow('9.1. PRAZO DO CONTRATO', `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.\nPossibilidade de Prorrogação: ${data.possibilidadeProrrogacao === 'sim' ? 'Sim' : 'Não'}.`);
+    
     const pgOpts = data.pagamentoOpcoes || [];
     let pgText = '';
     if(pgOpts.includes('ordem_bancaria')) pgText += '• O pagamento será realizado por ordem bancária creditada em conta corrente.\n';
@@ -305,59 +296,33 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
     if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${data.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
     if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${data.pagamentoRegularidade || 'Conforme Edital'}\n`;
+    pushRow('9.2. PAGAMENTO', pgText || 'Conforme Edital.');
+    
+    pushRow('9.3. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`);
+    pushRow('9.4. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
 
-    body.push([
-        { content: '9.2. PAGAMENTO', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: pgText || 'Conforme Edital.', colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '9.3. GARANTIA DE CONTRATO', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: '9.4. REAJUSTE', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
+    pushHeader('10. PREVISÃO ORÇAMENTÁRIA');
+    pushRow('FUNCIONAL', data.dadosOrcamentariosFuncional || '-');
+    pushRow('ELEMENTO E FONTE', `Elemento: ${data.dadosOrcamentariosElemento || '-'}   |   Fonte: ${data.dadosOrcamentariosFonte || '-'}`);
 
-    // --- 10. PREVISÃO ORÇAMENTÁRIA ---
-    body.push([{
-        content: '10.  PREVISÃO ORÇAMENTÁRIA',
-        colSpan: 9,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 9 }
-    }]);
-    body.push([
-        { content: 'FUNCIONAL', colSpan: 2, styles: { fillColor: colorGrayLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: data.dadosOrcamentariosFuncional || '-', colSpan: 7, styles: { valign: 'middle', halign: 'justify', cellPadding: 3 } }
-    ]);
-    body.push([
-        { content: 'ELEMENTO E FONTE', colSpan: 2, styles: { fillColor: colorWhiteLabel, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: `Elemento: ${data.dadosOrcamentariosElemento || '-'}   |   Fonte: ${data.dadosOrcamentariosFonte || '-'}`, colSpan: 7, styles: { valign: 'middle', cellPadding: 3 } }
-    ]);
-
-    // Gerar Tabela Principal
     autoTable(doc, {
-        startY: startY + 5,
-        body: body,
+        startY: currentY,
+        body: t2Body,
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0, overflow: 'linebreak' },
         columnStyles: {
-            0: { cellWidth: 12 }, 
-            1: { cellWidth: 12 }, 
-            2: { cellWidth: 'auto' }, 
-            3: { cellWidth: 18 }, 
-            4: { cellWidth: 10 }, 
-            5: { cellWidth: 12 }, 
-            6: { cellWidth: 22 }, 
-            7: { cellWidth: 22 }, 
-            8: { cellWidth: 18 }  
+            0: { cellWidth: 55 }, // Coluna das perguntas mais larga!
+            1: { cellWidth: 'auto' }
         },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM }
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
+        willDrawCell: handleCheckboxWillDraw,
+        didDrawCell: handleCheckboxDidDraw
     });
 
-    // Assinatura Final Centralizada e com espaço para Carimbo
-    const lastAutoTable = (doc as any).lastAutoTable;
-    let finalY = lastAutoTable ? lastAutoTable.finalY + 15 : MARGIN_TOP + 20;
-    
+    // ============================================================================
+    // ASSINATURAS E RODAPÉ
+    // ============================================================================
+    let finalY = (doc as any).lastAutoTable.finalY + 15;
     if (finalY > PAGE_HEIGHT - 65) {
         doc.addPage();
         finalY = MARGIN_TOP + 10;
@@ -366,10 +331,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY, { align: 'center' });
     
-    finalY += 30; 
+    finalY += 30; // Respiro para carimbo do certificado digital
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY);
 
-    // Lógica do Rodapé
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
