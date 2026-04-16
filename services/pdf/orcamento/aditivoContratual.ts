@@ -241,7 +241,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const tituloAlteracao = isAta ? 'PREÇO ESTIMADO DA ALTERAÇÃO DA ATA' : 'PREÇO ESTIMADO DA ALTERAÇÃO CONTRATUAL';
     doc.text(tituloAlteracao, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    let somaItens = 0;
+    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
+    // erros de ponto flutuante na soma de múltiplas parcelas.
+    let somaItensCentavos = 0;
     const aditB: any[] = [];
     
     const colAditivoValorUnit = isAta
@@ -258,9 +260,11 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctAditivo = Number(g.aditivoPercentual) || 0;
         const qtdAditivo = Number(g.aditivoQuantidade) || 0;
         
-        // TRAVA MATEMÁTICA NA LINHA:
-        const vAditivo = Number(Number(g.aditivoValorTotal || 0).toFixed(2)); 
-        somaItens += vAditivo;
+        // CORREÇÃO PRINCIPAL: arredondar valor do aditivo para 2 casas
+        // decimais ANTES de acumular.
+        const vAditivo = Math.round((Number(g.aditivoValorTotal || 0)) * 100) / 100; 
+        // Acumula em centavos para evitar drift de ponto flutuante
+        somaItensCentavos += Math.round(vAditivo * 100);
 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
@@ -275,8 +279,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         ]);
     });
 
-    // TRAVA MATEMÁTICA NO SOMATÓRIO GERAL:
-    somaItens = Number(somaItens.toFixed(2));
+    // Converte centavos de volta para reais com precisão exata
+    const somaItens = somaItensCentavos / 100;
 
     if (data.aditivoTempo === 'sim') {
         const isMensal = data.aditivoTempoUnidade === 'meses';

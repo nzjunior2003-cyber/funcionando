@@ -151,21 +151,27 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    let total = 0;
+    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
+    // erros de ponto flutuante na soma de múltiplas parcelas.
+    let totalCentavos = 0;
     const fb: any[] = [];
     
     data.itemGroups.forEach(g => {
-        const est = Number(g.estimativaUnitaria) || 0;
+        // CORREÇÃO PRINCIPAL: arredondar estimativaUnitaria para 2 casas
+        // decimais ANTES de qualquer multiplicação.
+        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
         const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Number((est * qtdTotal).toFixed(2)); // TRAVA MATEMÁTICA DA LINHA
+        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
         
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
         if (cotasValidas && cotasValidas.length > 0) {
             cotasValidas.forEach((c, i) => {
                 const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Number((cQtd * est).toFixed(2)); // TRAVA MATEMÁTICA DA COTA
-                total += cTotal;
+                const cTotal = Math.round(cQtd * est * 100) / 100;
+                
+                // Acumula em centavos para evitar drift de ponto flutuante
+                totalCentavos += Math.round(cTotal * 100);
                 
                 fb.push([
                     i === 0 ? { content: g.itemTR, styles: { fillColor: GRAY } } : '',
@@ -177,7 +183,9 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
                 ]);
             });
         } else {
-            total += totalLinha;
+            // Acumula em centavos para evitar drift de ponto flutuante
+            totalCentavos += Math.round(totalLinha * 100);
+            
             fb.push([
                 { content: g.itemTR, styles: { fillColor: GRAY } }, 
                 g.descricao, 
@@ -189,7 +197,8 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         }
     });
     
-    total = Number(total.toFixed(2)); // TRAVA MATEMÁTICA GLOBAL
+    // Converte centavos de volta para reais com precisão exata
+    const total = totalCentavos / 100;
 
     fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     

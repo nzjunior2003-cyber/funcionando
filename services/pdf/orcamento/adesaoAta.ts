@@ -264,26 +264,33 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DA ADESÃO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    let total = 0;
+    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
+    // erros de ponto flutuante na soma de múltiplas parcelas.
+    let totalCentavos = 0;
     const fb: any[] = [];
     data.itemGroups.forEach(g => {
         const adotadoFinal = itensAdotados.get(g.id) || 0;
         
-        // TRAVA MATEMÁTICA: Arredonda exatamente a linha
-        const t = Number((adotadoFinal * g.quantidadeTotal).toFixed(2)); 
-        total += t;
+        // CORREÇÃO PRINCIPAL: arredondar valor unitário para 2 casas
+        // decimais ANTES de qualquer multiplicação.
+        const adotadoArredondado = Math.round(adotadoFinal * 100) / 100;
+        const qtdTotal = Number(g.quantidadeTotal) || 0;
+        const t = Math.round(adotadoArredondado * qtdTotal * 100) / 100;
+        
+        // Acumula em centavos para evitar drift de ponto flutuante
+        totalCentavos += Math.round(t * 100);
         
         fb.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center' } }, 
             g.descricao, 
-            formatValue(adotadoFinal, g.tipoValor), 
-            g.quantidadeTotal, 
+            formatValue(adotadoArredondado, g.tipoValor), 
+            qtdTotal, 
             formatValue(t, g.tipoValor)
         ]);
     });
     
-    // TRAVA MATEMÁTICA: Arredonda o total
-    total = Number(total.toFixed(2));
+    // Converte centavos de volta para reais com precisão exata
+    const total = totalCentavos / 100;
     
     fb.push([{ content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
