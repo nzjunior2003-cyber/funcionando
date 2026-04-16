@@ -243,20 +243,31 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final com a inteligência blindada do ME/EPP e Soma Matemática corrigida
+    // Tabela Final
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    let total = 0;
+    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
+    // erros de ponto flutuante na soma de múltiplas parcelas.
+    let totalCentavos = 0;
     const fb: any[] = [];
     let seqItem = 1; 
 
     data.itemGroups.forEach(g => {
-        const est = Number(g.estimativaUnitaria) || 0;
+        // ─────────────────────────────────────────────────────────────────
+        // CORREÇÃO PRINCIPAL: arredondar estimativaUnitaria para 2 casas
+        // decimais ANTES de qualquer multiplicação.
+        // Isso garante que o valor exibido (formatValue também arredonda)
+        // seja exatamente igual ao valor usado no cálculo, eliminando a
+        // divergência causada por medianas com mais de 2 casas decimais
+        // (ex.: 11.265 sendo exibido como R$ 11,27 mas multiplicado como
+        // 11.265, gerando totais inconsistentes).
+        // ─────────────────────────────────────────────────────────────────
+        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
         const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Number((est * qtdTotal).toFixed(2)); // TRAVA MATEMÁTICA
-        
+        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
+
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
         if (cotasValidas && cotasValidas.length > 0) {
@@ -264,9 +275,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Number((cQtd * est).toFixed(2)); // TRAVA MATEMÁTICA NA COTA
+                const cTotal = Math.round(cQtd * est * 100) / 100;
                 
-                total += cTotal; // Somando parcelado
+                // Acumula em centavos para evitar drift de ponto flutuante
+                totalCentavos += Math.round(cTotal * 100);
                 
                 let label = (cQtd === maxQtd) ? 'AMPLA' : 'ME/EPP';
                 
@@ -285,7 +297,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 seqItem++; 
             });
         } else {
-            total += totalLinha; // Somando linha cheia
+            // Acumula em centavos para evitar drift de ponto flutuante
+            totalCentavos += Math.round(totalLinha * 100);
+
             let cotaLabel = 'AMPLA'; 
             fb.push([
                 seqItem.toString(), 
@@ -299,7 +313,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     });
     
-    total = Number(total.toFixed(2)); // TRAVA MATEMÁTICA FINAL
+    // Converte centavos de volta para reais com precisão exata
+    const total = totalCentavos / 100;
     
     fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
@@ -347,7 +362,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
     }
 
-  // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA
+    // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
