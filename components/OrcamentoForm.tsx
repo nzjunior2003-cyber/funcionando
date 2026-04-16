@@ -116,7 +116,7 @@ const ItemForm: React.FC<{
     isSelected: boolean;
     onToggleSelect: (id: string) => void;
     tipoOrcamento: string;
-    subTipoAditivo: string; // <-- NOVO: Precisamos saber o subTipo do aditivo no item
+    subTipoAditivo: string;
     precos: any[];
     precosIncluidos: Record<string, boolean>;
     fontesDisponiveis: {val: string, label: string}[];
@@ -160,7 +160,9 @@ const ItemForm: React.FC<{
     const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
-    const valorTotalItem = (Number(group.quantidadeTotal) || 0) * (Number(group.estimativaUnitaria) || 0);
+    // CORREÇÃO: Arredondar para bater com a matemática do PDF
+    const estUnitariaArredondada = Math.round((Number(group.estimativaUnitaria) || 0) * 100) / 100;
+    const valorTotalItem = estUnitariaArredondada * (Number(group.quantidadeTotal) || 0);
 
     let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste item";
     if (isAboveTeto) cotaMessage = "Valor acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
@@ -242,7 +244,6 @@ const ItemForm: React.FC<{
                                     <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
                                 </div>
                                 
-                                {/* NOVO: Campo para Nº da Ata (Aparece apenas se Aditivo de Ata for selecionado) */}
                                 {subTipoAditivo === 'ata' && (
                                     <div className="col-span-1 animate-fade-in-down">
                                         <label className="block text-sm font-medium mb-1 text-purple-600 dark:text-purple-400">Nº da Ata Origem</label>
@@ -306,9 +307,15 @@ const ItemForm: React.FC<{
                     </div>
                     
                     <div className="mt-4 flex flex-wrap justify-end items-center gap-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
-                            Unitário: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        {/* NOVO: Exibe o valor quebrado cru gerado pela matemática antes do arredondamento */}
+                        <span className="text-xs font-medium text-gray-400 dark:text-gray-500 italic mr-auto">
+                            Valor real da matemática: {group.estimativaUnitaria}
                         </span>
+
+                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
+                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </span>
+                        
                         {group.tipoValor !== 'percentual' && (
                             <span className="text-sm font-bold text-cbmpa-red bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-md shadow-sm border border-red-100 dark:border-red-800">
                                 Total do Item: {valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
