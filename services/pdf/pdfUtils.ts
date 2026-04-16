@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import { PAGE_HEIGHT, PAGE_WIDTH, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM, TEXT_WIDTH } from './pdfConstants';
-import { logoCBMPABase64 } from '../../assets/logoBase64';
+import { logoCBMPABase64, distintivoQCGBase64 } from '../../assets/logoBase64';
 
 // --- Constantes de Cores e Estilo ---
 export const COLOR_HEADER_BG = '#2B4C7E';
@@ -80,12 +80,9 @@ export const drawCheckbox = (doc: jsPDF, x: number, y: number, label: string, ch
 export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string, subtitle?: string) => {
     const colorRedFooter: [number, number, number] = [192, 57, 43];
     
-    // --- NOVO: INSERÇÃO DOS LOGOTIPOS (CBMPA E DEFESA CIVIL) ---
+    // --- INSERÇÃO DO LOGOTIPO PRINCIPAL (CABEÇALHO) ---
     try {
-        // Posição Y = 14 para centralizar com as linhas de texto.
-        // Largura = 38 e Altura = 16 (Proporção correta para os dois brasões).
         if (logoCBMPABase64) {
-             // Diminuí a largura para 30, a altura para 12 e desci o Y para 16.5 para centralizar na altura do texto
              doc.addImage(logoCBMPABase64, 'PNG', MARGIN_LEFT, 16.5, 30, 12);
         }
     } catch (error) {
@@ -107,19 +104,13 @@ export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string
     doc.setFontSize(9);
     doc.text("CORPO DE BOMBEIROS MILITAR DO PARÁ E", PAGE_WIDTH / 2, 20, { align: 'center' });
     doc.text("COORDENADORIA ESTADUAL DE PROTEÇÃO E DEFESA CIVIL", PAGE_WIDTH / 2, 25, { align: 'center' });
-       // Removi a linha 'doc.setTextColor(colorRedFooter...)' que deixava vermelho.
-    // Como a cor padrão já é preta, basta imprimir o texto direto:
+    
     doc.text(setor?.toUpperCase() || "SETOR", PAGE_WIDTH / 2, 30, { align: 'center' });
-
-    doc.setFontSize(10);
-    doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 45, { align: 'center' });;
 
     doc.setFontSize(10);
     doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 45, { align: 'center' });
     doc.setTextColor(0);
 
-    doc.setFontSize(10);
-    doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 45, { align: 'center' });
     if (subtitle) {
         doc.setFontSize(9);
         doc.text(subtitle, PAGE_WIDTH / 2, 50, { align: 'center' });
@@ -129,28 +120,53 @@ export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string
 };
 
 export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: number, totalPages: number) => {
-        const footY = PAGE_HEIGHT - 24; 
+    // Eixo Y ajustado para as 3 linhas
+    const footY = PAGE_HEIGHT - 26; 
     
+    // Configurações do Distintivo
+    const logoWidth = 14;
+    const logoHeight = 14;
+    
+    let textStartX = MARGIN_LEFT; 
+
+    // --- INSERÇÃO DO DISTINTIVO NO RODAPÉ ---
+    try {
+        if (distintivoQCGBase64) {
+             // Desenha o distintivo na margem esquerda
+             doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 4, logoWidth, logoHeight);
+             
+             // Empurra o início do texto para a direita
+             textStartX = MARGIN_LEFT + logoWidth + 4; 
+        }
+    } catch (error) {
+        console.error("Erro ao carregar o distintivo no rodapé:", error);
+    }
+    // ---------------------------------------
+
     doc.setFontSize(7);
     doc.setTextColor(0);
     
+    // LINHA 1 DO RODAPÉ (Negrito)
     doc.setFont('helvetica', 'bold');
-        const nomeSetor = setor ? setor.toUpperCase() : 'SETOR';
-    const line1 = `${nomeSetor} – CORPO DE BOMBEIROS MILITAR DO PARÁ`;
-    doc.text(line1, PAGE_WIDTH / 2, footY, { align: 'center' });
+    const line1 = `DIRETORIA DE APOIO LOGÍSTICO - CORPO DE BOMBEIROS MILITAR DO PARÁ`; 
+    doc.text(line1, textStartX, footY, { align: 'left' });
     
+    // LINHA 2 DO RODAPÉ (Normal)
     doc.setFont('helvetica', 'normal');
-    const line2 = `Quartel do Comando-Geral – Av. Júlio César, nº 3000, Bairro: Marambaia, Belém-Pará, CEP 66.615-055.`;
-    doc.text(line2, PAGE_WIDTH / 2, footY + 4, { align: 'center' });
+    const line2 = `Endereço: Av Júlio César, 3000, Val-de-Cans`;
+    doc.text(line2, textStartX, footY + 4, { align: 'left' });
+
+    // LINHA 3 DO RODAPÉ (Normal)
+    const line3 = `www.bombeiros.pa.gov.br | e-mail: pev.cbmpa@gmail.com`;
+    doc.text(line3, textStartX, footY + 8, { align: 'left' });
       
-    // Número da página alinhado à direita
-    doc.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, footY + 4, { align: 'right' });
+    // Número da página
+    doc.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, footY + 8, { align: 'right' });
 };
 
 export const drawDocumentHeader = (doc: jsPDF, title: string, subTitle?: string, metaInfo?: string) => {
     let y = MARGIN_TOP;
     
-    // --- NOVO: INSERÇÃO DOS LOGOTIPOS (CBMPA E DEFESA CIVIL) ---
     try {
         if (logoCBMPABase64) {
              doc.addImage(logoCBMPABase64, 'PNG', MARGIN_LEFT, y - 2, 30, 12);
@@ -158,7 +174,6 @@ export const drawDocumentHeader = (doc: jsPDF, title: string, subTitle?: string,
     } catch (error) {
         console.error("Erro ao carregar o logotipo no drawDocumentHeader:", error);
     }
-    // ------------------------------------------------------
 
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(14);
@@ -177,13 +192,12 @@ export const drawDocumentHeader = (doc: jsPDF, title: string, subTitle?: string,
         doc.text(metaInfo, PAGE_WIDTH / 2, y, { align: 'center' });
     }
 
-    return Math.max(y + 20, 45); // Garante espaço suficiente abaixo da imagem
+    return Math.max(y + 20, 45);
 };
 
 export const drawSignature = (doc: jsPDF, name: string, cargo: string, x: number, y: number) => {
     y = checkPageBreak(doc, y, 30);
     doc.setFont('helvetica', 'normal');
-    // doc.text('(Assinatura)', x, y, { align: 'center' }); // Removed as per request
     
     y += 6;
     doc.setFont('helvetica', 'bold');

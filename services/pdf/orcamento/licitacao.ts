@@ -8,6 +8,7 @@ const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
+const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; // Azul Clarinho para as zebras das tabelas
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const SAFE_BOTTOM_MARGIN = 45; 
 
@@ -105,6 +106,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         body: s1Body, 
         rowPageBreak: 'avoid', 
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1 },
+        alternateRowStyles: { fillColor: ZEBRA_BLUE }, // Zebra aplicada
         columnStyles: { 0: { cellWidth: 15 }, 2: { cellWidth: 25 }, 3: { cellWidth: 15 }, 4: { cellWidth: 15 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
@@ -158,6 +160,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     autoTable(doc, { 
         startY: y, body: s4b, theme: 'grid', rowPageBreak: 'avoid', 
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, 
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, 
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         didDrawCell: checkboxHook 
@@ -223,6 +226,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         startY: y, head: s6Head, body: s6b, theme: 'grid', rowPageBreak: 'avoid', 
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
         styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, 
+        alternateRowStyles: { fillColor: ZEBRA_BLUE }, // Zebra aplicada
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } 
     });
     y = (doc as any).lastAutoTable.finalY;
@@ -239,7 +243,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final com a inteligência blindada do ME/EPP
+    // Tabela Final com a inteligência blindada do ME/EPP e Soma Matemática corrigida
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
@@ -251,8 +255,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     data.itemGroups.forEach(g => {
         const est = Number(g.estimativaUnitaria) || 0;
         const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = est * qtdTotal; 
-        total += totalLinha;
+        const totalLinha = Number((est * qtdTotal).toFixed(2)); // TRAVA MATEMÁTICA
         
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
@@ -261,10 +264,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
+                const cTotal = Number((cQtd * est).toFixed(2)); // TRAVA MATEMÁTICA NA COTA
+                
+                total += cTotal; // Somando parcelado
                 
                 let label = (cQtd === maxQtd) ? 'AMPLA' : 'ME/EPP';
                 
-                // Se a cota for unicamente EXCLUSIVA ME/EPP, ele obedece. Se for AMPLA, também.
                 if (cotasValidas.length === 1) {
                     label = c.id === 'ampla' ? 'AMPLA' : 'ME/EPP';
                 }
@@ -275,11 +280,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     label, 
                     formatValue(est, g.tipoValor), 
                     cQtd, 
-                    formatValue(cQtd * est, g.tipoValor)
+                    formatValue(cTotal, g.tipoValor)
                 ]);
                 seqItem++; 
             });
         } else {
+            total += totalLinha; // Somando linha cheia
             let cotaLabel = 'AMPLA'; 
             fb.push([
                 seqItem.toString(), 
@@ -293,11 +299,15 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     });
     
+    total = Number(total.toFixed(2)); // TRAVA MATEMÁTICA FINAL
+    
     fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
     autoTable(doc, {
         startY: y, head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid', rowPageBreak: 'avoid',
-        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
+        styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        alternateRowStyles: { fillColor: ZEBRA_BLUE }, // Zebra aplicada
         columnStyles: { 0: { cellWidth: 15 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 10;
@@ -337,12 +347,15 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
     }
 
+  // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         if (i === totalPages) {
+            // Desenha o rodapé completo só na última folha
             drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
         } else {
+            // Nas outras páginas, coloca só a numeração discreta
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
             doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
