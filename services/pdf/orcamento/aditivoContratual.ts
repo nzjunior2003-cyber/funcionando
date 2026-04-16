@@ -2,13 +2,15 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
 import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
-import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from '../pdfConstants';
+import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
+const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; // Azul Clarinho para as zebras das tabelas
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
+const SAFE_BOTTOM_MARGIN = 45; // Margem de segurança para o rodapé
 
 const nomesFontesCurto: Record<string, string> = {
     simas: 'SIMAS', nfe: 'Nota Fiscal', pncp: 'PNCP', siteEspecializado: 'Mídia Especializada',
@@ -21,7 +23,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     const isAta = data.subTipoAditivo === 'ata';
 
-    const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - MARGIN_BOTTOM) { doc.addPage(); y = MARGIN_TOP; } };
+    // Atualizado para respeitar a SAFE_BOTTOM_MARGIN
+    const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
 
     const drawHeader = (title: string, sub: string) => {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(10);
@@ -60,7 +63,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         startY: y, theme: 'grid', head: [['Item', 'Descrição', 'Código\nSIMAS', 'Und', 'Qtd']], body: s1Body,
         headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center' },
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1, halign: 'center', valign: 'middle' },
-        columnStyles: { 0: { cellWidth: 15 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
+        columnStyles: { 0: { cellWidth: 15 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -80,7 +84,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y += 22;
 
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT } });
+    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
@@ -109,7 +113,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             ]);
         });
     }
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT } });
+    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
@@ -119,7 +123,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const bMediana = met === 'mediana' ? '[ X ]' : '[   ]';
 
     autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
+        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
         body: [[
             { content: `${bMenor} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
             { content: `${bMedia} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
@@ -160,7 +164,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         theme: 'grid', 
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
         styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, 
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT },
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         columnStyles: { 0: { cellWidth: 15 } }
     });
     y = (doc as any).lastAutoTable.finalY;
@@ -170,7 +175,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const bDescNao = desc === 'nao' ? '[ X ]' : '[   ]';
 
     autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         body: [[
             { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
             { content: `${bDescSim} Sim.\n${bDescNao} Não.`, styles: { cellWidth: 30, halign: 'center' } },
@@ -223,9 +228,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         body: qcb,
         theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' },
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25 } },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
@@ -251,8 +257,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         
         const pctAditivo = Number(g.aditivoPercentual) || 0;
         const qtdAditivo = Number(g.aditivoQuantidade) || 0;
-        const vAditivo = Number(g.aditivoValorTotal) || 0;
         
+        // TRAVA MATEMÁTICA NA LINHA:
+        const vAditivo = Number(Number(g.aditivoValorTotal || 0).toFixed(2)); 
         somaItens += vAditivo;
 
         let descInfo = g.descricao;
@@ -267,6 +274,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: formatValue(vAditivo, g.tipoValor), styles: { halign: 'right', fontStyle: 'bold' } }
         ]);
     });
+
+    // TRAVA MATEMÁTICA NO SOMATÓRIO GERAL:
+    somaItens = Number(somaItens.toFixed(2));
 
     if (data.aditivoTempo === 'sim') {
         const isMensal = data.aditivoTempoUnidade === 'meses';
@@ -284,7 +294,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: `${qtdTempo} ${data.aditivoTempoUnidade || 'meses'}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
         ]);
         
-        const totalGeral = somaItens * qtdTempo;
+        // TRAVA MATEMÁTICA NO TOTAL GERAL (COM TEMPO):
+        const totalGeral = Number((somaItens * qtdTempo).toFixed(2));
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
             { content: formatValue(totalGeral, 'moeda'), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
@@ -302,9 +313,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         body: aditB, 
         theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, 
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' } }, 
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT }
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
@@ -325,7 +337,16 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
 
+    // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA COM NUMERAÇÃO EM TODAS
     const totalPages = (doc as any).internal.getNumberOfPages();
-    doc.setPage(totalPages);
-    drawInstitutionalFooter(doc, data.setor || '', totalPages, totalPages);
+    for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        if (i === totalPages) {
+            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+        }
+    }
 };
