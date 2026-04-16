@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { TrBensData, TrBensItem } from '../types';
 import { AiAssistant } from './AiAssistant';
@@ -228,34 +227,110 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
 
   const inputClasses = "w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
 
-  const renderItemRow = (item: TrBensItem) => (
-    <tr key={item.id} className={`${selectedItems.has(item.id) ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-white dark:bg-gray-800'} border-b transition-colors`}>
-        <td className="px-2 py-2 border text-center">
-            <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelection(item.id)} className="h-4 w-4" />
-        </td>
-        <td className="px-1 py-1 border font-semibold text-center dark:text-gray-300">{item.loteId || '-'}</td>
-        <td className="px-1 py-1 border"><input type="text" value={item.item} onChange={e => handleItemChange(item.id, 'item', e.target.value)} className="w-full p-1 bg-transparent text-center" /></td>
-        <td className="px-1 py-1 border"><textarea value={item.descricao} onChange={e => handleItemChange(item.id, 'descricao', e.target.value)} className="w-full p-1 bg-transparent h-10 min-w-[200px]" /></td>
-        <td className="px-1 py-1 border"><input type="text" value={item.codigoSimas} onChange={e => handleItemChange(item.id, 'codigoSimas', e.target.value)} className="w-full p-1 bg-transparent" /></td>
-        <td className="px-1 py-1 border"><input type="text" value={item.unidade} onChange={e => handleItemChange(item.id, 'unidade', e.target.value)} className="w-full p-1 bg-transparent text-center" /></td>
-        <td className="px-1 py-1 border"><input type="number" value={item.quantidade} onChange={e => handleItemChange(item.id, 'quantidade', parseFloat(e.target.value) || 0)} className="w-full p-1 bg-transparent text-center" /></td>
-        <td className="px-1 py-1 border">
-            <div className="relative flex items-center">
-                <span className="text-gray-500 mr-1">R$</span>
-                <input 
-                    type="text" 
-                    value={editingPrice[item.id] ?? formatCurrencyInput(item.valorUnitario)} 
-                    onChange={e => handlePriceInputChange(item.id, e.target.value)} 
-                    onBlur={e => handlePriceBlur(item.id, e.target.value)}
-                    className="w-full p-1 bg-transparent text-right outline-none focus:ring-1 focus:ring-cbmpa-red rounded" 
-                />
+  // --- NOVA INTERFACE EM CARDS PARA OS ITENS ---
+  const renderItemCard = (item: TrBensItem) => {
+    const isSelected = selectedItems.has(item.id);
+    return (
+        <div key={item.id} className={`relative flex flex-col p-4 rounded-xl border ${isSelected ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'} shadow-sm transition-all`}>
+            
+            {/* Top Bar: Checkbox, Ícone e Lote */}
+            <div className="flex justify-between items-center pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
+                <div className="flex items-center gap-3">
+                    <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleItemSelection(item.id)}
+                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                    <div className="flex items-center gap-2">
+                        <span className="font-bold text-gray-700 dark:text-gray-200">Item</span>
+                        <input
+                            type="text"
+                            value={item.item}
+                            onChange={e => handleItemChange(item.id, 'item', e.target.value)}
+                            className="w-12 text-center font-bold bg-transparent border-b border-gray-300 focus:border-cbmpa-red outline-none dark:text-white"
+                        />
+                        {item.loteId && (
+                            <span className="ml-2 text-xs font-bold px-2 py-1 bg-blue-100 text-blue-800 rounded-md dark:bg-blue-900 dark:text-blue-200">
+                                Lote {item.loteId}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                <button
+                    onClick={() => removeItem(item.id)}
+                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
+                    title="Remover Item"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                </button>
             </div>
-        </td>
-        <td className="px-1 py-1 border text-center">
-            <button onClick={() => removeItem(item.id)} className="text-red-500 hover:text-red-700 font-bold px-2">Remover</button>
-        </td>
-    </tr>
-  );
+
+            {/* Grid Interno do Card */}
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                {/* Descrição Full Width */}
+                <div className="md:col-span-12">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição Detalhada</label>
+                    <textarea
+                        value={item.descricao}
+                        onChange={e => handleItemChange(item.id, 'descricao', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white min-h-[80px] focus:ring-1 focus:ring-cbmpa-red outline-none resize-y"
+                        placeholder="Descreva o objeto..."
+                    />
+                </div>
+                
+                {/* Campos Menores */}
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cód. SIMAS</label>
+                    <input
+                        type="text"
+                        value={item.codigoSimas}
+                        onChange={e => handleItemChange(item.id, 'codigoSimas', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
+                        placeholder="Ex: 12345"
+                    />
+                </div>
+
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unidade</label>
+                    <input
+                        type="text"
+                        value={item.unidade}
+                        onChange={e => handleItemChange(item.id, 'unidade', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
+                        placeholder="Ex: UND"
+                    />
+                </div>
+
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantidade</label>
+                    <input
+                        type="number"
+                        value={item.quantidade}
+                        onChange={e => handleItemChange(item.id, 'quantidade', parseFloat(e.target.value) || 0)}
+                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
+                    />
+                </div>
+
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">V. Unitário (Opcional)</label>
+                    <div className="relative flex items-center">
+                        <span className="absolute left-3 text-gray-500">R$</span>
+                        <input
+                            type="text"
+                            value={editingPrice[item.id] ?? formatCurrencyInput(item.valorUnitario)}
+                            onChange={e => handlePriceInputChange(item.id, e.target.value)}
+                            onBlur={e => handlePriceBlur(item.id, e.target.value)}
+                            className="w-full py-2 pl-9 pr-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-right"
+                        />
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -272,64 +347,59 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
 
       <Section title="1. O QUE SERÁ CONTRATADO?" instruction="Indicar o objeto da contratação (bem comum) e os quantitativos estimados.">
         
+        {/* Painel de Agrupamento */}
         {selectedItems.size > 0 && (
-            <div className="flex flex-wrap items-center justify-end gap-4 mb-4 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex flex-wrap items-center justify-end gap-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg shadow-sm">
                 <span className="font-semibold dark:text-blue-200">{selectedItems.size} item(s) selecionado(s)</span>
                 <input
                     type="text"
                     value={loteInputValue}
                     onChange={e => setLoteInputValue(e.target.value)}
                     placeholder="Nome/Nº do Lote"
-                    className="p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200"
+                    className="p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
                 <button onClick={handleAgrupar} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Agrupar em Lote</button>
                 <button onClick={handleDesagrupar} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Desagrupar</button>
             </div>
         )}
 
-        <div className="overflow-x-auto border rounded-lg dark:border-gray-600 mb-4 shadow-sm">
-            <table className="w-full text-sm text-left">
-                <thead className="bg-cbmpa-red text-white uppercase text-xs">
-                    <tr>
-                        <th className="px-2 py-2 border w-10 text-center">Sel.</th>
-                        <th className="px-2 py-2 border w-16 text-center">Lote</th>
-                        <th className="px-2 py-2 border w-16 text-center">Item</th>
-                        <th className="px-2 py-2 border">Descrição</th>
-                        <th className="px-2 py-2 border">Código SIMAS</th>
-                        <th className="px-2 py-2 border w-20 text-center">Und</th>
-                        <th className="px-2 py-2 border w-20 text-center">Qtd</th>
-                        <th className="px-2 py-2 border w-32 text-right">V. Unit.</th>
-                        <th className="px-2 py-2 border w-24 text-center">Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {Object.keys(groupedItens.lotes).sort().map(loteId => (
-                        <React.Fragment key={`lote-group-${loteId}`}>
-                            <tr className="bg-gray-100 dark:bg-gray-700/50">
-                                <td colSpan={9} className="px-4 py-2 font-bold text-cbmpa-red border italic">Lote: {loteId}</td>
-                            </tr>
-                            {groupedItens.lotes[loteId].map(item => renderItemRow(item))}
-                        </React.Fragment>
-                    ))}
-                    {groupedItens.ungrouped.length > 0 && (
-                        <>
-                            {Object.keys(groupedItens.lotes).length > 0 && (
-                                <tr className="bg-gray-100 dark:bg-gray-700/50">
-                                    <td colSpan={9} className="px-4 py-2 font-bold text-gray-600 dark:text-gray-400 border italic">Itens sem Lote</td>
-                                </tr>
-                            )}
-                            {groupedItens.ungrouped.map(item => renderItemRow(item))}
-                        </>
+        {/* Lista de Cards (Substituindo a Tabela) */}
+        <div className="space-y-6 mb-6">
+            {/* Renderizar Lotes */}
+            {Object.keys(groupedItens.lotes).sort().map(loteId => (
+                <div key={`lote-group-${loteId}`} className="bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <h3 className="font-bold text-lg text-cbmpa-red uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
+                        Lote: {loteId}
+                    </h3>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {groupedItens.lotes[loteId].map(item => renderItemCard(item))}
+                    </div>
+                </div>
+            ))}
+            
+            {/* Renderizar Itens sem Lote */}
+            {groupedItens.ungrouped.length > 0 && (
+                <div className={`${Object.keys(groupedItens.lotes).length > 0 ? 'bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm' : ''}`}>
+                    {Object.keys(groupedItens.lotes).length > 0 && (
+                        <h3 className="font-bold text-lg text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
+                            Itens Sem Lote
+                        </h3>
                     )}
-                    {data.itens.length === 0 && (
-                        <tr>
-                            <td colSpan={9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400 italic">Nenhum item adicionado ainda.</td>
-                        </tr>
-                    )}
-                </tbody>
-            </table>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {groupedItens.ungrouped.map(item => renderItemCard(item))}
+                    </div>
+                </div>
+            )}
+
+            {/* Empty State */}
+            {data.itens.length === 0 && (
+                <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl">
+                    <p className="text-gray-500 dark:text-gray-400 italic">Nenhum item adicionado ainda. Clique no botão abaixo para começar.</p>
+                </div>
+            )}
         </div>
-        <button onClick={addItem} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm mb-4 shadow transition transform active:scale-95">➕ Adicionar Novo Item</button>
+
+        <button onClick={addItem} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm shadow transition transform active:scale-95">➕ Adicionar Novo Item</button>
       </Section>
 
       {Object.keys(groupedItens.lotes).length > 0 && (
@@ -484,7 +554,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     {val: '7.2.1', label: '7.2.1. Prova de inscrição no CNPJ ou no CPF...'},
                     {val: '7.2.2', label: '7.2.2. Prova de regularidade fiscal perante a Fazenda Nacional...'},
                     {val: '7.2.3', label: '7.2.3. Prova de regularidade com o FGTS...'},
-                    {val: '7.2.4', label: '7.2.4. Prova de inexistência de débitos na Justiça do Trabalho...'},
+                    {val: '7.2.4', label: '7.2.4. Prova de inexistência de débitos na Justiça do Trabalho...'},
                     {val: '7.2.5', label: '7.2.5. Prova de inscrição no cadastro Estadual ou Municipal...'},
                     {val: '7.2.6', label: '7.2.6. Prova de regularidade com a Fazenda Estadual ou Municipal...'},
                     {val: '7.2.7', label: '7.2.7. Caso o fornecedor seja considerado isento dos tributos...'},
@@ -554,7 +624,6 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                       value={data.criterioSustentabilidadeDesc} 
                       onChange={(e) => {
                           handleChange(e);
-                          // A mágica para a caixa crescer sozinha conforme você digita:
                           e.target.style.height = 'auto';
                           e.target.style.height = (e.target.scrollHeight) + 'px';
                       }} 
