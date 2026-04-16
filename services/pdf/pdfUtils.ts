@@ -120,20 +120,19 @@ export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string
 };
 
 export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: number, totalPages: number) => {
-    // Eixo Y ajustado para as 3 linhas
-    const footY = PAGE_HEIGHT - 26; 
+    // Subimos o eixo Y mais um pouquinho para acomodar as 4 linhas perfeitamente
+    const footY = PAGE_HEIGHT - 28; 
     
-    // Configurações do Distintivo
     const logoWidth = 14;
     const logoHeight = 14;
-    
     let textStartX = MARGIN_LEFT; 
 
     // --- INSERÇÃO DO DISTINTIVO NO RODAPÉ ---
     try {
-        if (distintivoQCGBase64) {
+        // Adicionei uma trava de segurança para checar se o Base64 é válido
+        if (distintivoQCGBase64 && distintivoQCGBase64.length > 100) {
              // Desenha o distintivo na margem esquerda
-             doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 4, logoWidth, logoHeight);
+             doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 3, logoWidth, logoHeight);
              
              // Empurra o início do texto para a direita
              textStartX = MARGIN_LEFT + logoWidth + 4; 
@@ -146,22 +145,22 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
     doc.setFontSize(7);
     doc.setTextColor(0);
     
-    // LINHA 1 DO RODAPÉ (Negrito)
+    // LINHA 1 (Negrito)
     doc.setFont('helvetica', 'bold');
-    const line1 = `DIRETORIA DE APOIO LOGÍSTICO - CORPO DE BOMBEIROS MILITAR DO PARÁ`; 
-    doc.text(line1, textStartX, footY, { align: 'left' });
+    doc.text(`DIRETORIA DE APOIO LOGÍSTICO`, textStartX, footY, { align: 'left' });
     
-    // LINHA 2 DO RODAPÉ (Normal)
-    doc.setFont('helvetica', 'normal');
-    const line2 = `Endereço: Av Júlio César, 3000, Val-de-Cans`;
-    doc.text(line2, textStartX, footY + 4, { align: 'left' });
+    // LINHA 2 (Negrito)
+    doc.text(`CORPO DE BOMBEIROS MILITAR DO PARÁ`, textStartX, footY + 4, { align: 'left' });
 
-    // LINHA 3 DO RODAPÉ (Normal)
-    const line3 = `www.bombeiros.pa.gov.br | e-mail: pev.cbmpa@gmail.com`;
-    doc.text(line3, textStartX, footY + 8, { align: 'left' });
+    // LINHA 3 (Normal)
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Endereço: Av Júlio César, 3000, Val-de-Cans`, textStartX, footY + 8, { align: 'left' });
+
+    // LINHA 4 (Normal)
+    doc.text(`www.bombeiros.pa.gov.br | e-mail: pev.cbmpa@gmail.com`, textStartX, footY + 12, { align: 'left' });
       
-    // Número da página
-    doc.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, footY + 8, { align: 'right' });
+    // Número da página alinhado com a última linha
+    doc.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, footY + 12, { align: 'right' });
 };
 
 export const drawDocumentHeader = (doc: jsPDF, title: string, subTitle?: string, metaInfo?: string) => {
