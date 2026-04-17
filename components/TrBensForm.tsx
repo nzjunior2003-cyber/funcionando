@@ -616,7 +616,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                   ))}
               </div>
           </Field>
-       <Field label="7.6 Há critério de sustentabilidade?">
+ <Field label="7.6 Há critério de sustentabilidade?">
               <RadioGroup name="criterioSustentabilidade" value={data.criterioSustentabilidade} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
               {data.criterioSustentabilidade === 'sim' && (
                   <textarea 
@@ -629,6 +629,25 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                       }} 
                       className={`${inputClasses} mt-2 min-h-[100px] resize-none overflow-hidden`} 
                       placeholder="Especificar critério (pressione Enter para pular linha)..."
+                  />
+              )}
+          </Field>
+
+          {/* --- NOVO ITEM 7.7 CORRIGIDO --- */}
+          <Field label="7.7 Há riscos a serem assumidos pela contratada?">
+              <RadioGroup 
+                  name="temRiscos" 
+                  value={data.temRiscos} 
+                  options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} 
+                  onChange={handleChange} 
+              />
+              {data.temRiscos === 'sim' && (
+                  <textarea
+                      name="especificacaoRiscos"
+                      value={data.especificacaoRiscos}
+                      onChange={handleChange}
+                      className={`${inputClasses} mt-2 min-h-[80px] resize-y`}
+                      placeholder="Descreva detalhadamente os riscos assumidos pela contratada..."
                   />
               )}
           </Field>
