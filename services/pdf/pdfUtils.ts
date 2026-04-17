@@ -158,7 +158,10 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
     // LINHA 3 (Endereço)
     doc.text(`Endereço: Av Júlio César, 3000, Val-de-Cans - Marambaia, CEP: 66615-055, Belém-PA`, textStartX, footY + 8, { align: 'left' });
 
-    // LINHA 4 (Contatos)
+    // LINHA 4 (CEP)
+    doc.text(`CEP: 66615-055`, textStartX, footY + 12, { align: 'left' });
+
+    // LINHA 5 (Contatos)
     doc.text(`www.bombeiros.pa.gov.br | e-mail: sipcdal@gmail.com`, textStartX, footY + 12, { align: 'left' });
       
     // --- TRAVA DE SEGURANÇA ---
