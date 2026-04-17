@@ -9,9 +9,7 @@ import { TrBensForm } from './components/TrBensForm';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { GoogleGenAI, Type } from "@google/genai";
 
-
 const today = new Date().toISOString().split('T')[0];
-
 
 const initialSignatory = {
   cidade: 'Belém',
@@ -21,7 +19,6 @@ const initialSignatory = {
   cargo: '',
   funcao: '',
 };
-
 
 const initialDfdState: DfdData = {
   ...initialSignatory,
@@ -34,7 +31,6 @@ const initialDfdState: DfdData = {
   justificativaPrazo: '',
   statusPCA: '',
 };
-
 
 const initialEtpState: EtpData = {
   ...initialSignatory,
@@ -94,13 +90,11 @@ const initialEtpState: EtpData = {
   viabilidade: '',
 };
 
-
 const initialRiscoState: RiscoData = {
     ...initialSignatory,
     pae: '',
     riscos: []
 };
-
 
 const initialOrcamentoState: OrcamentoData = {
     cidade: 'Belém',
@@ -134,13 +128,11 @@ const initialOrcamentoState: OrcamentoData = {
     assinante2NomeGuerra: '',
     assinante2Cargo: '',
     assinante2Funcao: '',
-    
     // NOVO: Campos para Credenciamento
     tabelaConsup: [],
     numeroResolucao: '484/2024',
     dataResolucao: '2024-01-24',
 };
-
 
 const initialTrBensState: TrBensData = {
     ...initialSignatory,
@@ -174,7 +166,6 @@ const initialTrBensState: TrBensData = {
     participacaoMEItens: '',
     itensParticipacaoExclusiva: '',
     itensParticipacaoExclusivaDesc: '',
-    
     habilitacaoJuridica: [],
     habilitacaoFiscal: [],
     qualificacaoEconomica: [],
@@ -193,29 +184,24 @@ const initialTrBensState: TrBensData = {
     subcontratacao: '',
     subcontratacaoOpcao: '',
     subcontratacaoDetalhes: '',
-    
     formaEntregaTipo: '',
     entregaParcelasX: '',
     entregaParcelasY: '',
     entregaParcelasZ: '',
     localEntrega: '',
     prazoValidadePereciveis: '',
-    
     prazoContrato: '',
     possibilidadeProrrogacao: '',
     pagamentoMeio: '',
     pagamentoOnde: '',
     pagamentoPrazoDias: '30 (trinta)',
-    pagamentoRegularidade: `1- Por consulta ao SICAF ou Cadastramento Unificado de Licitante.
-ou
-2- Pela apresentação dos documentos constantes no art. 68 da Lei Federal nº 14.133/21, quando não for possível consultar aos sistemas oficiais.`,
+    pagamentoRegularidade: `1- Por consulta ao SICAF ou Cadastramento Unificado de Licitante.\nou\n2- Pela apresentação dos documentos constantes no art. 68 da Lei Federal nº 14.133/21, quando não for possível consultar aos sistemas oficiais.`,
     pagamentoOpcoes: ['ordem_bancaria', 'banpara', 'prazo_NF', 'regularidade'],
     garantiaContratoTipo: '',
     garantiaContratoPorcentagem: '',
     garantiaContratoJustificativa: '',
     reajusteIndice: '',
     reajusteMeses: '',
-
     formaEntrega: '',
     entregaParcelas: '',
     entregaPrimeira: '',
@@ -277,14 +263,14 @@ const documentOptions = [
 
 const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = ({ onSelect }) => (
     <div className="text-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-2">Selecione o Tipo de Documento</h2>
-        <p className="text-gray-600 dark:text-gray-400 mb-8">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Selecione o Tipo de Documento</h2>
+        <p className="text-gray-600 dark:text-gray-300 mb-8">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {documentOptions.map(doc => (
                 <button 
                     key={doc.type} 
                     onClick={() => onSelect(doc.type)}
-                    className={`flex flex-col items-start p-6 bg-white dark:bg-gray-800 border-2 ${doc.borderColor} rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 min-h-[180px] relative overflow-hidden group text-left`}
+                    className={`flex flex-col items-start p-6 bg-white dark:bg-slate-800 border-2 ${doc.borderColor} rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 min-h-[180px] relative overflow-hidden group text-left`}
                 >
                     <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 transition-transform group-hover:scale-150 ${doc.iconBg}`}></div>
 
@@ -299,7 +285,6 @@ const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = 
     </div>
 );
 
-
 const Toast: React.FC<{
   message: string;
   type: 'success' | 'info' | 'error';
@@ -307,9 +292,9 @@ const Toast: React.FC<{
 }> = ({ message, type, onClose }) => {
   const baseClasses = "fixed top-5 left-1/2 -translate-x-1/2 max-w-sm w-full p-4 rounded-lg shadow-lg flex items-center gap-3 animate-fade-in-down z-50";
   const typeClasses = {
-    success: 'bg-green-100 border border-green-400 text-green-800 dark:bg-green-900/50 dark:border-green-600 dark:text-green-300',
-    info: 'bg-blue-100 border border-blue-400 text-blue-800 dark:bg-blue-900/50 dark:border-green-600 dark:text-blue-300',
-    error: 'bg-red-100 border border-red-400 text-red-800 dark:bg-red-900/50 dark:border-red-600 dark:text-red-300',
+    success: 'bg-green-100 border border-green-400 text-green-800 dark:bg-green-900/90 dark:border-green-600 dark:text-green-300',
+    info: 'bg-blue-100 border border-blue-400 text-blue-800 dark:bg-blue-900/90 dark:border-blue-600 dark:text-blue-300',
+    error: 'bg-red-100 border border-red-400 text-red-800 dark:bg-red-900/90 dark:border-red-600 dark:text-red-300',
   };
    const Icon = {
     success: <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>,
@@ -320,16 +305,14 @@ const Toast: React.FC<{
   return (
     <div className={`${baseClasses} ${typeClasses[type]}`} role="alert">
       <div className="flex-shrink-0">{Icon[type]}</div>
-      <div className="flex-grow">{message}</div>
-      <button onClick={onClose} className="ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg inline-flex h-8 w-8 hover:bg-white/50 dark:hover:bg-white/20">
+      <div className="flex-grow font-medium">{message}</div>
+      <button onClick={onClose} className="ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-lg inline-flex h-8 w-8 hover:bg-black/10 dark:hover:bg-white/20">
         <span className="sr-only">Dismiss</span>
         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 11-1.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
       </button>
     </div>
   );
 };
-
-
 
 function App() {
   const [docType, setDocType] = useState<DocumentType>(DocumentType.NONE);
@@ -422,7 +405,6 @@ function App() {
   };
 
   const triggerImport = () => {
-      // Dispara o clique no input file oculto
       if (fileInputRef.current) {
           fileInputRef.current.click();
       }
@@ -438,23 +420,17 @@ function App() {
               const content = e.target?.result as string;
               const parsed = JSON.parse(content);
 
-              // Validação básica
               if (!parsed.type || !parsed.data) {
                    throw new Error('Formato de arquivo inválido. O arquivo deve ser um JSON gerado por este sistema.');
               }
 
-              // Verifica se o tipo do arquivo corresponde a algum tipo suportado
               const isTypeSupported = Object.values(DocumentType).includes(parsed.type);
               if (!isTypeSupported) {
                    throw new Error(`Tipo de documento desconhecido: ${parsed.type}`);
               }
 
-              // Atualiza o tipo de documento atual para o do arquivo importado
               setDocType(parsed.type);
 
-              // Atualiza os dados com base no tipo
-              // Usamos setTimeout para garantir que a renderização do novo form ocorra (se necessário) antes, 
-              // embora React faça batching. Aqui estamos atualizando o estado global levantado.
               switch(parsed.type) {
                   case DocumentType.DFD: resetDfdData(parsed.data); break;
                   case DocumentType.ETP: resetEtpData(parsed.data); break;
@@ -470,7 +446,6 @@ function App() {
               setToast({ message: 'Erro ao importar: ' + (error as Error).message, type: 'error' });
           }
           
-          // Limpa o input para permitir importar o mesmo arquivo novamente se necessário
           if (fileInputRef.current) {
               fileInputRef.current.value = '';
           }
@@ -490,7 +465,6 @@ function App() {
         await new Promise(resolve => setTimeout(resolve, 50));
 
         if (docType === DocumentType.DFD) {
-            // Verifica se há conteúdo suficiente para usar a IA
             const hasContent = dfdData.problema?.trim() && dfdData.quantitativo?.trim() && dfdData.justificativaPrazo?.trim();
             
             if (hasContent) {
@@ -590,13 +564,13 @@ function App() {
   };
 
   return (
-    <div className="bg-gradient-to-r from-cbmpa-blue-start to-cbmpa-blue-end dark:from-gray-900 dark:to-gray-800 min-h-screen p-4 sm:p-8">
+    <div className="bg-gradient-to-r from-blue-900 to-indigo-900 dark:from-slate-950 dark:to-slate-900 min-h-screen p-4 sm:p-8 font-sans text-gray-900 dark:text-gray-100">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {isLoading && (
-            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[9999]">
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999]">
                 <div className="flex flex-col items-center">
-                    <div className="w-16 h-16 border-4 border-white border-t-cbmpa-red rounded-full animate-spin mb-4"></div>
-                    <p className="text-white font-bold animate-pulse">Processando Documento...</p>
+                    <div className="w-16 h-16 border-4 border-gray-600 border-t-red-500 rounded-full animate-spin mb-4"></div>
+                    <p className="text-white font-bold text-lg animate-pulse">Processando Documento...</p>
                 </div>
             </div>
         )}
@@ -610,53 +584,78 @@ function App() {
         onChange={handleFileImport} 
       />
 
-      <div className="max-w-6xl mx-auto bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden">
-        <header className="bg-gradient-to-r from-cbmpa-red to-cbmpa-purple text-white p-6 sm:p-8 text-center relative">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-shadow">🔥 GERADOR DE DOCUMENTOS CBMPA 🔥</h1>
-          <p className="text-sm sm:text-base opacity-90">Sistema de Elaboração de Documentos de Contratação</p>
+      <div className="max-w-6xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
+        <header className="bg-gradient-to-r from-red-700 to-red-900 text-white p-6 sm:p-8 text-center relative shadow-md">
+          <h1 className="text-2xl sm:text-3xl font-extrabold mb-2 tracking-wide text-shadow">🔥 GERADOR DE DOCUMENTOS CBMPA 🔥</h1>
+          <p className="text-sm sm:text-base opacity-90 font-medium tracking-wider">Sistema de Elaboração de Documentos de Contratação</p>
         </header>
 
-        <main className="p-4 sm:p-8">
+        <main className="p-4 sm:p-8 bg-gray-50 dark:bg-slate-900">
           {docType === DocumentType.NONE ? (
              <>
                 <DocumentSelector onSelect={setDocType} />
-                <div className="mt-8 text-center border-t pt-8 dark:border-gray-700">
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">Já tem um trabalho salvo?</p>
+                <div className="mt-12 text-center border-t-2 pt-8 border-gray-200 dark:border-slate-700">
+                    <p className="text-gray-600 dark:text-gray-300 font-medium mb-4 text-lg">Já tem um trabalho salvo?</p>
                     <button 
                         onClick={triggerImport} 
-                        className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg transition transform hover:scale-105 flex items-center gap-2 mx-auto"
+                        className="bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-3 px-8 rounded-xl transition transform hover:scale-105 hover:shadow-lg flex items-center gap-3 mx-auto"
                     >
-                        ⬆️ Importar Arquivo (.json)
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                        Importar Arquivo (.json)
                     </button>
                 </div>
              </>
           ) : (
             <>
-                <div className="flex justify-between items-center mb-6 border-b pb-4 dark:border-gray-700">
-                    <h2 className="text-xl sm:text-2xl font-bold text-gray-700 dark:text-gray-300">{currentDocInfo?.description}</h2>
-                    <button onClick={() => setDocType(DocumentType.NONE)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-200 font-bold py-2 px-4 rounded-lg transition-colors">
-                        ← Mudar Documento
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8 border-b-2 pb-4 border-gray-200 dark:border-slate-700">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-white flex items-center gap-3">
+                        <span className="p-2 bg-gray-100 dark:bg-slate-800 rounded-lg">{currentDocInfo?.icon}</span>
+                        {currentDocInfo?.description}
+                    </h2>
+                    <button onClick={() => setDocType(DocumentType.NONE)} className="bg-gray-200 hover:bg-gray-300 text-gray-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-200 font-bold py-2 px-6 rounded-xl transition-all shadow-sm flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                        Mudar Documento
                     </button>
                 </div>
 
-                {renderForm()}
+                {/* Aqui renderiza o formulário selecionado. Garanta que dentro desses forms você também esteja usando bg-white/bg-slate-800 e text-gray-900/text-gray-100 */}
+                <div className="bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100">
+                    {renderForm()}
+                </div>
                 
-                <div className="mt-8 pt-6 border-t-2 border-gray-200 dark:border-gray-700 flex flex-wrap gap-4 justify-center">
-                    <button onClick={exportData} className="flex-grow sm:flex-grow-0 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 flex items-center gap-2 justify-center">
-                        ⬇️ Exportar Dados
-                    </button>
-                    <button onClick={triggerImport} className="flex-grow sm:flex-grow-0 bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 flex items-center gap-2 justify-center">
-                        ⬆️ Importar Dados
-                    </button>
-                    <button
-                        onClick={undo}
-                        disabled={!canUndo}
-                        className="flex-grow sm:flex-grow-0 bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        ↩️ Desfazer
-                    </button>
-                    <button onClick={clearForm} className="flex-grow sm:flex-grow-0 bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105">🗑️ Limpar Tudo</button>
-                    <button onClick={handleGeneratePdf} className="flex-grow sm:flex-grow-0 bg-gradient-to-r from-cbmpa-red to-cbmpa-purple text-white font-bold py-3 px-6 rounded-lg transition transform hover:scale-105 shadow-lg">📄 GERAR PDF</button>
+                {/* Footer de Ações Repaginado (Grid Responsivo) */}
+                <div className="mt-10 pt-8 border-t-2 border-gray-200 dark:border-slate-700">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                        <button onClick={exportData} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-200 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                            Exportar
+                        </button>
+                        
+                        <button onClick={triggerImport} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-200 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                            Importar
+                        </button>
+                        
+                        <button
+                            onClick={undo}
+                            disabled={!canUndo}
+                            className="w-full bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+                            Desfazer
+                        </button>
+                        
+                        <button onClick={clearForm} className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:hover:bg-red-900/50 dark:text-red-300 dark:border-red-800 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            Limpar Tudo
+                        </button>
+                        
+                        {/* Botão Principal em Destaque */}
+                        <button onClick={handleGeneratePdf} className="w-full lg:col-span-1 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-extrabold py-3 px-4 rounded-xl transition transform hover:-translate-y-1 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                            GERAR PDF
+                        </button>
+                    </div>
                 </div>
             </>
           )}
