@@ -83,7 +83,7 @@ export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string
     // --- INSERÇÃO DO LOGOTIPO PRINCIPAL (CABEÇALHO) ---
     try {
         if (logoCBMPABase64) {
-             doc.addImage(logoCBMPABase64, 'PNG', MARGIN_LEFT, 16.5, 30, 12);
+             doc.addImage(logoCBMPABase64, 'PNG', MARGIN_LEFT, 16.5, 28, 12);
         }
     } catch (error) {
         console.error("Erro ao carregar o logotipo no drawInstitutionalHeader:", error);
@@ -123,7 +123,7 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
     // Subimos o eixo Y mais um pouquinho para acomodar as 4 linhas perfeitamente
     const footY = PAGE_HEIGHT - 28; 
     
-    const logoWidth = 14;
+    const logoWidth = 12;
     const logoHeight = 14;
     let textStartX = MARGIN_LEFT; 
 
@@ -132,7 +132,7 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
         // Trava de segurança para checar se o Base64 é válido
         if (distintivoQCGBase64 && distintivoQCGBase64.length > 100) {
              // Desenha o distintivo na margem esquerda
-             doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 3, logoWidth, logoHeight);
+             doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 2, logoWidth, logoHeight);
              
              // Empurra o início do texto para a direita
              textStartX = MARGIN_LEFT + logoWidth + 4; 
@@ -150,16 +150,16 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
     doc.setFont('helvetica', 'italic');
     
     // LINHA 1 (Corpo de Bombeiros vem primeiro)
-    doc.text(`CORPO DE BOMBEIROS MILITAR DO PARÁ`, textStartX, footY, { align: 'left' });
+    doc.text(`Corpo de Bombeiros Militar do Pará`, textStartX, footY, { align: 'left' });
     
     // LINHA 2 (Diretoria vem em seguida)
-    doc.text(`DIRETORIA DE APOIO LOGÍSTICO`, textStartX, footY + 4, { align: 'left' });
+    doc.text(`Diretoria de Apoio Logístico`, textStartX, footY + 4, { align: 'left' });
 
     // LINHA 3 (Endereço)
-    doc.text(`Endereço: Av Júlio César, 3000, Val-de-Cans`, textStartX, footY + 8, { align: 'left' });
+    doc.text(`Endereço: Av Júlio César, 3000, Val-de-Cans - Marambaia, CEP: 66615-055, Belém-PA`, textStartX, footY + 8, { align: 'left' });
 
     // LINHA 4 (Contatos)
-    doc.text(`www.bombeiros.pa.gov.br | e-mail: pev.cbmpa@gmail.com`, textStartX, footY + 12, { align: 'left' });
+    doc.text(`www.bombeiros.pa.gov.br | e-mail: sipcdal@gmail.com`, textStartX, footY + 12, { align: 'left' });
       
     // --- TRAVA DE SEGURANÇA ---
     // Reseta a fonte para 'normal' antes de imprimir a página e finalizar.
