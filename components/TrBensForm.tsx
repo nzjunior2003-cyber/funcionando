@@ -636,15 +636,15 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
           {/* --- NOVO ITEM 7.7 CORRIGIDO --- */}
           <Field label="7.7 Há riscos a serem assumidos pela contratada?">
               <RadioGroup 
-                  name="temRiscos" 
-                  value={data.temRiscos} 
+                  name="riscosAssumidos" 
+                  value={data.riscosAssumidos} 
                   options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} 
                   onChange={handleChange} 
               />
-              {data.temRiscos === 'sim' && (
+              {data.riscosAssumidos === 'sim' && (
                   <textarea
-                      name="especificacaoRiscos"
-                      value={data.especificacaoRiscos}
+                      name="riscosAssumidosDesc"
+                      value={data.riscosAssumidosDesc}
                       onChange={handleChange}
                       className={`${inputClasses} mt-2 min-h-[80px] resize-y`}
                       placeholder="Descreva detalhadamente os riscos assumidos pela contratada..."
