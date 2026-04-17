@@ -129,7 +129,7 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
 
     // --- INSERÇÃO DO DISTINTIVO NO RODAPÉ ---
     try {
-        // Adicionei uma trava de segurança para checar se o Base64 é válido
+        // Trava de segurança para checar se o Base64 é válido
         if (distintivoQCGBase64 && distintivoQCGBase64.length > 100) {
              // Desenha o distintivo na margem esquerda
              doc.addImage(distintivoQCGBase64, 'PNG', MARGIN_LEFT, footY - 3, logoWidth, logoHeight);
@@ -143,23 +143,31 @@ export const drawInstitutionalFooter = (doc: jsPDF, setor: string, pageNum: numb
     // ---------------------------------------
 
     doc.setFontSize(7);
-    doc.setTextColor(0);
+    // Uma dica: um tom de cinza (80,80,80) deixa o rodapé mais suave e elegante que o preto puro (0)
+    doc.setTextColor(80, 80, 80); 
     
-    // LINHA 1 (Negrito)
-    doc.setFont('helvetica', 'bold');
-    doc.text(`DIRETORIA DE APOIO LOGÍSTICO`, textStartX, footY, { align: 'left' });
+    // --- APLICA O ITÁLICO PARA TODO O BLOCO DE TEXTO DO RODAPÉ ---
+    doc.setFont('helvetica', 'italic');
     
-    // LINHA 2 (Negrito)
-    doc.text(`CORPO DE BOMBEIROS MILITAR DO PARÁ`, textStartX, footY + 4, { align: 'left' });
+    // LINHA 1 (Corpo de Bombeiros vem primeiro)
+    doc.text(`CORPO DE BOMBEIROS MILITAR DO PARÁ`, textStartX, footY, { align: 'left' });
+    
+    // LINHA 2 (Diretoria vem em seguida)
+    doc.text(`DIRETORIA DE APOIO LOGÍSTICO`, textStartX, footY + 4, { align: 'left' });
 
-    // LINHA 3 (Normal)
-    doc.setFont('helvetica', 'normal');
+    // LINHA 3 (Endereço)
     doc.text(`Endereço: Av Júlio César, 3000, Val-de-Cans`, textStartX, footY + 8, { align: 'left' });
 
-    // LINHA 4 (Normal)
+    // LINHA 4 (Contatos)
     doc.text(`www.bombeiros.pa.gov.br | e-mail: pev.cbmpa@gmail.com`, textStartX, footY + 12, { align: 'left' });
       
-    // Número da página alinhado com a última linha
+    // --- TRAVA DE SEGURANÇA ---
+    // Reseta a fonte para 'normal' antes de imprimir a página e finalizar.
+    // Isso impede que a próxima página do PDF ou outras tabelas fiquem em itálico por acidente!
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(0); // Volta o texto para preto padrão
+    
+    // Número da página alinhado à direita
     doc.text(`Página ${pageNum} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, footY + 12, { align: 'right' });
 };
 
