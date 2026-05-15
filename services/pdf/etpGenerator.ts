@@ -371,7 +371,8 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         styles: { 
             font: 'helvetica',
             fontSize: 10,
-            cellPadding: 1.2,
+            // AQUI ESTÁ A MÁGICA DO PADDING À DIREITA: 3 milímetros de distância!
+            cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 },
             lineColor: 0, 
             lineWidth: 0.1,
             textColor: 0,
