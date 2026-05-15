@@ -41,6 +41,14 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         return arr.some(item => typeof item === 'string' && item.toLowerCase().includes(keyword.toLowerCase()));
     };
 
+    // FUNÇÃO MÁGICA PARA JUSTIFICAR SEM ESTICAR A ÚLTIMA LINHA
+    const formatJustify = (text: string | undefined | null) => {
+        if (!text) return '';
+        const trimmed = text.trim();
+        // O \n no final avisa o jsPDF que o parágrafo acabou, impedindo o efeito sanfona
+        return trimmed ? trimmed + '\n' : '';
+    };
+
     let labelCounter = 0;
     const getNextLabelColor = (): [number, number, number] => {
         const color = labelCounter % 2 === 0 ? colorGrayLabel : colorWhite;
@@ -71,7 +79,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([{ content: '1 – DESCRIÇÃO DA NECESSIDADE\n(art. 18, §1º, I, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '1.1 - QUAL A NECESSIDADE A SER ATENDIDA?', styles: questionStyle(getNextLabelColor()) },
-        { content: data.necessidade || '', colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: formatJustify(data.necessidade), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 2: MERCADO ---
@@ -92,7 +100,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '2.2 - JUSTIFICATIVA TÉCNICA E ECONÔMICA PARA A ESCOLHA DA MELHOR SOLUÇÃO', styles: questionStyle(getNextLabelColor()) },
-        { content: data.justificativaTecnica || '', colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: formatJustify(data.justificativaTecnica), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
     body.push([
         { content: '2.3 - HÁ RESTRIÇÃO DE FORNECEDORES?', styles: questionStyle(getNextLabelColor()) },
@@ -153,7 +161,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         qualItems.forEach((item, idx) => {
             body.push([
                 { content: (idx + 1).toString(), styles: { halign: 'center' } },
-                { content: item.descricao, colSpan: 4, styles: { halign: 'left', valign: 'middle' } }
+                { content: formatJustify(item.descricao), colSpan: 4, styles: { halign: 'justify', valign: 'middle' } }
             ]);
         });
     }
@@ -177,7 +185,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([{ content: '4 – DESCRIÇÃO DA SOLUÇÃO\n(art. 18, §1º, VII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '4.1 - O QUE SERÁ CONTRATADO?', styles: questionStyle(getNextLabelColor()) },
-        { content: data.solucaoContratacao || '', colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: formatJustify(data.solucaoContratacao), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
     body.push([
         { content: '4.2 - QUAL O PRAZO DA GARANTIA CONTRATUAL?', styles: questionStyle(getNextLabelColor()) },
@@ -208,7 +216,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '5.2 - DESCRIÇÃO DO QUANTITATIVO', styles: questionStyle(getNextLabelColor()) },
-        { content: data.descricaoQuantitativo || '', colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: formatJustify(data.descricaoQuantitativo), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // 5.3 Especificação
@@ -223,7 +231,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     items.forEach((item, idx) => {
         body.push([
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
-            { content: item.descricao, colSpan: 2, styles: { halign: 'left', valign: 'middle' } },
+            { content: formatJustify(item.descricao), colSpan: 2, styles: { halign: 'justify', valign: 'middle' } },
             { content: item.unidade, styles: { halign: 'center' } },
             { content: item.quantidade.toString(), styles: { halign: 'center' } }
         ]);
@@ -259,7 +267,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     items.forEach((item, idx) => {
         body.push([
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
-            { content: item.descricao, styles: { halign: 'left', valign: 'middle' } },
+            { content: formatJustify(item.descricao), styles: { halign: 'justify', valign: 'middle' } },
             { content: formatCurrency(item.valorUnitario), styles: { halign: 'right' } },
             { content: item.quantidade.toString(), styles: { halign: 'center' } },
             { content: formatCurrency(item.quantidade * item.valorUnitario), styles: { halign: 'right' } }
@@ -333,7 +341,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '11.2 - QUAIS SÃO OS SETORES RESPONSÁVEIS PELAS PROVIDÊNCIAS PENDENTES?', styles: questionStyle(getNextLabelColor()) },
-        { content: data.pendenciasResponsaveis || '', colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: formatJustify(data.pendenciasResponsaveis), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 12: IMPACTOS AMBIENTAIS ---
@@ -341,10 +349,10 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([
         { content: '12.1 - HÁ PREVISÃO DE IMPACTO AMBIENTAL NA CONTRATAÇÃO?', rowSpan: 2, styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.impactoAmbiental === 'sim')} Sim.\n${radio(data.impactoAmbiental === 'nao')} Não.`, rowSpan: 2, styles: { valign: 'middle', halign: 'left', cellWidth: 20 } },
-        { content: `Impactos:\n${data.impactos || ''}`, colSpan: 4, styles: { fillColor: colorRedImpact, halign: 'left', fontSize: 9 } }
+        { content: formatJustify(`Impactos:\n${data.impactos || ''}`), colSpan: 4, styles: { fillColor: colorRedImpact, halign: 'justify', fontSize: 9 } }
     ]);
     body.push([
-        { content: `Medidas de mitigação:\n${data.medidasMitigacao || ''}`, colSpan: 4, styles: { fillColor: colorBlueMitigation, halign: 'left', fontSize: 9 } }
+        { content: formatJustify(`Medidas de mitigação:\n${data.medidasMitigacao || ''}`), colSpan: 4, styles: { fillColor: colorBlueMitigation, halign: 'justify', fontSize: 9 } }
     ]);
 
     // --- SEÇÃO 13: DECLARAÇÃO DE VIABILIDADE ---
