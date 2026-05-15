@@ -63,9 +63,10 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
     if (!selected || selected.length === 0) return 'Conforme Edital.';
     return selected.map(opt => `${map[opt] || opt}`).join('\n\n');
 };
+// ============================================================================
 
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
-    // Margens Reduzidas (Item 4)
+    // Margens Reduzidas para 8mm (Item 4)
     const L_MARGIN = 8;
     const R_MARGIN = 8;
     const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
@@ -76,41 +77,58 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const colorWhiteLabel: [number, number, number] = [255, 255, 255];
     
     setDefaultFont(doc);
-    const hasItem = (arr: string[] | undefined, keyword: string) => {
-        if (!arr || !Array.isArray(arr)) return false;
-        return arr.some(item => typeof item === 'string' && item.toLowerCase().includes(keyword.toLowerCase()));
-    };
-
+    const radio = (selected: boolean) => selected ? '[X]' : '[  ]';
+    
     let currentY = drawInstitutionalHeader(doc, data.setor || '', "TERMO DE REFERÊNCIA DE BENS COMUNS", `PAE nº ${data.pae || 'aaaa/nnnn'}`);
     currentY += 5;
 
-    // MOTOR DE DESENHO (IDÊNTICO AO ETP V3 - À PROVA DE VAZAMENTO)
+    // ============================================================================
+    // MOTOR INTELIGENTE V3: 100% À PROVA DE VAZAMENTO
+    // ============================================================================
     const advancedWillDrawCell = (hookData: any) => {
         if (hookData.section === 'body') {
             const cell = hookData.cell;
             if (!cell.text || !Array.isArray(cell.text)) return;
+            
             (cell as any).checkboxes = [];
             let modifiedText = [...cell.text];
+            
+            // 1. Localiza os checkboxes nas linhas originadas pela tabela
             for (let i = 0; i < modifiedText.length; i++) {
                 let replacedLine = modifiedText[i];
                 let searchIdx = 0;
+                
                 while(true) {
                     let openIdx = replacedLine.indexOf('[', searchIdx);
                     if (openIdx === -1) break;
                     let closeIdx = replacedLine.indexOf(']', openIdx);
                     if (closeIdx === -1) break;
+
                     let inside = replacedLine.substring(openIdx + 1, closeIdx);
+                    
                     if (inside.trim() === 'X' || inside.trim() === '') {
                         let isChecked = inside.includes('X');
                         let textBefore = replacedLine.substring(0, openIdx);
-                        (cell as any).checkboxes.push({ lineIndex: i, checked: isChecked, textBefore: textBefore });
+
+                        (cell as any).checkboxes.push({
+                            lineIndex: i,
+                            checked: isChecked,
+                            textBefore: textBefore
+                        });
+
                         replacedLine = replacedLine.substring(0, openIdx) + '   ' + replacedLine.substring(closeIdx + 1);
                         searchIdx = openIdx + 3;
-                    } else { searchIdx = closeIdx + 1; }
+                    } else {
+                        searchIdx = closeIdx + 1;
+                    }
                 }
                 modifiedText[i] = replacedLine;
             }
+
+            // 2. Salva as linhas com os tamanhos EXATOS calculados pelo autoTable
             (cell as any)._myLines = modifiedText;
+            
+            // 3. Limpa o texto nativo para desenharmos manualmente em cima sem borrar
             cell.text = []; 
         }
     };
@@ -121,17 +139,32 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             const styles = cell.styles;
             const fontSizeMm = (styles.fontSize * 25.4) / 72;
             const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
-            const padLeft = 1.2, padRight = 3, padTop = 1.2;
+            
+            let padTop = 1.2, padLeft = 1.2, padRight = 1.2;
+            if (typeof styles.cellPadding === 'number') {
+                padTop = padLeft = padRight = styles.cellPadding;
+            } else if (styles.cellPadding) {
+                padTop = (styles.cellPadding as any).top || 1.2;
+                padLeft = (styles.cellPadding as any).left || 1.2;
+                padRight = (styles.cellPadding as any).right || 1.2;
+            }
+
             const textX = cell.x + padLeft;
             const maxWidth = cell.width - padLeft - padRight;
+
             doc.setFont(styles.font, styles.fontStyle);
             doc.setFontSize(styles.fontSize);
+
             const lines = (cell as any)._myLines;
             if (!lines || lines.length === 0) return;
+
             const textHeight = lines.length * lineHeight;
             let startY = cell.y + padTop;
-            if (styles.valign === 'middle') startY = cell.y + (cell.height - textHeight) / 2;
+            if (styles.valign === 'middle') {
+                startY = cell.y + (cell.height - textHeight) / 2;
+            }
 
+            // A. Desenha os Checkboxes Pintados
             const checkboxes = (cell as any).checkboxes;
             if (checkboxes && checkboxes.length > 0) {
                 checkboxes.forEach((cb: any) => {
@@ -140,123 +173,309 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     const offsetX = doc.getTextWidth(cb.textBefore); 
                     const boxX = textX + offsetX; 
                     const boxY = lineY + ((fontSizeMm - boxSize) / 2);
-                    doc.setDrawColor(0); doc.setLineWidth(0.15);
-                    if (cb.checked) { doc.setFillColor(0); doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); }
-                    else { doc.rect(boxX, boxY, boxSize, boxSize, 'S'); }
+                    
+                    doc.setDrawColor(0);
+                    doc.setLineWidth(0.15);
+                    
+                    if (cb.checked) {
+                        doc.setFillColor(0); 
+                        doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
+                    } else {
+                        doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
+                    }
                 });
+            }
+
+            // B. Desenha o Texto Usando as Linhas da Tabela
+            if (Array.isArray(styles.textColor)) {
+                doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
+            } else {
+                doc.setTextColor(styles.textColor as any);
             }
 
             lines.forEach((lineText: string, idx: number) => {
                 const lineY = startY + (idx * lineHeight);
                 const textY = lineY + (fontSizeMm / 2) + 0.3; 
+
+                // Se a célula for justificada, ativa a lógica antisanfona
                 if (styles.halign === 'justify') {
                     const lineWidth = doc.getTextWidth(lineText);
-                    if (idx === lines.length - 1 || lineWidth < (maxWidth * 0.85)) {
+                    const isLastLine = idx === lines.length - 1;
+                    const isShortLine = lineWidth < (maxWidth * 0.85); 
+
+                    if (isLastLine || isShortLine) {
                         doc.text(lineText, textX, textY, { align: 'left', baseline: 'middle' } as any);
                     } else {
                         doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
                     }
                 } else {
+                    // Para células alinhadas à esquerda/centro/direita
                     let finalX = textX;
                     if (styles.halign === 'center') finalX = cell.x + cell.width / 2;
                     else if (styles.halign === 'right') finalX = cell.x + cell.width - padRight;
+                    
                     doc.text(lineText, finalX, textY, { align: styles.halign as any, baseline: 'middle' } as any);
                 }
             });
         }
     };
 
+    // ============================================================================
+    // TABELA 1: ITENS DA CONTRATAÇÃO
+    // ============================================================================
+    const hasLote = data.itens.some(item => item.loteId && item.loteId.trim() !== '');
+    
+    const lotesTotal: Record<string, number> = {};
+    if (hasLote) {
+        data.itens.forEach(it => {
+            if (it.loteId) {
+                lotesTotal[it.loteId] = (lotesTotal[it.loteId] || 0) + ((it.quantidade || 0) * (it.valorUnitario || 0));
+            }
+        });
+    }
+
+    const t1Head: any[] = [];
+    t1Head.push([{ 
+        content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', 
+        colSpan: hasLote ? 9 : 8, 
+        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } 
+    }]);
+
+    const colNamesRow: any[] = [];
+    if (hasLote) colNamesRow.push({ content: 'Grupo', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } });
+    colNamesRow.push(
+        { content: 'Item', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Descrição', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Código SIMAS', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Und', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Qtd', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'V. Unitário', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'V. Total', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
+        { content: 'Cota', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } }
+    );
+    t1Head.push(colNamesRow);
+
     const t1Body: RowInput[] = [];
     let totalGlobal = 0;
+    
     data.itens.forEach(item => {
         const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
         totalGlobal += subtotal;
-        const cotaStr = subtotal <= 80000 ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
-        t1Body.push([
-            { content: item.item || '-', styles: { halign: 'center' } },
-            { content: item.descricao || '', styles: { halign: 'justify' } },
-            { content: item.codigoSimas || '-', styles: { halign: 'center' } },
-            { content: item.unidade || '-', styles: { halign: 'center' } },
-            { content: (item.quantidade || 0).toString(), styles: { halign: 'center' } },
-            { content: formatCurrency(item.valorUnitario), styles: { halign: 'right' } },
-            { content: formatCurrency(subtotal), styles: { halign: 'right' } },
-            { content: cotaStr, styles: { halign: 'center', fontStyle: 'bold' } }
-        ]);
+
+        const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
+        // Item 2: Quebra de linha nas cotas
+        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
+
+        const row: any[] = [];
+        if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
+        row.push(
+            { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
+            { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
+            { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
+            { content: formatCurrency(subtotal), styles: { halign: 'right', valign: 'middle' } },
+            { content: cotaStr, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
+        );
+        t1Body.push(row);
     });
+
+    t1Body.push([
+        { content: 'VALOR GLOBAL ESTIMADO', colSpan: hasLote ? 6 : 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } },
+        { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } }
+    ]);
 
     autoTable(doc, {
         startY: currentY,
-        head: [[{ content: '1. CONTRATAÇÃO (art. 6°, XXIII da Lei 14.133/21)', colSpan: 8, styles: sectionHeaderStyle }],
-               ['Item', 'Descrição', 'SIMAS', 'Und', 'Qtd', 'V. Unit', 'V. Total', 'Cota']],
-        body: [...t1Body, [{ content: 'VALOR GLOBAL ESTIMADO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }, { content: formatCurrency(totalGlobal), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }]],
+        head: t1Head,
+        body: t1Body,
         theme: 'grid',
-        styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1 },
-        columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 }, 4: { cellWidth: 10 }, 5: { cellWidth: 22 }, 6: { cellWidth: 22 }, 7: { cellWidth: 20 } },
+        styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
+        columnStyles: hasLote ? {
+            0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
+            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 22 }
+        } : {
+            0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
+            4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }
+        },
         margin: { left: L_MARGIN, right: R_MARGIN },
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
+    
+    currentY = (doc as any).lastAutoTable.finalY + 6;
 
+    // ============================================================================
+    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO
+    // ============================================================================
     const t2Body: RowInput[] = [];
-    const pushHeader = (t: string) => t2Body.push([{ content: t, colSpan: 2, styles: sectionHeaderStyle }]);
-    const pushRow = (q: string, a: string, j = false) => {
-        t2Body.push([{ content: q, styles: { fillColor: t2Body.length % 2 === 0 ? colorWhiteLabel : colorGrayLabel, fontStyle: 'bold' } },
-                     { content: a, styles: { fillColor: t2Body.length % 2 === 0 ? colorWhiteLabel : colorGrayLabel, halign: j ? 'justify' : 'left' } }]);
+    let isZebra = false;
+
+    const pushHeader = (title: string) => {
+        t2Body.push([{ content: title, colSpan: 2, styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } }]);
+        isZebra = false;
     };
 
-    pushHeader('2. AGRUPAMENTO (art. 40, §§ 2° e 3° da Lei 14.133/21)');
-    pushRow('JUSTIFICATIVA', data.justificativaAgrupamento || 'Não se aplica.', true);
-    pushHeader('3. SOLUÇÃO (art. 6°, XXIII, c da Lei 14.133/21)');
-    pushRow('3.1. MOTIVO', data.motivoContratacao || '-', true);
-    pushHeader('4. NATUREZA (art. 6°, XXIII, a da Lei 14.133/21)');
-    pushRow('4.1. TIPO', `[${data.naturezaBem === 'comum' ? 'X' : ' '}] Comum.   [${data.naturezaBem === 'especial' ? 'X' : ' '}] Especial.`);
-    pushHeader('7. REQUISITOS (arts. 67 a 70 da Lei 14.133/21)');
-    pushRow('7.1. JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica), true);
-    pushRow('7.2. FISCAL', translateOptions(data.habilitacaoFiscal, mapFiscal), true);
-    pushRow('7.4. TÉCNICA', `[${data.habilitacaoTecnicaExigida === 'sim' ? 'X' : ' '}] Sim. Justificativa: ${data.habilitacaoTecnicaPorque || '-'}\n[${data.habilitacaoTecnicaExigida === 'nao' ? 'X' : ' '}] Não.`, true);
+    const pushRow = (q: string, a: string, justificado: boolean = false) => {
+        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
+        isZebra = !isZebra;
+        t2Body.push([
+            { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
+            { content: a, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
+        ]);
+    };
+
+    const pushFullRow = (content: string, justificado: boolean = false) => {
+        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
+        isZebra = !isZebra;
+        t2Body.push([{ content: content, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
+    };
+
+    pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
+    pushFullRow(data.justificativaAgrupamento || 'Não se aplica.', true);
+
+    pushHeader('3. DESCRIÇÃO DA SOLUÇÃO\n(art. 6°, XXIII, c, da Lei Federal nº 14.133/21)');
+    pushRow('3.1. QUAL O MOTIVO DA CONTRATAÇÃO?', data.motivoContratacao || '-', true);
+
+    pushHeader('4. NATUREZA DO BEM\n(art. 6°, XXIII, a, da Lei Federal nº 14.133/21)');
+    pushFullRow(`${radio(data.naturezaBem === 'comum')} Comum.\n\n${radio(data.naturezaBem === 'especial')} Especial.`, false);
+
+    pushHeader('5. PROVA DE QUALIDADE, RENDIMENTO, DURABILIDADE E SEGURANÇA\n(art. 40, § 1°, I e III, da Lei Federal nº 14.133/21)');
+    pushRow('5.1. HAVERÁ PROVA DE QUALIDADE?', `${radio(data.provaQualidade === 'sim')} Sim. Justificativa: ${data.justificativaProvaQualidade || '-'}\n\n${radio(data.provaQualidade === 'nao')} Não.`, true);
+    pushRow('5.2. O EDITAL EXIGIRÁ AMOSTRA?', `${radio(data.amostra === 'sim')} Sim. Prazo: ${data.amostraPrazo || '-'} dias úteis.\n\n${radio(data.amostra === 'nao')} Não.`);
+    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n\n${radio(data.garantiaBem === 'nao')} Não.`, true);
+    pushRow('5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses.\nMODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n\n${radio(data.assistenciaTecnica === 'nao')} Não.`, true);
+
+    pushHeader('6. CRITÉRIOS DE SELEÇÃO\n(art. 6°, XXIII, h, da Lei Federal nº 14.133/21)');
+    const fC = data.formaContratacao || [];
+    pushRow('6.1. FORMA DE CONTRATAÇÃO', [
+        `${radio(fC.includes('inexigibilidade'))} Inexigibilidade (Art. 74, Inciso ${data.inexigibilidadeInciso || '...'})`,
+        `${radio(fC.includes('dispensa_valor'))} Dispensa por Valor (Art. 75, II)`,
+        `${radio(fC.includes('dispensa_art75'))} Dispensa (Art. 75, Inciso ${data.dispensaInciso || '...'})`,
+        `${radio(fC.includes('pregao'))} Pregão eletrônico`,
+        `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`
+    ].join('\n\n'));
+    pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
+    pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, true);
+    pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
+
+    pushHeader('7. REQUISITOS DA CONTRATADA E SUBCONTRATAÇÃO\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
+    pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
+    pushRow('7.2. FISCAL / SOCIAL', translateOptions(data.habilitacaoFiscal, mapFiscal));
+    pushRow('7.3. QUALIFICAÇÃO ECONÔMICA', translateOptions(data.qualificacaoEconomica, mapEconomica));
+    pushRow('7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`, true);
+    
+    const qualifTec = data.qualificacoesTecnicas || [];
+    const qualifTecText = qualifTec.length === 0 ? 'Conforme Edital.' : qualifTec.map(opt => {
+        const baseText = `${mapQualificacaoTecnica[opt] || opt}`;
+        const just = data.qualificacoesTecnicasJustificativas?.[opt];
+        return just ? `${baseText}\n  Justificativa: ${just}` : baseText;
+    }).join('\n\n');
+    pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText, true);
+    pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, true);
+    pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`, true);
+    pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`, true);
+    pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`, true);
+
+    pushHeader('8. FORMA DE ENTREGA DO BEM E DIRETRIZES\n(art. 40, § 1°, II, da Lei Federal nº 14.133/21)');
+    pushRow('8.1. FORMA', data.formaEntregaTipo === 'unica' ? 'Integral de uma só vez.' : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`, true);
+    pushRow('8.2. LOCAL E HORA', data.localEntrega || '-', true);
+    if (data.prazoValidadePereciveis) pushRow('8.3. VALIDADE (PERECÍVEIS)', `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`, true);
+
+    pushHeader('9. PRAZO, FORMA DE PAGAMENTO E GARANTIA DO CONTRATO\n(art. 92 da Lei Federal nº 14.133/21)');
+    pushRow('9.1. PRAZO DO CONTRATO', `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.\nPossibilidade de Prorrogação: ${data.possibilidadeProrrogacao === 'sim' ? 'Sim' : 'Não'}.`);
+    
+    const pgOpts = data.pagamentoOpcoes || [];
+    let pgText = '';
+    if(pgOpts.includes('ordem_bancaria')) pgText += '• O pagamento será realizado por ordem bancária creditada em conta corrente.\n';
+    if(pgOpts.includes('banpara')) pgText += '• Banco do Estado do Pará - BANPARÁ.\n';
+    if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
+    if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${data.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
+    if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${data.pagamentoRegularidade || 'Conforme Edital'}\n`;
+    pushRow('9.2. PAGAMENTO', pgText || 'Conforme Edital.', true);
+    
+    pushRow('9.3. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, true);
+    pushRow('9.4. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
+
+    pushHeader('10. PREVISÃO ORÇAMENTÁRIA\n(art. 18, § 1°, VI, da Lei Federal nº 14.133/21)');
+    pushRow('FUNCIONAL', data.dadosOrcamentariosFuncional || '-');
+    pushRow('ELEMENTO E FONTE', `Elemento: ${data.dadosOrcamentariosElemento || '-'}   |   Fonte: ${data.dadosOrcamentariosFonte || '-'}`);
 
     autoTable(doc, {
-        startY: (doc as any).lastAutoTable.finalY + 6,
+        startY: currentY,
         body: t2Body,
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 } },
-        columnStyles: { 0: { cellWidth: 40 } },
+        styles: { 
+            fontSize: 8, 
+            lineColor: [0,0,0], 
+            lineWidth: 0.1, 
+            textColor: 0, 
+            overflow: 'linebreak',
+            cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 }
+        },
+        columnStyles: {
+            0: { cellWidth: 55 },
+            1: { cellWidth: 'auto' }
+        },
         margin: { left: L_MARGIN, right: R_MARGIN, bottom: MARGIN_BOTTOM },
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
 
-    // ASSINATURAS E DATA
+    // ============================================================================
+    // ASSINATURAS E RODAPÉ (COM LINHA FINA E NOME FORMANTADO)
+    // ============================================================================
     let finalY = (doc as any).lastAutoTable.finalY + 15;
-    if (finalY > PAGE_HEIGHT - 60) { doc.addPage(); finalY = MARGIN_TOP + 10; }
-
-    // Data à direita sem negrito (Item 3)
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, finalY, { align: 'right' });
-
-    finalY += 25;
-    // Linha fina e discreta (Item 5)
-    const sigX = PAGE_WIDTH / 2;
-    doc.setLineWidth(0.05); doc.setDrawColor(180);
-    doc.line(sigX - 40, finalY, sigX + 40, finalY);
-
-    // Nome (só guerra em negrito) - Cargo (em negrito) (Item 1 e 2)
-    const nameNormal = (data.nome || '').replace(data.nomeGuerra || '', '').trim();
-    const nameBold = data.nomeGuerra ? ` ${data.nomeGuerra}` : '';
-    const cargoBold = ` - ${data.cargo || ''}`;
+    if (finalY > PAGE_HEIGHT - 65) {
+        doc.addPage();
+        finalY = MARGIN_TOP + 10;
+    }
 
     doc.setFontSize(10);
-    const w1 = doc.getTextWidth(nameNormal);
-    doc.setFont('helvetica', 'bold');
-    const w2 = doc.getTextWidth(nameBold);
-    const w3 = doc.getTextWidth(cargoBold);
-    let startX = sigX - ((w1 + w2 + w3) / 2);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, finalY, { align: 'right' });
+    
+    finalY += 30;
+    
+    const sigWidth = 80;
+    const sigX = PAGE_WIDTH / 2;
+    doc.setLineWidth(0.1); 
+    doc.setDrawColor(120, 120, 120); 
+    doc.line(sigX - (sigWidth/2), finalY, sigX + (sigWidth/2), finalY);
 
-    doc.setFont('helvetica', 'normal'); doc.text(nameNormal, startX, finalY + 5);
-    startX += w1;
-    doc.setFont('helvetica', 'bold'); doc.text(nameBold, startX, finalY + 5);
-    startX += w2;
-    doc.text(cargoBold, startX, finalY + 5);
+    doc.setFontSize(10);
+
+    // Lógica para Nome Civil (Normal) + Nome de Guerra - Cargo (Negrito)
+    let civilPart = (data.nome || '').trim();
+    const guerraPart = (data.nomeGuerra || '').trim();
+    const cargoPart = (data.cargo || '').trim();
+
+    if (guerraPart && civilPart.toLowerCase().includes(guerraPart.toLowerCase())) {
+        const regex = new RegExp(`\\s*${guerraPart}\\s*`, 'i');
+        civilPart = civilPart.replace(regex, ' ').trim();
+    }
+
+    const boldText = (guerraPart ? ` ${guerraPart}` : '') + (cargoPart ? ` - ${cargoPart}` : '');
+    
+    doc.setFont('helvetica', 'normal');
+    const w1 = civilPart ? doc.getTextWidth(civilPart) : 0;
+    
+    doc.setFont('helvetica', 'bold');
+    const w2 = boldText ? doc.getTextWidth(boldText) : 0;
+    
+    let startX = sigX - ((w1 + w2) / 2);
+    
+    if (civilPart) {
+        doc.setFont('helvetica', 'normal');
+        doc.text(civilPart, startX, finalY + 5);
+        startX += w1;
+    }
+    
+    if (boldText) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(boldText, startX, finalY + 5);
+    }
 
     if (data.funcao) {
         doc.setFont('helvetica', 'normal');
@@ -266,15 +485,12 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
-        if (i === totalPages) drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
-        else { doc.setFontSize(8); doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - R_MARGIN, PAGE_HEIGHT - 10, { align: 'right' }); }
+        if (i === totalPages) {
+            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - R_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
+        }
     }
-};
-
-const sectionHeaderStyle = {
-    fillColor: [31, 78, 121] as [number, number, number],
-    textColor: 255 as any,
-    halign: 'center' as const,
-    fontStyle: 'bold' as const,
-    fontSize: 10
 };
