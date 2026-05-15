@@ -41,14 +41,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         return arr.some(item => typeof item === 'string' && item.toLowerCase().includes(keyword.toLowerCase()));
     };
 
-    // FUNÇÃO MÁGICA PARA JUSTIFICAR SEM ESTICAR A ÚLTIMA LINHA
-    const formatJustify = (text: string | undefined | null) => {
-        if (!text) return '';
-        const trimmed = text.trim();
-        // O \n no final avisa o jsPDF que o parágrafo acabou, impedindo o efeito sanfona
-        return trimmed ? trimmed + '\n' : '';
-    };
-
     let labelCounter = 0;
     const getNextLabelColor = (): [number, number, number] => {
         const color = labelCounter % 2 === 0 ? colorGrayLabel : colorWhite;
@@ -79,7 +71,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([{ content: '1 – DESCRIÇÃO DA NECESSIDADE\n(art. 18, §1º, I, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '1.1 - QUAL A NECESSIDADE A SER ATENDIDA?', styles: questionStyle(getNextLabelColor()) },
-        { content: formatJustify(data.necessidade), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
+        { content: data.necessidade || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 2: MERCADO ---
@@ -100,7 +92,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '2.2 - JUSTIFICATIVA TÉCNICA E ECONÔMICA PARA A ESCOLHA DA MELHOR SOLUÇÃO', styles: questionStyle(getNextLabelColor()) },
-        { content: formatJustify(data.justificativaTecnica), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
+        { content: data.justificativaTecnica || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
     body.push([
         { content: '2.3 - HÁ RESTRIÇÃO DE FORNECEDORES?', styles: questionStyle(getNextLabelColor()) },
@@ -161,7 +153,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         qualItems.forEach((item, idx) => {
             body.push([
                 { content: (idx + 1).toString(), styles: { halign: 'center' } },
-                { content: formatJustify(item.descricao), colSpan: 4, styles: { halign: 'justify', valign: 'middle' } }
+                { content: item.descricao || '', colSpan: 4, styles: { halign: 'justify', valign: 'middle' } }
             ]);
         });
     }
@@ -185,7 +177,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([{ content: '4 – DESCRIÇÃO DA SOLUÇÃO\n(art. 18, §1º, VII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '4.1 - O QUE SERÁ CONTRATADO?', styles: questionStyle(getNextLabelColor()) },
-        { content: formatJustify(data.solucaoContratacao), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
+        { content: data.solucaoContratacao || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
     body.push([
         { content: '4.2 - QUAL O PRAZO DA GARANTIA CONTRATUAL?', styles: questionStyle(getNextLabelColor()) },
@@ -216,7 +208,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '5.2 - DESCRIÇÃO DO QUANTITATIVO', styles: questionStyle(getNextLabelColor()) },
-        { content: formatJustify(data.descricaoQuantitativo), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
+        { content: data.descricaoQuantitativo || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // 5.3 Especificação
@@ -231,7 +223,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     items.forEach((item, idx) => {
         body.push([
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
-            { content: formatJustify(item.descricao), colSpan: 2, styles: { halign: 'justify', valign: 'middle' } },
+            { content: item.descricao || '', colSpan: 2, styles: { halign: 'justify', valign: 'middle' } },
             { content: item.unidade, styles: { halign: 'center' } },
             { content: item.quantidade.toString(), styles: { halign: 'center' } }
         ]);
@@ -267,7 +259,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     items.forEach((item, idx) => {
         body.push([
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
-            { content: formatJustify(item.descricao), styles: { halign: 'justify', valign: 'middle' } },
+            { content: item.descricao || '', styles: { halign: 'justify', valign: 'middle' } },
             { content: formatCurrency(item.valorUnitario), styles: { halign: 'right' } },
             { content: item.quantidade.toString(), styles: { halign: 'center' } },
             { content: formatCurrency(item.quantidade * item.valorUnitario), styles: { halign: 'right' } }
@@ -341,7 +333,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '11.2 - QUAIS SÃO OS SETORES RESPONSÁVEIS PELAS PROVIDÊNCIAS PENDENTES?', styles: questionStyle(getNextLabelColor()) },
-        { content: formatJustify(data.pendenciasResponsaveis), colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
+        { content: data.pendenciasResponsaveis || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 12: IMPACTOS AMBIENTAIS ---
@@ -349,10 +341,10 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     body.push([
         { content: '12.1 - HÁ PREVISÃO DE IMPACTO AMBIENTAL NA CONTRATAÇÃO?', rowSpan: 2, styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.impactoAmbiental === 'sim')} Sim.\n${radio(data.impactoAmbiental === 'nao')} Não.`, rowSpan: 2, styles: { valign: 'middle', halign: 'left', cellWidth: 20 } },
-        { content: formatJustify(`Impactos:\n${data.impactos || ''}`), colSpan: 4, styles: { fillColor: colorRedImpact, halign: 'justify', fontSize: 9 } }
+        { content: `Impactos:\n${data.impactos || ''}`, colSpan: 4, styles: { fillColor: colorRedImpact, halign: 'justify', fontSize: 9 } }
     ]);
     body.push([
-        { content: formatJustify(`Medidas de mitigação:\n${data.medidasMitigacao || ''}`), colSpan: 4, styles: { fillColor: colorBlueMitigation, halign: 'justify', fontSize: 9 } }
+        { content: `Medidas de mitigação:\n${data.medidasMitigacao || ''}`, colSpan: 4, styles: { fillColor: colorBlueMitigation, halign: 'justify', fontSize: 9 } }
     ]);
 
     // --- SEÇÃO 13: DECLARAÇÃO DE VIABILIDADE ---
@@ -370,6 +362,9 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     ]);
 
+    // ----------------------------------------------------------------------
+    // O MOTOR ANTISANFONA E DESENHO DE CAIXINHAS
+    // ----------------------------------------------------------------------
     autoTable(doc, {
         startY: y,
         body: body,
@@ -379,7 +374,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         styles: { 
             font: 'helvetica',
             fontSize: 10,
-            cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 },
+            cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 }, // A margem de 3mm preservada!
             lineColor: 0, 
             lineWidth: 0.1,
             textColor: 0,
@@ -393,8 +388,11 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             if (hookData.section === 'body') {
                 const cell = hookData.cell;
                 if (!cell.text || !Array.isArray(cell.text)) return;
+                
+                let hasCheckbox = false;
                 (cell as any).checkboxes = [];
                 
+                // Mapeia e apaga os placeholders de checkbox
                 for (let i = 0; i < cell.text.length; i++) {
                     let replacedLine = cell.text[i];
                     let searchIdx = 0;
@@ -408,6 +406,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                         let inside = replacedLine.substring(openIdx + 1, closeIdx);
                         
                         if (inside.trim() === 'X' || inside.trim() === '') {
+                            hasCheckbox = true;
                             let isChecked = inside.includes('X');
                             let textBefore = replacedLine.substring(0, openIdx);
 
@@ -425,29 +424,44 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                     }
                     cell.text[i] = replacedLine;
                 }
+
+                // O MOTOR ANTISANFONA: Intercepta a justificação falha do jsPDF
+                if (!hasCheckbox && cell.styles.halign === 'justify' && cell.raw) {
+                    const rawText = typeof cell.raw === 'object' && cell.raw !== null ? (cell.raw as any).content : cell.raw;
+                    if (typeof rawText === 'string') {
+                        (cell as any).customJustifyText = rawText;
+                        cell.text = []; // Apaga o texto para não ser desenhado pelo sistema padrão
+                    }
+                }
             }
         },
         didDrawCell: (hookData) => {
             if (hookData.section === 'body') {
-                const checkboxes = (hookData.cell as any).checkboxes;
+                const cell = hookData.cell;
+                const styles = cell.styles;
+                const fontSizeMm = (styles.fontSize * 25.4) / 72;
+                const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
+                const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).top || 1.2;
+                const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).left || 1.2;
+                const padRight = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).right || 1.2;
+
+                const textX = cell.x + padLeft;
+                const maxWidth = cell.width - padLeft - padRight;
+
+                doc.setFont(styles.font, styles.fontStyle);
+                doc.setFontSize(styles.fontSize);
+
+                // Desenha os Checkboxes Perfeitos
+                const checkboxes = (cell as any).checkboxes;
                 if (checkboxes && checkboxes.length > 0) {
-                    const cell = hookData.cell;
-                    const styles = cell.styles;
-                    const fontSizeMm = (styles.fontSize * 25.4) / 72;
-                    const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
-                    const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).left || 1.2;
-                    const startX = cell.x + padLeft;
                     const textHeight = cell.text.length * lineHeight;
                     let startY = cell.y + (cell.height - textHeight) / 2;
-
-                    doc.setFont(styles.font, styles.fontStyle);
-                    doc.setFontSize(styles.fontSize);
 
                     checkboxes.forEach((cb: any) => {
                         const lineY = startY + (cb.lineIndex * lineHeight);
                         const boxSize = 2.1; 
                         const offsetX = doc.getTextWidth(cb.textBefore); 
-                        const boxX = startX + offsetX; 
+                        const boxX = textX + offsetX; 
                         const boxY = lineY + ((fontSizeMm - boxSize) / 2);
                         
                         doc.setDrawColor(0);
@@ -458,6 +472,56 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                             doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
                         } else {
                             doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
+                        }
+                    });
+                }
+
+                // Aplica o Desenho Antisanfona
+                if ((cell as any).customJustifyText) {
+                    const text = (cell as any).customJustifyText;
+                    
+                    if (Array.isArray(styles.textColor)) {
+                        doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
+                    } else {
+                        doc.setTextColor(styles.textColor as any);
+                    }
+
+                    // Quebra de parágrafos inteligente
+                    const paragraphs = text.split('\n');
+                    let allLines: { text: string, isLastOfParagraph: boolean }[] = [];
+
+                    paragraphs.forEach((p: string) => {
+                        const pLines = doc.splitTextToSize(p, maxWidth);
+                        if (pLines && pLines.length > 0) {
+                            pLines.forEach((l: string, idx: number) => {
+                                allLines.push({
+                                    text: l.trim(),
+                                    isLastOfParagraph: idx === pLines.length - 1
+                                });
+                            });
+                        } else {
+                            allLines.push({ text: '', isLastOfParagraph: true });
+                        }
+                    });
+
+                    const totalTextHeight = allLines.length * lineHeight;
+                    let startY = cell.y + padTop;
+                    if (styles.valign === 'middle') {
+                        startY = cell.y + (cell.height - totalTextHeight) / 2;
+                    }
+
+                    allLines.forEach((lineInfo, idx) => {
+                        const lineY = startY + (idx * lineHeight);
+                        const textY = lineY + (fontSizeMm / 2) + 0.3; 
+
+                        if (lineInfo.text.length > 0) {
+                            if (lineInfo.isLastOfParagraph) {
+                                // A MÁGICA AQUI: Trava a última linha na esquerda para nunca esticar
+                                doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
+                            } else {
+                                // As outras justicam normalmente para encostar na margem dos 3mm
+                                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
+                            }
                         }
                     });
                 }
