@@ -5,11 +5,10 @@ import {
     formatDate, 
     formatCurrency,
     setDefaultFont,
-    drawFormattedSignature,
     drawInstitutionalHeader,
     drawInstitutionalFooter
 } from './pdfUtils';
-import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
+import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 // ============================================================================
 // DICIONÁRIOS DE TRADUÇÃO (TEXTOS INTEGRAIS DA LEI 14.133/21)
@@ -67,6 +66,11 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
 // ============================================================================
 
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
+    // Margens Reduzidas para 8mm (Item 4)
+    const L_MARGIN = 8;
+    const R_MARGIN = 8;
+    const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
+
     const colorBlueHeader: [number, number, number] = [31, 78, 121];
     const colorYellowHeader: [number, number, number] = [252, 230, 157];
     const colorGrayLabel: [number, number, number] = [242, 242, 242];
@@ -79,7 +83,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     currentY += 5;
 
     // ============================================================================
-    // NOVO MOTOR INTELIGENTE: SEGURO, ALINHADO E SEM VAZAMENTOS
+    // MOTOR INTELIGENTE V3: 100% À PROVA DE VAZAMENTO
     // ============================================================================
     const advancedWillDrawCell = (hookData: any) => {
         if (hookData.section === 'body') {
@@ -87,10 +91,11 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             if (!cell.text || !Array.isArray(cell.text)) return;
             
             (cell as any).checkboxes = [];
+            let modifiedText = [...cell.text];
             
-            // 1. Localiza os checkboxes e os substitui por espaços nativamente
-            for (let i = 0; i < cell.text.length; i++) {
-                let replacedLine = cell.text[i];
+            // 1. Localiza os checkboxes nas linhas originadas pela tabela
+            for (let i = 0; i < modifiedText.length; i++) {
+                let replacedLine = modifiedText[i];
                 let searchIdx = 0;
                 
                 while(true) {
@@ -117,14 +122,14 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                         searchIdx = closeIdx + 1;
                     }
                 }
-                cell.text[i] = replacedLine;
+                modifiedText[i] = replacedLine;
             }
 
-            // 2. Se a célula for justificada, guarda as linhas calculadas PELA PRÓPRIA TABELA e esconde
-            if (cell.styles.halign === 'justify') {
-                (cell as any)._justifiedLines = [...cell.text];
-                cell.text = []; // Impede a tabela de desenhar nativamente
-            }
+            // 2. Salva as linhas com os tamanhos EXATOS calculados pelo autoTable
+            (cell as any)._myLines = modifiedText;
+            
+            // 3. Limpa o texto nativo para desenharmos manualmente em cima sem borrar
+            cell.text = []; 
         }
     };
 
@@ -135,7 +140,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             const fontSizeMm = (styles.fontSize * 25.4) / 72;
             const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
             
-            // Lida com padding seguro
             let padTop = 1.2, padLeft = 1.2, padRight = 1.2;
             if (typeof styles.cellPadding === 'number') {
                 padTop = padLeft = padRight = styles.cellPadding;
@@ -151,8 +155,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             doc.setFont(styles.font, styles.fontStyle);
             doc.setFontSize(styles.fontSize);
 
-            // Resgata as linhas originais (nativas ou guardadas) para bater 100% com a altura da célula
-            const lines = (cell as any)._justifiedLines || cell.text;
+            const lines = (cell as any)._myLines;
             if (!lines || lines.length === 0) return;
 
             const textHeight = lines.length * lineHeight;
@@ -183,19 +186,19 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 });
             }
 
-            // B. Desenha o Texto Justificado
-            if ((cell as any)._justifiedLines) {
-                if (Array.isArray(styles.textColor)) {
-                    doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
-                } else {
-                    doc.setTextColor(styles.textColor as any);
-                }
+            // B. Desenha o Texto Usando as Linhas da Tabela
+            if (Array.isArray(styles.textColor)) {
+                doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
+            } else {
+                doc.setTextColor(styles.textColor as any);
+            }
 
-                lines.forEach((lineText: string, idx: number) => {
-                    const lineY = startY + (idx * lineHeight);
-                    const textY = lineY + (fontSizeMm / 2) + 0.3; 
+            lines.forEach((lineText: string, idx: number) => {
+                const lineY = startY + (idx * lineHeight);
+                const textY = lineY + (fontSizeMm / 2) + 0.3; 
 
-                    // Lógica para não esticar (se a linha for curta ou for a última, alinha à esquerda)
+                // Se a célula for justificada, ativa a lógica antisanfona
+                if (styles.halign === 'justify') {
                     const lineWidth = doc.getTextWidth(lineText);
                     const isLastLine = idx === lines.length - 1;
                     const isShortLine = lineWidth < (maxWidth * 0.85); 
@@ -205,8 +208,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     } else {
                         doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
                     }
-                });
-            }
+                } else {
+                    // Para células alinhadas à esquerda/centro/direita
+                    let finalX = textX;
+                    if (styles.halign === 'center') finalX = cell.x + cell.width / 2;
+                    else if (styles.halign === 'right') finalX = cell.x + cell.width - padRight;
+                    
+                    doc.text(lineText, finalX, textY, { align: styles.halign as any, baseline: 'middle' } as any);
+                }
+            });
         }
     };
 
@@ -253,13 +263,14 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         totalGlobal += subtotal;
 
         const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
-        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva ME/EPP' : 'Ampla Concorrência';
+        // Item 2: Quebra de linha nas cotas
+        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
 
         const row: any[] = [];
         if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
         row.push(
             { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
-            { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1.5 } } },
+            { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
             { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
@@ -283,12 +294,12 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
         columnStyles: hasLote ? {
             0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 20 }
+            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 22 }
         } : {
             0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 20 }
+            4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }
         },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT },
+        margin: { left: L_MARGIN, right: R_MARGIN },
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
@@ -362,7 +373,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         return just ? `${baseText}\n  Justificativa: ${just}` : baseText;
     }).join('\n\n');
     pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText, true);
-    
     pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, true);
     pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`, true);
     pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`, true);
@@ -408,13 +418,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             0: { cellWidth: 55 },
             1: { cellWidth: 'auto' }
         },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: MARGIN_BOTTOM },
+        margin: { left: L_MARGIN, right: R_MARGIN, bottom: MARGIN_BOTTOM },
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
 
     // ============================================================================
-    // ASSINATURAS E RODAPÉ (COM LINHA FINA)
+    // ASSINATURAS E RODAPÉ
     // ============================================================================
     let finalY = (doc as any).lastAutoTable.finalY + 15;
     if (finalY > PAGE_HEIGHT - 65) {
@@ -422,15 +432,30 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         finalY = MARGIN_TOP + 10;
     }
 
+    // Data sem negrito e alinhada totalmente à direita
     doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY, { align: 'center' });
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, finalY, { align: 'right' });
     
     finalY += 30;
     
+    // Assinatura com Linha Extrafina e Discreta (Item 5)
+    const sigWidth = 80;
+    const sigX = PAGE_WIDTH / 2;
     doc.setLineWidth(0.1); 
-    doc.setDrawColor(0);
-    
-    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY);
+    doc.setDrawColor(120, 120, 120); // Cinza discreto
+    doc.line(sigX - (sigWidth/2), finalY, sigX + (sigWidth/2), finalY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    const nomeCompleto = data.nomeGuerra ? `${data.nome} - ${data.nomeGuerra}` : (data.nome || '');
+    doc.text(nomeCompleto, sigX, finalY + 5, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.cargo || '', sigX, finalY + 10, { align: 'center' });
+    if (data.funcao) {
+        doc.text(data.funcao, sigX, finalY + 15, { align: 'center' });
+    }
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
@@ -440,7 +465,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         } else {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(8);
-            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
+            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - R_MARGIN, PAGE_HEIGHT - 10, { align: 'right' });
         }
     }
 };
