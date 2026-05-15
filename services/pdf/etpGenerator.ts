@@ -13,17 +13,14 @@ import {
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
-    // 1. Configurações de Margem e Espaçamento
     const L_MARGIN = 10;
     const R_MARGIN = 10;
     const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
 
-    // 2. Cabeçalho
     const title = `ESTUDO TÉCNICO PRELIMINAR Nº ${data.numero || 'XX'}/${data.ano || '2024'}`;
     const subTitle = `PAE nº ${data.pae || 'aaaa/nnnn'}`;
     let y = drawInstitutionalHeader(doc, data.setor || '', title, subTitle);
 
-    // Cores e Estilos
     const colorBlueHeader: [number, number, number] = [31, 78, 121]; 
     const colorWhite: [number, number, number] = [255, 255, 255];
     const colorGrayLabel: [number, number, number] = [242, 242, 242];
@@ -33,11 +30,9 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
 
     setDefaultFont(doc);
 
-    // Funções de formatação de caixas
     const checkbox = (checked: boolean) => checked ? '[X]' : '[  ]';
     const radio = (selected: boolean) => selected ? '[X]' : '[  ]';
     
-    // FUNÇÃO INTELIGENTE DE BUSCA (Resolve o bug de não assinalar)
     const hasItem = (arr: string[] | undefined, keyword: string) => {
         if (!arr || !Array.isArray(arr)) return false;
         return arr.some(item => typeof item === 'string' && item.toLowerCase().includes(keyword.toLowerCase()));
@@ -50,7 +45,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         return color;
     };
 
-    // Estilo para Perguntas (Fonte reduzida para 8 e coluna mais adaptável)
     const questionStyle = (color: [number, number, number]) => ({
         fillColor: color,
         fontStyle: 'normal' as const,
@@ -59,7 +53,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         valign: 'middle' as const
     });
 
-    // Estilo para Títulos de Seção (Fonte reduzida para 10)
     const sectionHeaderStyle = {
         fillColor: colorBlueHeader, 
         textColor: 255, 
@@ -80,7 +73,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
 
     // --- SEÇÃO 2: MERCADO ---
     body.push([{ content: '2 – LEVANTAMENTO DE MERCADO\n(arts. 18, §1º, V, e 44 da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
-    
     const f = data.fontesPesquisa || [];
     const fontesTexto = [
         `${checkbox(hasItem(f, 'fornecedores'))} Consulta a fornecedores.`,
@@ -100,12 +92,11 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '2.3 - HÁ RESTRIÇÃO DE FORNECEDORES?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.restricaoFornecedores === 'sim')} Sim.   ${radio(data.restricaoFornecedores === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.restricaoFornecedores === 'sim')} Sim.\n${radio(data.restricaoFornecedores === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 3: REQUISITOS ---
     body.push([{ content: '3 – DESCRIÇÃO DOS REQUISITOS DE CONTRATAÇÃO\n(art. 18, §1º, III, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
-    
     const t = data.tipoObjeto || [];
     const tipoObjetoTxt = [
         `${checkbox(hasItem(t, 'bem'))} Bem.`,
@@ -119,7 +110,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '3.2 - QUAL A NATUREZA?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.natureza === 'continuada')} Continuada.   ${radio(data.natureza === 'nao-continuada')} Não continuada.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.natureza === 'continuada')} Continuada.\n${radio(data.natureza === 'nao-continuada')} Não continuada.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
         { content: '3.3 - HÁ MONOPÓLIO?', styles: questionStyle(getNextLabelColor()) },
@@ -162,7 +153,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         });
     }
 
-    // 3.8 Sustentabilidade (Com busca inteligente)
+    // 3.8 Sustentabilidade
     const s = data.sustentabilidade || [];
     const sustTxt = [
         `${checkbox(hasItem(s, 'reciclado') || hasItem(s, 'atóxico') || hasItem(s, 'biodegradável'))} Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável.`,
@@ -199,7 +190,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     // --- SEÇÃO 5: DIMENSIONAMENTO ---
     body.push([{ content: '5 – DIMENSIONAMENTO DO OBJETO\n(art. 18, §1º, IV, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     
-    // Busca inteligente no Metodo Quantitativo
     const mQ = data.metodoQuantitativo || [];
     const metodosTxt = [
         `${checkbox(hasItem(mQ, 'anteriores'))} Análise de contratações anteriores.`,
@@ -237,7 +227,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     // --- SEÇÃO 6: ESTIMATIVA DO VALOR ---
     body.push([{ content: '6 – ESTIMATIVA DO VALOR DA CONTRATAÇÃO\n(art. 18, §1º, VI, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     
-    // Busca inteligente nos Meios de Pesquisa
     const mP = data.meiosPesquisa || [];
     const meiosTxt = [
         `${checkbox(hasItem(mP, 'painel'))} Painel de preços.`,
@@ -278,21 +267,28 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
 
     // --- SEÇÃO 7: PARCELAMENTO ---
     body.push([{ content: '7 – JUSTIFICATIVA PARA O PARCELAMENTO DA SOLUÇÃO\n(art. 18, §1º, VIII, art. 40, V, b, 47, II, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
-    const mN = data.motivosNaoParcelamento || [];
-    const motivosTxt = [
-        `${checkbox(hasItem(mN, 'indivisível'))} Objeto indivisível.`,
-        `${checkbox(hasItem(mN, 'escala'))} Perda de escala.`,
-        `${checkbox(hasItem(mN, 'tecnicamente'))} Tecnicamente inviável.`,
-        `${checkbox(hasItem(mN, 'economicamente'))} Economicamente inviável.`,
-        `${checkbox(hasItem(mN, 'competitividade'))} Aproveitamento da competitividade.`,
-        `${checkbox(hasItem(mN, 'outro'))} Outro. Especificar: ${data.motivosNaoParcelamentoOutro || ''}`
-    ].join('\n');
     body.push([
         { content: '7.1 - A SOLUÇÃO SERÁ DIVIDIDA EM ITENS?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.parcelamento === 'sim')} Sim.   ${radio(data.parcelamento === 'nao')} Não.`, styles: { valign: 'middle', halign: 'left' } },
-        { content: 'Por quê?', styles: { fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: motivosTxt, colSpan: 3, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.parcelamento === 'sim')} Sim.     ${radio(data.parcelamento === 'nao')} Não.`, colSpan: 5, styles: { valign: 'middle', halign: 'left' } }
     ]);
+
+    if (data.parcelamento === 'nao') {
+        const mN = data.motivosNaoParcelamento || [];
+        const motivosTxt = [
+            `${checkbox(hasItem(mN, 'indivisível'))} Objeto indivisível.`,
+            `${checkbox(hasItem(mN, 'escala'))} Perda de escala.`,
+            `${checkbox(hasItem(mN, 'tecnicamente'))} Tecnicamente inviável.`,
+            `${checkbox(hasItem(mN, 'economicamente'))} Economicamente inviável.`,
+            `${checkbox(hasItem(mN, 'competitividade'))} Aproveitamento da competitividade.`,
+            `${checkbox(hasItem(mN, 'outro'))} Outro. Especificar: ${data.motivosNaoParcelamentoOutro || ''}`
+        ].join('\n');
+
+        body.push([
+            { content: 'Por quê?', styles: { ...questionStyle(getNextLabelColor()), fontStyle: 'bold' } },
+            { content: motivosTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        ]);
+        body.push([{ content: '', colSpan: 6, styles: { cellPadding: 0.5 } }]); 
+    }
 
     // --- SEÇÃO 10: RESULTADOS ---
     body.push([{ content: '10 – RESULTADOS PRETENDIDOS\n(art. 18, §1º, IX, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
@@ -311,13 +307,42 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: beneficiosTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
-    // --- SEÇÃO 13: VIABILIDADE (Corrigido para não vazar a célula) ---
+    // --- SEÇÃO 11: PENDÊNCIAS ---
+    body.push([{ content: '11 – PENDÊNCIAS RELATIVAS À CONTRATAÇÃO\n(art. 18, §1º, X, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
-        { content: '13.1 - A CONTRATAÇÃO POSSUI VIABILIDADE TÉCNICA, SOCIOECONÔMICA E AMBIENTAL?', styles: questionStyle(getNextLabelColor()) }, 
-        { content: `${radio(data.viabilidade === 'sim')} Sim.   ${radio(data.viabilidade === 'nao')} Não.`, colSpan: 5, styles: { valign: 'middle', halign: 'left' } }
+        { content: '11.1 - HÁ PROVIDÊNCIAS PENDENTES PARA O SUCESSO DA CONTRATAÇÃO?', styles: questionStyle(getNextLabelColor()) },
+        { content: `${radio(data.pendencias === 'sim')} Sim. Especificar: ${data.pendenciasEspecificar || ''}\n${radio(data.pendencias === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+    ]);
+    body.push([
+        { content: '11.2 - QUAIS SÃO OS SETORES RESPONSÁVEIS PELAS PROVIDÊNCIAS PENDENTES?', styles: questionStyle(getNextLabelColor()) },
+        { content: data.pendenciasResponsaveis || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
-    // Gerador da Tabela Principal
+    // --- SEÇÃO 12: IMPACTOS AMBIENTAIS ---
+    body.push([{ content: '12 – IMPACTOS AMBIENTAIS E MEDIDAS DE MITIGAÇÃO\n(art. 18, §1º, XII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
+    body.push([
+        { content: '12.1 - HÁ PREVISÃO DE IMPACTO AMBIENTAL NA CONTRATAÇÃO?', rowSpan: 2, styles: questionStyle(getNextLabelColor()) },
+        { content: `${radio(data.impactoAmbiental === 'sim')} Sim.\n${radio(data.impactoAmbiental === 'nao')} Não.`, rowSpan: 2, styles: { valign: 'middle', halign: 'left', cellWidth: 15 } },
+        { content: `Impactos:\n${data.impactos || ''}`, colSpan: 4, styles: { fillColor: colorRedImpact, valign: 'top', halign: 'left', fontSize: 9 } }
+    ]);
+    body.push([
+        { content: `Medidas de mitigação:\n${data.medidasMitigacao || ''}`, colSpan: 4, styles: { fillColor: colorBlueMitigation, valign: 'top', halign: 'left', fontSize: 9 } }
+    ]);
+
+    // --- SEÇÃO 13: VIABILIDADE ---
+    body.push([
+        { 
+            content: '13.1 - A CONTRATAÇÃO POSSUI VIABILIDADE TÉCNICA, SOCIOECONÔMICA E AMBIENTAL?', 
+            colSpan: 4,
+            styles: { ...questionStyle(getNextLabelColor()), halign: 'left' } 
+        }, 
+        { 
+            content: `${radio(data.viabilidade === 'sim')} Sim.     ${radio(data.viabilidade === 'nao')} Não.`, 
+            colSpan: 2, 
+            styles: { valign: 'middle', halign: 'left' } 
+        }
+    ]);
+
     autoTable(doc, {
         startY: y,
         body: body,
@@ -335,7 +360,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             overflow: 'linebreak'
         },
         columnStyles: {
-            0: { cellWidth: 40 }, // Aumentado para 40mm para caber a palavra SOCIOECONÔMICA sem vazar
+            0: { cellWidth: 40 }, 
             1: { cellWidth: 10 },
             2: { cellWidth: 'auto' },
             3: { cellWidth: 28 },
@@ -370,7 +395,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                     const padLeft = 1.2; 
                     const startX = cell.x + padLeft;
                     const textHeight = cell.text.length * lineHeight;
-                    const startY = cell.y + (cell.height - textHeight) / 2;
+                    let startY = cell.y + (cell.height - textHeight) / 2;
 
                     checkboxes.forEach((cb: any) => {
                         const lineY = startY + (cb.lineIndex * lineHeight);
@@ -379,10 +404,13 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                         const boxY = lineY + ((fontSizeMm - boxSize) / 2);
                         doc.setDrawColor(0);
                         doc.setLineWidth(0.15);
-                        doc.rect(boxX, boxY, boxSize, boxSize, 'S');
+                        
+                        // MÁGICA DO PREENCHIMENTO AQUI
                         if (cb.checked) {
-                            doc.line(boxX, boxY, boxX + boxSize, boxY + boxSize);
-                            doc.line(boxX + boxSize, boxY, boxX, boxY + boxSize);
+                            doc.setFillColor(0); // Define a cor de preenchimento como preto
+                            doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); // 'FD' = Desenha a borda E preenche o quadrado
+                        } else {
+                            doc.rect(boxX, boxY, boxSize, boxSize, 'S'); // 'S' = Apenas desenha a borda (Stroke)
                         }
                     });
                 }
@@ -390,7 +418,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     });
 
-    // Finalização e Data Alinhada à Direita
     const lastY = (doc as any).lastAutoTable.finalY + 15;
     doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, lastY, { align: 'right' });
