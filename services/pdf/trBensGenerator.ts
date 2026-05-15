@@ -79,7 +79,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     currentY += 5;
 
     // ============================================================================
-    // MOTOR INTELIGENTE: ANTISANFONA E CAIXAS PINTADAS 
+    // NOVO MOTOR INTELIGENTE: SEGURO, ALINHADO E SEM VAZAMENTOS
     // ============================================================================
     const advancedWillDrawCell = (hookData: any) => {
         if (hookData.section === 'body') {
@@ -88,6 +88,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             
             (cell as any).checkboxes = [];
             
+            // 1. Localiza os checkboxes e os substitui por espaços nativamente
             for (let i = 0; i < cell.text.length; i++) {
                 let replacedLine = cell.text[i];
                 let searchIdx = 0;
@@ -119,13 +120,10 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 cell.text[i] = replacedLine;
             }
 
-            // ATENÇÃO: Removi a restrição de !hasCheckbox. Agora ele sempre intercepta se halign === 'justify'
-            if (cell.styles.halign === 'justify' && cell.raw) {
-                const rawText = typeof cell.raw === 'object' && cell.raw !== null ? (cell.raw as any).content : cell.raw;
-                if (typeof rawText === 'string') {
-                    (cell as any).customJustifyText = rawText;
-                    cell.text = []; 
-                }
+            // 2. Se a célula for justificada, guarda as linhas calculadas PELA PRÓPRIA TABELA e esconde
+            if (cell.styles.halign === 'justify') {
+                (cell as any)._justifiedLines = [...cell.text];
+                cell.text = []; // Impede a tabela de desenhar nativamente
             }
         }
     };
@@ -136,9 +134,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             const styles = cell.styles;
             const fontSizeMm = (styles.fontSize * 25.4) / 72;
             const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
-            const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).top || 1.2;
-            const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).left || 1.2;
-            const padRight = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).right || 1.2;
+            
+            // Lida com padding seguro
+            let padTop = 1.2, padLeft = 1.2, padRight = 1.2;
+            if (typeof styles.cellPadding === 'number') {
+                padTop = padLeft = padRight = styles.cellPadding;
+            } else if (styles.cellPadding) {
+                padTop = (styles.cellPadding as any).top || 1.2;
+                padLeft = (styles.cellPadding as any).left || 1.2;
+                padRight = (styles.cellPadding as any).right || 1.2;
+            }
 
             const textX = cell.x + padLeft;
             const maxWidth = cell.width - padLeft - padRight;
@@ -146,66 +151,19 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             doc.setFont(styles.font, styles.fontStyle);
             doc.setFontSize(styles.fontSize);
 
-            // 1. Desenha o texto justificado com trava anti-sanfona
-            if ((cell as any).customJustifyText) {
-                const text = (cell as any).customJustifyText;
-                
-                // Trata as tags de checkbox simuladas com os espaços para justificar
-                const textWithoutBrackets = text.replace(/\[X\]|\[\s*\]/g, '   ');
-                
-                if (Array.isArray(styles.textColor)) {
-                    doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
-                } else {
-                    doc.setTextColor(styles.textColor as any);
-                }
+            // Resgata as linhas originais (nativas ou guardadas) para bater 100% com a altura da célula
+            const lines = (cell as any)._justifiedLines || cell.text;
+            if (!lines || lines.length === 0) return;
 
-                const paragraphs = textWithoutBrackets.split('\n');
-                let allLines: { text: string, isLastOfParagraph: boolean }[] = [];
-
-                paragraphs.forEach((p: string) => {
-                    const pLines = doc.splitTextToSize(p, maxWidth);
-                    if (pLines && pLines.length > 0) {
-                        pLines.forEach((l: string, idx: number) => {
-                            allLines.push({
-                                text: l.trim(),
-                                isLastOfParagraph: idx === pLines.length - 1
-                            });
-                        });
-                    } else {
-                        allLines.push({ text: '', isLastOfParagraph: true });
-                    }
-                });
-
-                const totalTextHeight = allLines.length * lineHeight;
-                let startY = cell.y + padTop;
-                if (styles.valign === 'middle') {
-                    startY = cell.y + (cell.height - totalTextHeight) / 2;
-                }
-
-                allLines.forEach((lineInfo, idx) => {
-                    const lineY = startY + (idx * lineHeight);
-                    const textY = lineY + (fontSizeMm / 2) + 0.3; 
-
-                    if (lineInfo.text.length > 0) {
-                        if (lineInfo.isLastOfParagraph) {
-                            doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
-                        } else {
-                            doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
-                        }
-                    }
-                });
+            const textHeight = lines.length * lineHeight;
+            let startY = cell.y + padTop;
+            if (styles.valign === 'middle') {
+                startY = cell.y + (cell.height - textHeight) / 2;
             }
 
-            // 2. Desenha as caixinhas (Se houver) por cima do texto renderizado
+            // A. Desenha os Checkboxes Pintados
             const checkboxes = (cell as any).checkboxes;
             if (checkboxes && checkboxes.length > 0) {
-                // Cálculo de altura idêntico ao do texto para alinhar perfeito
-                const textHeight = ((cell as any).customJustifyText ? (cell as any).customJustifyText.split('\n').length : cell.text.length) * lineHeight;
-                let startY = cell.y + padTop;
-                if (styles.valign === 'middle') {
-                    startY = cell.y + (cell.height - textHeight) / 2;
-                }
-
                 checkboxes.forEach((cb: any) => {
                     const lineY = startY + (cb.lineIndex * lineHeight);
                     const boxSize = 2.1; 
@@ -221,6 +179,31 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                         doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
                     } else {
                         doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
+                    }
+                });
+            }
+
+            // B. Desenha o Texto Justificado
+            if ((cell as any)._justifiedLines) {
+                if (Array.isArray(styles.textColor)) {
+                    doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
+                } else {
+                    doc.setTextColor(styles.textColor as any);
+                }
+
+                lines.forEach((lineText: string, idx: number) => {
+                    const lineY = startY + (idx * lineHeight);
+                    const textY = lineY + (fontSizeMm / 2) + 0.3; 
+
+                    // Lógica para não esticar (se a linha for curta ou for a última, alinha à esquerda)
+                    const lineWidth = doc.getTextWidth(lineText);
+                    const isLastLine = idx === lines.length - 1;
+                    const isShortLine = lineWidth < (maxWidth * 0.85); 
+
+                    if (isLastLine || isShortLine) {
+                        doc.text(lineText, textX, textY, { align: 'left', baseline: 'middle' } as any);
+                    } else {
+                        doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
                     }
                 });
             }
@@ -348,10 +331,10 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushFullRow(`${radio(data.naturezaBem === 'comum')} Comum.\n\n${radio(data.naturezaBem === 'especial')} Especial.`, false);
 
     pushHeader('5. PROVA DE QUALIDADE, RENDIMENTO, DURABILIDADE E SEGURANÇA\n(art. 40, § 1°, I e III, da Lei Federal nº 14.133/21)');
-    pushRow('5.1. HAVERÁ PROVA DE QUALIDADE?', `${radio(data.provaQualidade === 'sim')} Sim. Justificativa: ${data.justificativaProvaQualidade || '-'}\n\n${radio(data.provaQualidade === 'nao')} Não.`);
+    pushRow('5.1. HAVERÁ PROVA DE QUALIDADE?', `${radio(data.provaQualidade === 'sim')} Sim. Justificativa: ${data.justificativaProvaQualidade || '-'}\n\n${radio(data.provaQualidade === 'nao')} Não.`, true);
     pushRow('5.2. O EDITAL EXIGIRÁ AMOSTRA?', `${radio(data.amostra === 'sim')} Sim. Prazo: ${data.amostraPrazo || '-'} dias úteis.\n\n${radio(data.amostra === 'nao')} Não.`);
-    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n\n${radio(data.garantiaBem === 'nao')} Não.`);
-    pushRow('5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses.\nMODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n\n${radio(data.assistenciaTecnica === 'nao')} Não.`);
+    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n\n${radio(data.garantiaBem === 'nao')} Não.`, true);
+    pushRow('5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses.\nMODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n\n${radio(data.assistenciaTecnica === 'nao')} Não.`, true);
 
     pushHeader('6. CRITÉRIOS DE SELEÇÃO\n(art. 6°, XXIII, h, da Lei Federal nº 14.133/21)');
     const fC = data.formaContratacao || [];
@@ -363,16 +346,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`
     ].join('\n\n'));
     pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
-    pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`);
+    pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, true);
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
-    // ADICIONADO FUNDAMENTAÇÃO LEGAL NA SEÇÃO 7
     pushHeader('7. REQUISITOS DA CONTRATADA E SUBCONTRATAÇÃO\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
     pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
     pushRow('7.2. FISCAL / SOCIAL', translateOptions(data.habilitacaoFiscal, mapFiscal));
     pushRow('7.3. QUALIFICAÇÃO ECONÔMICA', translateOptions(data.qualificacaoEconomica, mapEconomica));
-    
-    // ITEM 7.4 COM TRUE PARA JUSTIFICAR
     pushRow('7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`, true);
     
     const qualifTec = data.qualificacoesTecnicas || [];
@@ -381,24 +361,18 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         const just = data.qualificacoesTecnicasJustificativas?.[opt];
         return just ? `${baseText}\n  Justificativa: ${just}` : baseText;
     }).join('\n\n');
-    
-    // ITEM 7.5 COM TRUE PARA JUSTIFICAR
     pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText, true);
     
-    // ITEM 7.6 COM TRUE (JÁ ESTAVA, MAS AGORA O MOTOR TRATA ELA SEM ESTICAR)
     pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, true);
-    
-    pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`);
-    pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`);
-    pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`);
+    pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`, true);
+    pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`, true);
+    pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`, true);
 
-    // ADICIONADO FUNDAMENTAÇÃO LEGAL NA SEÇÃO 8
     pushHeader('8. FORMA DE ENTREGA DO BEM E DIRETRIZES\n(art. 40, § 1°, II, da Lei Federal nº 14.133/21)');
-    pushRow('8.1. FORMA', data.formaEntregaTipo === 'unica' ? 'Integral de uma só vez.' : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`);
-    pushRow('8.2. LOCAL E HORA', data.localEntrega || '-');
-    if (data.prazoValidadePereciveis) pushRow('8.3. VALIDADE (PERECÍVEIS)', `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`);
+    pushRow('8.1. FORMA', data.formaEntregaTipo === 'unica' ? 'Integral de uma só vez.' : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`, true);
+    pushRow('8.2. LOCAL E HORA', data.localEntrega || '-', true);
+    if (data.prazoValidadePereciveis) pushRow('8.3. VALIDADE (PERECÍVEIS)', `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`, true);
 
-    // ADICIONADO FUNDAMENTAÇÃO LEGAL NA SEÇÃO 9
     pushHeader('9. PRAZO, FORMA DE PAGAMENTO E GARANTIA DO CONTRATO\n(art. 92 da Lei Federal nº 14.133/21)');
     pushRow('9.1. PRAZO DO CONTRATO', `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.\nPossibilidade de Prorrogação: ${data.possibilidadeProrrogacao === 'sim' ? 'Sim' : 'Não'}.`);
     
@@ -409,12 +383,11 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
     if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${data.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
     if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${data.pagamentoRegularidade || 'Conforme Edital'}\n`;
-    pushRow('9.2. PAGAMENTO', pgText || 'Conforme Edital.');
+    pushRow('9.2. PAGAMENTO', pgText || 'Conforme Edital.', true);
     
-    pushRow('9.3. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`);
+    pushRow('9.3. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, true);
     pushRow('9.4. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
 
-    // ADICIONADO FUNDAMENTAÇÃO LEGAL NA SEÇÃO 10
     pushHeader('10. PREVISÃO ORÇAMENTÁRIA\n(art. 18, § 1°, VI, da Lei Federal nº 14.133/21)');
     pushRow('FUNCIONAL', data.dadosOrcamentariosFuncional || '-');
     pushRow('ELEMENTO E FONTE', `Elemento: ${data.dadosOrcamentariosElemento || '-'}   |   Fonte: ${data.dadosOrcamentariosFonte || '-'}`);
@@ -454,7 +427,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     
     finalY += 30;
     
-    // Força a espessura da linha da assinatura para ficar bem fina e elegante (0.1)
     doc.setLineWidth(0.1); 
     doc.setDrawColor(0);
     
