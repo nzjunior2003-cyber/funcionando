@@ -128,10 +128,13 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: '3.4 - QUAL A VIGÊNCIA?', styles: questionStyle(getNextLabelColor()) },
         { content: vigenciaTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
+    
+    // --- AJUSTE AQUI NO 3.5: EMPILHADO COM \n ---
     body.push([
         { content: '3.5 - PODERÁ HAVER PRORROGAÇÃO?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.prorrogacao === 'sim')} Sim.   ${radio(data.prorrogacao === 'nao')} Não.   ${radio(data.prorrogacao === 'na')} Não se aplica (prazo indeterminado).`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.prorrogacao === 'sim')} Sim.\n${radio(data.prorrogacao === 'nao')} Não.\n${radio(data.prorrogacao === 'na')} Não se aplica (prazo indeterminado).`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
+    
     body.push([
         { content: '3.6 - HÁ TRANSIÇÃO COM CONTRATO ANTERIOR?', styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.transicao === 'sim')} Sim. Contrato nº: ${data.transicaoContrato || '...'} Prazo final: ${data.transicaoPrazo || '...'}\n${radio(data.transicao === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
@@ -405,12 +408,11 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                         doc.setDrawColor(0);
                         doc.setLineWidth(0.15);
                         
-                        // MÁGICA DO PREENCHIMENTO AQUI
                         if (cb.checked) {
-                            doc.setFillColor(0); // Define a cor de preenchimento como preto
-                            doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); // 'FD' = Desenha a borda E preenche o quadrado
+                            doc.setFillColor(0);
+                            doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
                         } else {
-                            doc.rect(boxX, boxY, boxSize, boxSize, 'S'); // 'S' = Apenas desenha a borda (Stroke)
+                            doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
                         }
                     });
                 }
