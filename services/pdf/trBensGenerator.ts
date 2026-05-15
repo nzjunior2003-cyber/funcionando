@@ -79,14 +79,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     currentY += 5;
 
     // ============================================================================
-    // MOTOR INTELIGENTE: ANTISANFONA & CAIXAS PINTADAS 
+    // MOTOR INTELIGENTE: ANTISANFONA E CAIXAS PINTADAS 
     // ============================================================================
     const advancedWillDrawCell = (hookData: any) => {
         if (hookData.section === 'body') {
             const cell = hookData.cell;
             if (!cell.text || !Array.isArray(cell.text)) return;
             
-            let hasCheckbox = false;
             (cell as any).checkboxes = [];
             
             for (let i = 0; i < cell.text.length; i++) {
@@ -102,7 +101,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     let inside = replacedLine.substring(openIdx + 1, closeIdx);
                     
                     if (inside.trim() === 'X' || inside.trim() === '') {
-                        hasCheckbox = true;
                         let isChecked = inside.includes('X');
                         let textBefore = replacedLine.substring(0, openIdx);
 
@@ -121,7 +119,8 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 cell.text[i] = replacedLine;
             }
 
-            if (!hasCheckbox && cell.styles.halign === 'justify' && cell.raw) {
+            // ATENÇÃO: Removi a restrição de !hasCheckbox. Agora ele sempre intercepta se halign === 'justify'
+            if (cell.styles.halign === 'justify' && cell.raw) {
                 const rawText = typeof cell.raw === 'object' && cell.raw !== null ? (cell.raw as any).content : cell.raw;
                 if (typeof rawText === 'string') {
                     (cell as any).customJustifyText = rawText;
@@ -147,33 +146,12 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             doc.setFont(styles.font, styles.fontStyle);
             doc.setFontSize(styles.fontSize);
 
-            const checkboxes = (cell as any).checkboxes;
-            if (checkboxes && checkboxes.length > 0) {
-                const textHeight = cell.text.length * lineHeight;
-                let startY = cell.y + (cell.height - textHeight) / 2;
-
-                checkboxes.forEach((cb: any) => {
-                    const lineY = startY + (cb.lineIndex * lineHeight);
-                    const boxSize = 2.1; 
-                    const offsetX = doc.getTextWidth(cb.textBefore); 
-                    const boxX = textX + offsetX; 
-                    const boxY = lineY + ((fontSizeMm - boxSize) / 2);
-                    
-                    doc.setDrawColor(0);
-                    doc.setLineWidth(0.15);
-                    
-                    // CAIXINHAS 100% PINTADAS
-                    if (cb.checked) {
-                        doc.setFillColor(0); 
-                        doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
-                    } else {
-                        doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
-                    }
-                });
-            }
-
+            // 1. Desenha o texto justificado com trava anti-sanfona
             if ((cell as any).customJustifyText) {
                 const text = (cell as any).customJustifyText;
+                
+                // Trata as tags de checkbox simuladas com os espaços para justificar
+                const textWithoutBrackets = text.replace(/\[X\]|\[\s*\]/g, '   ');
                 
                 if (Array.isArray(styles.textColor)) {
                     doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
@@ -181,7 +159,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     doc.setTextColor(styles.textColor as any);
                 }
 
-                const paragraphs = text.split('\n');
+                const paragraphs = textWithoutBrackets.split('\n');
                 let allLines: { text: string, isLastOfParagraph: boolean }[] = [];
 
                 paragraphs.forEach((p: string) => {
@@ -209,12 +187,40 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     const textY = lineY + (fontSizeMm / 2) + 0.3; 
 
                     if (lineInfo.text.length > 0) {
-                        // TEXTO JUSTIFICADO SEM ESTICAR A ÚLTIMA LINHA
                         if (lineInfo.isLastOfParagraph) {
                             doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
                         } else {
                             doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
                         }
+                    }
+                });
+            }
+
+            // 2. Desenha as caixinhas (Se houver) por cima do texto renderizado
+            const checkboxes = (cell as any).checkboxes;
+            if (checkboxes && checkboxes.length > 0) {
+                // Cálculo de altura idêntico ao do texto para alinhar perfeito
+                const textHeight = ((cell as any).customJustifyText ? (cell as any).customJustifyText.split('\n').length : cell.text.length) * lineHeight;
+                let startY = cell.y + padTop;
+                if (styles.valign === 'middle') {
+                    startY = cell.y + (cell.height - textHeight) / 2;
+                }
+
+                checkboxes.forEach((cb: any) => {
+                    const lineY = startY + (cb.lineIndex * lineHeight);
+                    const boxSize = 2.1; 
+                    const offsetX = doc.getTextWidth(cb.textBefore); 
+                    const boxX = textX + offsetX; 
+                    const boxY = lineY + ((fontSizeMm - boxSize) / 2);
+                    
+                    doc.setDrawColor(0);
+                    doc.setLineWidth(0.15);
+                    
+                    if (cb.checked) {
+                        doc.setFillColor(0); 
+                        doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
+                    } else {
+                        doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 
                     }
                 });
             }
@@ -270,7 +276,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
         row.push(
             { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
-            // Aplicamos halign: 'justify' para usar o motor antisanfona
             { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 2, bottom: 1.5, left: 1.5 } } },
             { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
@@ -366,7 +371,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
     pushRow('7.2. FISCAL / SOCIAL', translateOptions(data.habilitacaoFiscal, mapFiscal));
     pushRow('7.3. QUALIFICAÇÃO ECONÔMICA', translateOptions(data.qualificacaoEconomica, mapEconomica));
-    pushRow('7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`);
+    
+    // ITEM 7.4 COM TRUE PARA JUSTIFICAR
+    pushRow('7.4. QUALIFICAÇÃO TÉCNICA EXIGIDA?', `${radio(data.habilitacaoTecnicaExigida === 'sim')} Sim. Exigência: ${data.habilitacaoTecnicaQual || '-'}\nJustificativa: ${data.habilitacaoTecnicaPorque || '-'}\n\n${radio(data.habilitacaoTecnicaExigida === 'nao')} Não.`, true);
     
     const qualifTec = data.qualificacoesTecnicas || [];
     const qualifTecText = qualifTec.length === 0 ? 'Conforme Edital.' : qualifTec.map(opt => {
@@ -374,8 +381,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         const just = data.qualificacoesTecnicasJustificativas?.[opt];
         return just ? `${baseText}\n  Justificativa: ${just}` : baseText;
     }).join('\n\n');
-    pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText);
+    
+    // ITEM 7.5 COM TRUE PARA JUSTIFICAR
+    pushRow('7.5. COMPROVAÇÕES TÉCNICAS', qualifTecText, true);
+    
+    // ITEM 7.6 COM TRUE (JÁ ESTAVA, MAS AGORA O MOTOR TRATA ELA SEM ESTICAR)
     pushRow('7.6. CRITÉRIO DE SUSTENTABILIDADE?', `${radio(data.criterioSustentabilidade === 'sim')} Sim. Detalhes: ${data.criterioSustentabilidadeDesc || '-'}\n\n${radio(data.criterioSustentabilidade === 'nao')} Não.`, true);
+    
     pushRow('7.7. RISCOS', `${radio(data.riscosAssumidos === 'sim')} Sim. Detalhes: ${data.riscosAssumidosDesc || '-'}\n\n${radio(data.riscosAssumidos === 'nao')} Não.`);
     pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`);
     pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`);
