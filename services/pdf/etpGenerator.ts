@@ -13,7 +13,7 @@ import {
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
-    // 1. Configurações de Margem e Espaçamento (Mantendo o ajuste de 10mm)
+    // 1. Configurações de Margem e Espaçamento
     const L_MARGIN = 10;
     const R_MARGIN = 10;
     const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
@@ -33,8 +33,15 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
 
     setDefaultFont(doc);
 
+    // Funções de formatação de caixas
     const checkbox = (checked: boolean) => checked ? '[X]' : '[  ]';
     const radio = (selected: boolean) => selected ? '[X]' : '[  ]';
+    
+    // FUNÇÃO INTELIGENTE DE BUSCA (Resolve o bug de não assinalar)
+    const hasItem = (arr: string[] | undefined, keyword: string) => {
+        if (!arr || !Array.isArray(arr)) return false;
+        return arr.some(item => typeof item === 'string' && item.toLowerCase().includes(keyword.toLowerCase()));
+    };
 
     let labelCounter = 0;
     const getNextLabelColor = (): [number, number, number] => {
@@ -43,42 +50,44 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         return color;
     };
 
-    // Estilo para Perguntas (Alinhado à direita, sem negrito, fonte 9)
+    // Estilo para Perguntas (Fonte reduzida para 8 e coluna mais adaptável)
     const questionStyle = (color: [number, number, number]) => ({
         fillColor: color,
         fontStyle: 'normal' as const,
         halign: 'right' as const,
-        fontSize: 9,
+        fontSize: 8,
         valign: 'middle' as const
     });
+
+    // Estilo para Títulos de Seção (Fonte reduzida para 10)
+    const sectionHeaderStyle = {
+        fillColor: colorBlueHeader, 
+        textColor: 255, 
+        halign: 'center' as const, 
+        fontStyle: 'bold' as const, 
+        fontSize: 10, 
+        valign: 'middle' as const
+    };
 
     const body: RowInput[] = [];
 
     // --- SEÇÃO 1: NECESSIDADE ---
-    body.push([{
-        content: '1 – DESCRIÇÃO DA NECESSIDADE\n(art. 18, §1º, I, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '1 – DESCRIÇÃO DA NECESSIDADE\n(art. 18, §1º, I, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '1.1 - QUAL A NECESSIDADE A SER ATENDIDA?', styles: questionStyle(getNextLabelColor()) },
         { content: data.necessidade || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 2: MERCADO ---
-    body.push([{
-        content: '2 – LEVANTAMENTO DE MERCADO\n(arts. 18, §1º, V, e 44 da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '2 – LEVANTAMENTO DE MERCADO\n(arts. 18, §1º, V, e 44 da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     
     const f = data.fontesPesquisa || [];
     const fontesTexto = [
-        `${checkbox(f.includes('Consulta a fornecedores'))} Consulta a fornecedores.`,
-        `${checkbox(f.includes('Contratações similares'))} Contratações similares.`,
-        `${checkbox(f.includes('Internet'))} Internet.`,
-        `${checkbox(f.includes('Audiência pública'))} Audiência pública.`,
-        `${checkbox(f.includes('Outro'))} Outro. Especificar: ${data.fonteOutro || "..."}`
+        `${checkbox(hasItem(f, 'fornecedores'))} Consulta a fornecedores.`,
+        `${checkbox(hasItem(f, 'similares'))} Contratações similares.`,
+        `${checkbox(hasItem(f, 'internet'))} Internet.`,
+        `${checkbox(hasItem(f, 'pública') || hasItem(f, 'publica'))} Audiência pública.`,
+        `${checkbox(hasItem(f, 'outro'))} Outro. Especificar: ${data.fonteOutro || "..."}`
     ].join('\n');
 
     body.push([
@@ -91,22 +100,18 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '2.3 - HÁ RESTRIÇÃO DE FORNECEDORES?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.restricaoFornecedores === 'sim')} Sim.\n${radio(data.restricaoFornecedores === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.restricaoFornecedores === 'sim')} Sim.   ${radio(data.restricaoFornecedores === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 3: REQUISITOS ---
-    body.push([{
-        content: '3 – DESCRIÇÃO DOS REQUISITOS DE CONTRATAÇÃO\n(art. 18, §1º, III, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '3 – DESCRIÇÃO DOS REQUISITOS DE CONTRATAÇÃO\n(art. 18, §1º, III, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     
     const t = data.tipoObjeto || [];
     const tipoObjetoTxt = [
-        `${checkbox(t.includes('bem'))} Bem.`,
-        `${checkbox(t.includes('servico'))} Serviço.`,
-        `${checkbox(t.includes('locacao'))} Locação de imóvel.`,
-        `${checkbox(t.includes('obra'))} Obra ou serviço de engenharia.`
+        `${checkbox(hasItem(t, 'bem'))} Bem.`,
+        `${checkbox(hasItem(t, 'servico'))} Serviço.`,
+        `${checkbox(hasItem(t, 'locacao'))} Locação de imóvel.`,
+        `${checkbox(hasItem(t, 'obra'))} Obra ou serviço de engenharia.`
     ].join('\n');
     body.push([
         { content: '3.1 - QUAL O TIPO DE OBJETO?', styles: questionStyle(getNextLabelColor()) },
@@ -114,7 +119,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '3.2 - QUAL A NATUREZA?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.natureza === 'continuada')} Continuada.\n${radio(data.natureza === 'nao-continuada')} Não continuada.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.natureza === 'continuada')} Continuada.   ${radio(data.natureza === 'nao-continuada')} Não continuada.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
         { content: '3.3 - HÁ MONOPÓLIO?', styles: questionStyle(getNextLabelColor()) },
@@ -126,7 +131,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         `${radio(data.vigencia === '180 dias.')} 180 dias.`,
         `${radio(data.vigencia === '12 meses.')} 12 meses.`,
         `${radio(data.vigencia === 'Indeterminado.')} Indeterminado.`,
-        `${radio(data.vigencia === 'outro')} Outro: ${data.vigenciaOutroNum || 'nnn'} ${data.vigenciaOutroTipo || 'dias'}`
+        `${radio(data.vigencia === 'outro')} Outro: ${data.vigenciaOutroNum || ''} ${data.vigenciaOutroTipo || ''}`
     ].join('\n');
     body.push([
         { content: '3.4 - QUAL A VIGÊNCIA?', styles: questionStyle(getNextLabelColor()) },
@@ -134,7 +139,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
     body.push([
         { content: '3.5 - PODERÁ HAVER PRORROGAÇÃO?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.prorrogacao === 'sim')} Sim.\n${radio(data.prorrogacao === 'nao')} Não.\n${radio(data.prorrogacao === 'na')} Não se aplica porque o prazo é indeterminado.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.prorrogacao === 'sim')} Sim.   ${radio(data.prorrogacao === 'nao')} Não.   ${radio(data.prorrogacao === 'na')} Não se aplica (prazo indeterminado).`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
         { content: '3.6 - HÁ TRANSIÇÃO COM CONTRATO ANTERIOR?', styles: questionStyle(getNextLabelColor()) },
@@ -145,8 +150,8 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     const qualItems = data.padraoQualidade || [];
     body.push([
         { content: '3.7 - PADRÃO MÍNIMO DE QUALIDADE', rowSpan: qualItems.length + 1, styles: questionStyle(getNextLabelColor()) },
-        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Descrição detalhada', colSpan: 4, styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } }
+        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Descrição detalhada', colSpan: 4, styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } }
     ]);
     if (qualItems.length > 0) {
         qualItems.forEach((item, idx) => {
@@ -157,15 +162,15 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         });
     }
 
-    // 3.8 Sustentabilidade (TEXTOS INTEGRAIS RESTAURADOS)
+    // 3.8 Sustentabilidade (Com busca inteligente)
     const s = data.sustentabilidade || [];
     const sustTxt = [
-        `${checkbox(s.includes('Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável'))} Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável.`,
-        `${checkbox(s.includes('Não utilização de bens e produtos com substâncias perigosas'))} Não utilização de bens e produtos com substâncias perigosas.`,
-        `${checkbox(s.includes('Atendimento aos requisitos ambientais para a obtenção de certificação'))} Atendimento aos requisitos ambientais para a obtenção de certificação.`,
-        `${checkbox(s.includes('Maior ciclo de vida e menor custo de manutenção do bem'))} Maior ciclo de vida e menor custo de manutenção do bem.`,
-        `${checkbox(s.includes('Utilização, preferencial, de embalagem adequada'))} Utilização, preferencial, de embalagem adequada.`,
-        `${checkbox(s.includes('Outro'))} Outro. Especificar: ${data.sustentabilidadeOutro || ''}`
+        `${checkbox(hasItem(s, 'reciclado') || hasItem(s, 'atóxico') || hasItem(s, 'biodegradável'))} Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável.`,
+        `${checkbox(hasItem(s, 'perigosas'))} Não utilização de bens e produtos com substâncias perigosas.`,
+        `${checkbox(hasItem(s, 'certifica'))} Atendimento aos requisitos ambientais para a obtenção de certificação.`,
+        `${checkbox(hasItem(s, 'ciclo'))} Maior ciclo de vida e menor custo de manutenção do bem.`,
+        `${checkbox(hasItem(s, 'embalagem'))} Utilização, preferencial, de embalagem adequada.`,
+        `${checkbox(hasItem(s, 'outro'))} Outro. Especificar: ${data.sustentabilidadeOutro || ''}`
     ].join('\n');
     body.push([
         { content: '3.8 - QUAIS CRITÉRIOS DE SUSTENTABILIDADE?', styles: questionStyle(getNextLabelColor()) },
@@ -173,18 +178,14 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
 
     // --- SEÇÃO 4: SOLUÇÃO ---
-    body.push([{
-        content: '4 – DESCRIÇÃO DA SOLUÇÃO\n(art. 18, §1º, VII, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '4 – DESCRIÇÃO DA SOLUÇÃO\n(art. 18, §1º, VII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { content: '4.1 - O QUE SERÁ CONTRATADO?', styles: questionStyle(getNextLabelColor()) },
         { content: data.solucaoContratacao || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
     body.push([
         { content: '4.2 - QUAL O PRAZO DA GARANTIA CONTRATUAL?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.garantiaContratual === 'nao_ha')} Não há.\n${radio(data.garantiaContratual === '90_dias')} 90 dias.\n${radio(data.garantiaContratual === '12_meses')} 12 meses.\n${radio(data.garantiaContratual === 'outro')} Outro: ${data.garantiaOutroNum} ${data.garantiaOutroTipo}`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+        { content: `${radio(data.garantiaContratual === 'nao_ha')} Não há.\n${radio(data.garantiaContratual === '90_dias')} 90 dias.\n${radio(data.garantiaContratual === '12_meses')} 12 meses.\n${radio(data.garantiaContratual === 'outro')} Outro: ${data.garantiaOutroNum || ''} ${data.garantiaOutroTipo || ''}`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
         { content: '4.3 - HÁ NECESSIDADE DE ASSISTÊNCIA TÉCNICA?', styles: questionStyle(getNextLabelColor()) },
@@ -196,17 +197,15 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
 
     // --- SEÇÃO 5: DIMENSIONAMENTO ---
-    body.push([{
-        content: '5 – DIMENSIONAMENTO DO OBJETO\n(art. 18, §1º, IV, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '5 – DIMENSIONAMENTO DO OBJETO\n(art. 18, §1º, IV, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
+    
+    // Busca inteligente no Metodo Quantitativo
     const mQ = data.metodoQuantitativo || [];
     const metodosTxt = [
-        `${checkbox(mQ.includes('Análise de contratações anteriores'))} Análise de contratações anteriores.`,
-        `${checkbox(mQ.includes('Análise de contratações similares'))} Análise de contratações similares.`,
-        `${checkbox(mQ.includes('Levantamento atual'))} Levantamento atual.`,
-        `${checkbox(mQ.includes('Outro'))} Outro. Especificar: ${data.metodoOutro || ''}`
+        `${checkbox(hasItem(mQ, 'anteriores'))} Análise de contratações anteriores.`,
+        `${checkbox(hasItem(mQ, 'similares'))} Análise de contratações similares.`,
+        `${checkbox(hasItem(mQ, 'atual'))} Levantamento atual.`,
+        `${checkbox(hasItem(mQ, 'outro'))} Outro. Especificar: ${data.metodoOutro || ''}`
     ].join('\n');
     body.push([
         { content: '5.1 - COMO SE OBTEVE O QUANTITATIVO ESTIMADO?', styles: questionStyle(getNextLabelColor()) },
@@ -217,14 +216,14 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: data.descricaoQuantitativo || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
     ]);
 
-    // 5.3 Especificação (Ajuste de larguras para números caberem)
+    // 5.3 Especificação
     const items = data.itens || [];
     body.push([
         { content: '5.3 - ESPECIFICAÇÃO', rowSpan: items.length + 1, styles: questionStyle(getNextLabelColor()) },
-        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Descrição', colSpan: 2, styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Und', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Qtd', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } }
+        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Descrição', colSpan: 2, styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Und', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Qtd', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } }
     ]);
     items.forEach((item, idx) => {
         body.push([
@@ -236,19 +235,17 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     });
 
     // --- SEÇÃO 6: ESTIMATIVA DO VALOR ---
-    body.push([{
-        content: '6 – ESTIMATIVA DO VALOR DA CONTRATAÇÃO\n(art. 18, §1º, VI, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '6 – ESTIMATIVA DO VALOR DA CONTRATAÇÃO\n(art. 18, §1º, VI, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
+    
+    // Busca inteligente nos Meios de Pesquisa
     const mP = data.meiosPesquisa || [];
     const meiosTxt = [
-        `${checkbox(mP.includes('Painel de preços'))} Painel de preços.`,
-        `${checkbox(mP.includes('Contratações similares'))} Contratações similares.`,
-        `${checkbox(mP.includes('Simas'))} Simas.`,
-        `${checkbox(mP.includes('Fornecedores'))} Fornecedores.`,
-        `${checkbox(mP.includes('Internet'))} Internet.`,
-        `${checkbox(mP.includes('Outro'))} Outro. Especificar: ${data.meiosPesquisaOutro || ''}`
+        `${checkbox(hasItem(mP, 'painel'))} Painel de preços.`,
+        `${checkbox(hasItem(mP, 'similares'))} Contratações similares.`,
+        `${checkbox(hasItem(mP, 'simas'))} Simas.`,
+        `${checkbox(hasItem(mP, 'fornecedores'))} Fornecedores.`,
+        `${checkbox(hasItem(mP, 'internet'))} Internet.`,
+        `${checkbox(hasItem(mP, 'outro'))} Outro. Especificar: ${data.meiosPesquisaOutro || ''}`
     ].join('\n');
     body.push([
         { content: '6.1 - MEIOS USADOS NA PESQUISA', styles: questionStyle(getNextLabelColor()) },
@@ -259,11 +256,11 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     const totalGeral = items.reduce((sum, item) => sum + (item.quantidade * item.valorUnitario), 0);
     body.push([
         { content: '6.2 - ESTIMATIVA DE PREÇO', rowSpan: items.length + 2, styles: questionStyle(getNextLabelColor()) },
-        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Descrição', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'V. Unitário', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'Qtd', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } },
-        { content: 'V. Total', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 9 } }
+        { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Descrição', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'V. Unitário', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'Qtd', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
+        { content: 'V. Total', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } }
     ]);
     items.forEach((item, idx) => {
         body.push([
@@ -280,58 +277,45 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
 
     // --- SEÇÃO 7: PARCELAMENTO ---
-    body.push([{
-        content: '7 – JUSTIFICATIVA PARA O PARCELAMENTO DA SOLUÇÃO\n(art. 18, §1º, VIII, art. 40, V, b, 47, II, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    body.push([{ content: '7 – JUSTIFICATIVA PARA O PARCELAMENTO DA SOLUÇÃO\n(art. 18, §1º, VIII, art. 40, V, b, 47, II, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     const mN = data.motivosNaoParcelamento || [];
     const motivosTxt = [
-        `${checkbox(mN.includes('Objeto indivisível'))} Objeto indivisível.`,
-        `${checkbox(mN.includes('Perda de escala'))} Perda de escala.`,
-        `${checkbox(mN.includes('Tecnicamente inviável'))} Tecnicamente inviável.`,
-        `${checkbox(mN.includes('Economicamente inviável'))} Economicamente inviável.`,
-        `${checkbox(mN.includes('Aproveitamento da competitividade'))} Aproveitamento da competitividade.`,
-        `${checkbox(mN.includes('Outro'))} Outro. Especificar: ${data.motivosNaoParcelamentoOutro || ''}`
+        `${checkbox(hasItem(mN, 'indivisível'))} Objeto indivisível.`,
+        `${checkbox(hasItem(mN, 'escala'))} Perda de escala.`,
+        `${checkbox(hasItem(mN, 'tecnicamente'))} Tecnicamente inviável.`,
+        `${checkbox(hasItem(mN, 'economicamente'))} Economicamente inviável.`,
+        `${checkbox(hasItem(mN, 'competitividade'))} Aproveitamento da competitividade.`,
+        `${checkbox(hasItem(mN, 'outro'))} Outro. Especificar: ${data.motivosNaoParcelamentoOutro || ''}`
     ].join('\n');
     body.push([
         { content: '7.1 - A SOLUÇÃO SERÁ DIVIDIDA EM ITENS?', styles: questionStyle(getNextLabelColor()) },
-        { content: `${radio(data.parcelamento === 'sim')} Sim. ${radio(data.parcelamento === 'nao')} Não.`, styles: { valign: 'middle', halign: 'left' } },
+        { content: `${radio(data.parcelamento === 'sim')} Sim.   ${radio(data.parcelamento === 'nao')} Não.`, styles: { valign: 'middle', halign: 'left' } },
         { content: 'Por quê?', styles: { fontStyle: 'bold', halign: 'center', valign: 'middle' } },
         { content: motivosTxt, colSpan: 3, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
-    // --- SEÇÃO 10: RESULTADOS (FIX: TEXTO INTEGRAL CONFORME IMAGEM) ---
-    body.push([{
-        content: '10 – RESULTADOS PRETENDIDOS\n(art. 18, §1º, IX, da Lei Federal nº 14.133/21)',
-        colSpan: 6,
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold', fontSize: 11, valign: 'middle' }
-    }]);
+    // --- SEÇÃO 10: RESULTADOS ---
+    body.push([{ content: '10 – RESULTADOS PRETENDIDOS\n(art. 18, §1º, IX, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     const b = data.beneficios || [];
     const beneficiosTxt = [
-        `${checkbox(b.includes('Manutenção do Funcionamento Administrativo'))} Manutenção do Funcionamento Administrativo`,
-        `${checkbox(b.includes('Redução de Custos'))} Redução de Custos`,
-        `${checkbox(b.includes('Aproveitamento de Recursos Humanos'))} Aproveitamento de Recursos Humanos`,
-        `${checkbox(b.includes('Ganho de Eficiência'))} Ganho de Eficiência`,
-        `${checkbox(b.includes('Serviço/Bem de Consumo'))} Serviço/Bem de Consumo`,
-        `${checkbox(b.includes('Realização de Política Pública'))} Realização de Política Pública`,
-        `${checkbox(b.includes('Outro'))} Outro. Especificar: ${data.beneficiosOutro || ''}`
+        `${checkbox(hasItem(b, 'administrativo'))} Manutenção do Funcionamento Administrativo`,
+        `${checkbox(hasItem(b, 'custos'))} Redução de Custos`,
+        `${checkbox(hasItem(b, 'recursos humanos'))} Aproveitamento de Recursos Humanos`,
+        `${checkbox(hasItem(b, 'eficiência'))} Ganho de Eficiência`,
+        `${checkbox(hasItem(b, 'consumo'))} Serviço/Bem de Consumo`,
+        `${checkbox(hasItem(b, 'política'))} Realização de Política Pública`,
+        `${checkbox(hasItem(b, 'outro'))} Outro. Especificar: ${data.beneficiosOutro || ''}`
     ].join('\n');
     body.push([
         { content: '10.1 - QUAIS OS BENEFÍCIOS PRETENDIDOS NA CONTRATAÇÃO?', styles: questionStyle(getNextLabelColor()) },
         { content: beneficiosTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
-    // --- SEÇÃO 13: VIABILIDADE ---
-    body.push([{
-        content: '13.1 - A CONTRATAÇÃO POSSUI VIABILIDADE TÉCNICA, SOCIOECONÔMICA E AMBIENTAL?',
-        colSpan: 4,
-        styles: questionStyle(getNextLabelColor())
-    }, {
-        content: `${radio(data.viabilidade === 'sim')} Sim.\n${radio(data.viabilidade === 'nao')} Não.`,
-        colSpan: 2,
-        styles: { valign: 'middle', halign: 'left' }
-    }]);
+    // --- SEÇÃO 13: VIABILIDADE (Corrigido para não vazar a célula) ---
+    body.push([
+        { content: '13.1 - A CONTRATAÇÃO POSSUI VIABILIDADE TÉCNICA, SOCIOECONÔMICA E AMBIENTAL?', styles: questionStyle(getNextLabelColor()) }, 
+        { content: `${radio(data.viabilidade === 'sim')} Sim.   ${radio(data.viabilidade === 'nao')} Não.`, colSpan: 5, styles: { valign: 'middle', halign: 'left' } }
+    ]);
 
     // Gerador da Tabela Principal
     autoTable(doc, {
@@ -351,7 +335,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             overflow: 'linebreak'
         },
         columnStyles: {
-            0: { cellWidth: 35 },
+            0: { cellWidth: 40 }, // Aumentado para 40mm para caber a palavra SOCIOECONÔMICA sem vazar
             1: { cellWidth: 10 },
             2: { cellWidth: 'auto' },
             3: { cellWidth: 28 },
