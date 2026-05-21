@@ -425,71 +425,71 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setDrawColor(120, 120, 120); 
     doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);
 
+ doc.setFontSize(10);
+
+const drawNameWithBoldGuerra = (
+    nomeCompleto: string,
+    nomeGuerra: string,
+    cargo: string,
+    x: number,
+    y: number
+) => {
+    const fullName = (nomeCompleto || '').trim();
+    const guerra = (nomeGuerra || '').trim();
+    const cargoTexto = (cargo || '').trim();
+
+    if (!fullName) return;
+
     doc.setFontSize(10);
 
-    const drawNameWithBoldGuerra = (
-        nomeCompleto: string,
-        nomeGuerra: string,
-        cargo: string,
-        x: number,
-        y: number
-    ) => {
-        const fullName = (nomeCompleto || '').trim();
-        const guerra = (nomeGuerra || '').trim();
-        const cargoTexto = (cargo || '').trim();
+    const parts: { text: string; bold?: boolean }[] = [];
+    const lowerFull = fullName.toLowerCase();
+    const lowerGuerra = guerra.toLowerCase();
 
-        if (!fullName) return;
-
-        doc.setFontSize(10);
-
-        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
-
-        let before = '';
-        let boldPart = '';
-        let after = '';
-
-        if (idx >= 0) {
-            before = fullName.slice(0, idx).trimEnd();
-            boldPart = fullName.slice(idx, idx + guerra.length).trim();
-            after = fullName.slice(idx + guerra.length).trimStart();
-        } else {
-            before = fullName;
-        }
-
-        const parts: { text: string; bold?: boolean }[] = [];
+    if (guerra && lowerFull.includes(lowerGuerra)) {
+        const idx = lowerFull.indexOf(lowerGuerra);
+        const before = fullName.slice(0, idx);
+        const boldPart = fullName.slice(idx, idx + guerra.length);
+        const after = fullName.slice(idx + guerra.length);
 
         if (before) parts.push({ text: before });
         if (boldPart) parts.push({ text: boldPart, bold: true });
         if (after) parts.push({ text: after });
-        if (cargoTexto) parts.push({ text: ` - ${cargoTexto}` });
-
-        const widths = parts.map(p => {
-            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-            return doc.getTextWidth(p.text);
-        });
-
-        const totalW = widths.reduce((a, b) => a + b, 0);
-        let startX = x - (totalW / 2);
-
-        parts.forEach((p, i) => {
-            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-            doc.text(p.text, startX, y);
-            startX += widths[i];
-        });
-    };
-
-    drawNameWithBoldGuerra(
-        data.nome || '',
-        data.nomeGuerra || '',
-        data.cargo || '',
-        sigX,
-        finalY + 5
-    );
-
-    if (data.funcao) {
-        doc.setFont('helvetica', 'normal');
-        doc.text(data.funcao, sigX, finalY + 10, { align: 'center' });
+    } else {
+        parts.push({ text: fullName });
     }
+
+    if (cargoTexto) {
+        parts.push({ text: ` - ${cargoTexto}` });
+    }
+
+    const widths = parts.map(p => {
+        doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+        return doc.getTextWidth(p.text);
+    });
+
+    const totalW = widths.reduce((a, b) => a + b, 0);
+    let startX = x - (totalW / 2);
+
+    parts.forEach((p, i) => {
+        doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+        doc.text(p.text, startX, y);
+        startX += widths[i];
+    });
+};
+
+drawNameWithBoldGuerra(
+    data.nome || '',
+    data.nomeGuerra || '',
+    data.cargo || '',
+    sigX,
+    finalY + 5
+);
+
+if (data.funcao) {
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.funcao, sigX, finalY + 10, { align: 'center' });
+}
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
