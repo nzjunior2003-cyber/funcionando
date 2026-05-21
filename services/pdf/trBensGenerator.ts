@@ -23,7 +23,7 @@ const mapJuridica: Record<string, string> = {
     '7.1.7': '7.1.7. Sociedade cooperativa: ata de fundação e estatuto social, com a ata da assembleia que o aprovou;',
     '7.1.8': '7.1.8. Agricultor familiar: Declaração de Aptidão ao Pronaf (DAP) ou Cadastro Nacional da Agricultura Familiar (CAF);',
     '7.1.9': '7.1.9. Produtor Rural: matrícula no CEI - Cadastro Específico do INSS;',
-    '7.1.10': '7.1.10. Ato de autorização para o exercício da atividade, quando exigido por lei;',
+    '7.1.10': '7.1.10. Ato de autorização para o exercício da atividade, when exigido por lei;',
     '7.1.11': '7.1.11. Documentos acompanhados de todas as alterações ou da consolidação respectiva.'
 };
 
@@ -254,7 +254,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         row.push(
             { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
-            { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: item.codigo SIMAS || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
             { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
@@ -404,7 +404,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     });
 
     // ============================================================================
-    // ASSINATURAS E RODAPÉ
+    // ASSINATURAS E RODAPÉ (PRESERVANDO ORDEM ORIGINAL DO NOME)
     // ============================================================================
     let finalY = (doc as any).lastAutoTable.finalY + 15;
     if (finalY > PAGE_HEIGHT - 65) {
@@ -424,7 +424,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setDrawColor(120, 120, 120); 
     doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);
 
-    // FUNÇÃO BLINDADA CONTRA NOME EMENDADO / DUPLICADO
+    // MOTOR SUPREMO: IMPRIME EM LINHA COM ESTILO HÍBRIDO SEM EMBALHAR AS PALAVRAS
     const drawNameWithBoldGuerraAndCargo = (
         nomeCompleto: string,
         nomeGuerra: string,
@@ -432,54 +432,52 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         x: number,
         y: number
     ) => {
-        let fullName = (nomeCompleto || '').trim();
+        const fullName = (nomeCompleto || '').trim();
         const guerra = (nomeGuerra || '').trim();
         const cargoTexto = (cargo || '').trim();
 
-        if (!fullName && !guerra) return;
+        if (!fullName) return;
 
         doc.setFontSize(10);
 
-        // Remove o nome de guerra de dentro do nome civil usando expressão regular segura
-        if (guerra) {
-            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const regex = new RegExp(`\\s*${escapeRegExp(guerra)}\\s*`, 'ig');
-            fullName = fullName.replace(regex, ' ').trim();
+        // Encontra a posição da palavra do nome de guerra mantendo rigorosamente o layout original
+        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
+
+        let before = '';
+        let boldGuerra = '';
+        let after = '';
+
+        if (idx >= 0) {
+            before = fullName.slice(0, idx);
+            boldGuerra = fullName.slice(idx, idx + guerra.length);
+            after = fullName.slice(idx + guerra.length);
+        } else {
+            before = fullName;
         }
 
-        const before = fullName; // O que sobrou é a parte Normal
-        
-        // Constrói a parte que ficará em Negrito
-        let boldText = '';
-        if (guerra) boldText += guerra;
-        if (cargoTexto) boldText += (boldText ? ` - ${cargoTexto}` : cargoTexto);
+        const parts: { text: string; bold?: boolean }[] = [];
 
-        // Mede a largura das partes
-        doc.setFont('helvetica', 'normal');
-        const w1 = before ? doc.getTextWidth(before) : 0;
-        
-        doc.setFont('helvetica', 'bold');
-        const w2 = boldText ? doc.getTextWidth(boldText) : 0;
+        // Monta o array sequencial sem alterar o posicionamento das palavras
+        if (before) parts.push({ text: before, bold: false });
+        if (boldGuerra) parts.push({ text: boldGuerra, bold: true });
+        if (after) parts.push({ text: after, bold: false });
+        if (cargoTexto) parts.push({ text: ` - ${cargoTexto}`, bold: true });
 
-        // Se existirem as duas partes, força fisicamente o tamanho de um espaço entre elas
-        const spaceWidth = (before && boldText) ? doc.getTextWidth(' ') : 0;
+        // Calcula a largura total real de todos os pedaços para centralizar com perfeição matemática
+        const widths = parts.map(p => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            return doc.getTextWidth(p.text);
+        });
 
-        // Calcula de onde começar a desenhar para manter centralizado
-        const totalW = w1 + spaceWidth + w2;
+        const totalW = widths.reduce((a, b) => a + b, 0);
         let startX = x - (totalW / 2);
 
-        // Desenha a parte Normal
-        if (before) {
-            doc.setFont('helvetica', 'normal');
-            doc.text(before, startX, y);
-            startX += w1 + spaceWidth;
-        }
-
-        // Desenha a parte em Negrito
-        if (boldText) {
-            doc.setFont('helvetica', 'bold');
-            doc.text(boldText, startX, y);
-        }
+        // Renderiza cada parte mantendo a coerência e os espaçamentos internos intactos
+        parts.forEach((p, i) => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            doc.text(p.text, startX, y);
+            startX += widths[i];
+        });
     };
 
     drawNameWithBoldGuerraAndCargo(
