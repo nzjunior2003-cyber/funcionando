@@ -10,6 +10,7 @@ import {
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
+
 // ============================================================================
 // DICIONÁRIOS DE TRADUÇÃO (TEXTOS INTEGRAIS DA LEI 14.133/21)
 // ============================================================================
@@ -66,7 +67,6 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
 // ============================================================================
 
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
-    // Margens Reduzidas para 8mm (Item 4)
     const L_MARGIN = 8;
     const R_MARGIN = 8;
     const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
@@ -82,9 +82,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     let currentY = drawInstitutionalHeader(doc, data.setor || '', "TERMO DE REFERÊNCIA DE BENS COMUNS", `PAE nº ${data.pae || 'aaaa/nnnn'}`);
     currentY += 5;
 
-    // ============================================================================
-    // MOTOR INTELIGENTE V3: 100% À PROVA DE VAZAMENTO
-    // ============================================================================
     const advancedWillDrawCell = (hookData: any) => {
         if (hookData.section === 'body') {
             const cell = hookData.cell;
@@ -93,7 +90,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             (cell as any).checkboxes = [];
             let modifiedText = [...cell.text];
             
-            // 1. Localiza os checkboxes nas linhas originadas pela tabela
             for (let i = 0; i < modifiedText.length; i++) {
                 let replacedLine = modifiedText[i];
                 let searchIdx = 0;
@@ -125,10 +121,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 modifiedText[i] = replacedLine;
             }
 
-            // 2. Salva as linhas com os tamanhos EXATOS calculados pelo autoTable
             (cell as any)._myLines = modifiedText;
-            
-            // 3. Limpa o texto nativo para desenharmos manualmente em cima sem borrar
             cell.text = []; 
         }
     };
@@ -164,7 +157,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 startY = cell.y + (cell.height - textHeight) / 2;
             }
 
-            // A. Desenha os Checkboxes Pintados
             const checkboxes = (cell as any).checkboxes;
             if (checkboxes && checkboxes.length > 0) {
                 checkboxes.forEach((cb: any) => {
@@ -186,7 +178,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 });
             }
 
-            // B. Desenha o Texto Usando as Linhas da Tabela
             if (Array.isArray(styles.textColor)) {
                 doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
             } else {
@@ -197,7 +188,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 const lineY = startY + (idx * lineHeight);
                 const textY = lineY + (fontSizeMm / 2) + 0.3; 
 
-                // Se a célula for justificada, ativa a lógica antisanfona
                 if (styles.halign === 'justify') {
                     const lineWidth = doc.getTextWidth(lineText);
                     const isLastLine = idx === lines.length - 1;
@@ -209,7 +199,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                         doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
                     }
                 } else {
-                    // Para células alinhadas à esquerda/centro/direita
                     let finalX = textX;
                     if (styles.halign === 'center') finalX = cell.x + cell.width / 2;
                     else if (styles.halign === 'right') finalX = cell.x + cell.width - padRight;
@@ -220,9 +209,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         }
     };
 
-    // ============================================================================
-    // TABELA 1: ITENS DA CONTRATAÇÃO
-    // ============================================================================
     const hasLote = data.itens.some(item => item.loteId && item.loteId.trim() !== '');
     
     const lotesTotal: Record<string, number> = {};
@@ -263,7 +249,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         totalGlobal += subtotal;
 
         const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
-        // Item 2: Quebra de linha nas cotas
         const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
 
         const row: any[] = [];
@@ -306,9 +291,6 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     
     currentY = (doc as any).lastAutoTable.finalY + 6;
 
-    // ============================================================================
-    // TABELA 2: QUESTIONÁRIO DO FORMULÁRIO
-    // ============================================================================
     const t2Body: RowInput[] = [];
     let isZebra = false;
 
@@ -424,7 +406,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     });
 
     // ============================================================================
-    // ASSINATURAS E RODAPÉ (COM LINHA FINA E NOME FORMANTADO)
+    // ASSINATURAS E RODAPÉ
     // ============================================================================
     let finalY = (doc as any).lastAutoTable.finalY + 15;
     if (finalY > PAGE_HEIGHT - 65) {
@@ -442,40 +424,59 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const sigX = PAGE_WIDTH / 2;
     doc.setLineWidth(0.1); 
     doc.setDrawColor(120, 120, 120); 
-    doc.line(sigX - (sigWidth/2), finalY, sigX + (sigWidth/2), finalY);
+    doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);
 
     doc.setFontSize(10);
 
-    // Lógica para Nome Civil (Normal) + Nome de Guerra - Cargo (Negrito)
-    let civilPart = (data.nome || '').trim();
-    const guerraPart = (data.nomeGuerra || '').trim();
-    const cargoPart = (data.cargo || '').trim();
+    const drawNameWithBoldGuerra = (nomeCompleto: string, nomeGuerra: string, x: number, y: number) => {
+        const fullName = (nomeCompleto || '').trim();
+        const guerra = (nomeGuerra || '').trim();
 
-    if (guerraPart && civilPart.toLowerCase().includes(guerraPart.toLowerCase())) {
-        const regex = new RegExp(`\\s*${guerraPart}\\s*`, 'i');
-        civilPart = civilPart.replace(regex, ' ').trim();
-    }
+        if (!fullName) return;
 
-    const boldText = (guerraPart ? ` ${guerraPart}` : '') + (cargoPart ? ` - ${cargoPart}` : '');
-    
-    doc.setFont('helvetica', 'normal');
-    const w1 = civilPart ? doc.getTextWidth(civilPart) : 0;
-    
-    doc.setFont('helvetica', 'bold');
-    const w2 = boldText ? doc.getTextWidth(boldText) : 0;
-    
-    let startX = sigX - ((w1 + w2) / 2);
-    
-    if (civilPart) {
-        doc.setFont('helvetica', 'normal');
-        doc.text(civilPart, startX, finalY + 5);
-        startX += w1;
-    }
-    
-    if (boldText) {
-        doc.setFont('helvetica', 'bold');
-        doc.text(boldText, startX, finalY + 5);
-    }
+        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
+
+        if (idx >= 0) {
+            const before = fullName.slice(0, idx);
+            const boldPart = fullName.slice(idx, idx + guerra.length);
+            const after = fullName.slice(idx + guerra.length);
+
+            const beforeW = before ? doc.getTextWidth(before) : 0;
+            const boldW = boldPart ? doc.getTextWidth(boldPart) : 0;
+            const afterW = after ? doc.getTextWidth(after) : 0;
+
+            const totalW = beforeW + boldW + afterW;
+            let startX = x - (totalW / 2);
+
+            if (before) {
+                doc.setFont('helvetica', 'normal');
+                doc.text(before, startX, y);
+                startX += beforeW;
+            }
+
+            if (boldPart) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(boldPart, startX, y);
+                startX += boldW;
+            }
+
+            if (after) {
+                doc.setFont('helvetica', 'normal');
+                doc.text(after, startX, y);
+            }
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.text(fullName, x, y, { align: 'center' });
+        }
+    };
+
+    // mantém a ordem exatamente como veio do formulário TR
+    drawNameWithBoldGuerra(
+        data.nome || '',
+        data.nomeGuerra || '',
+        sigX,
+        finalY + 5
+    );
 
     if (data.funcao) {
         doc.setFont('helvetica', 'normal');
