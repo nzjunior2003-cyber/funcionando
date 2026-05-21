@@ -69,7 +69,6 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const L_MARGIN = 8;
     const R_MARGIN = 8;
-    const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
 
     const colorBlueHeader: [number, number, number] = [31, 78, 121];
     const colorYellowHeader: [number, number, number] = [252, 230, 157];
@@ -441,51 +440,42 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
         if (!fullName) return;
 
-        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
-
-        doc.setFont('helvetica', 'normal');
         doc.setFontSize(10);
 
+        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
+
+        let before = '';
+        let boldPart = '';
+        let after = '';
+
         if (idx >= 0) {
-            const before = fullName.slice(0, idx);
-            const boldPart = fullName.slice(idx, idx + guerra.length);
-            const after = fullName.slice(idx + guerra.length);
-
-            const beforeW = before ? doc.getTextWidth(before) : 0;
-            const boldW = boldPart ? doc.getTextWidth(boldPart) : 0;
-            const afterW = after ? doc.getTextWidth(after) : 0;
-            const cargoW = cargoTexto ? doc.getTextWidth(` - ${cargoTexto}`) : 0;
-
-            const totalW = beforeW + boldW + afterW + cargoW;
-            let startX = x - (totalW / 2);
-
-            if (before) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(before, startX, y);
-                startX += beforeW;
-            }
-
-            if (boldPart) {
-                doc.setFont('helvetica', 'bold');
-                doc.text(boldPart, startX, y);
-                startX += boldW;
-            }
-
-            if (after) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(after, startX, y);
-                startX += afterW;
-            }
-
-            if (cargoTexto) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(` - ${cargoTexto}`, startX, y);
-            }
+            before = fullName.slice(0, idx).trimEnd();
+            boldPart = fullName.slice(idx, idx + guerra.length).trim();
+            after = fullName.slice(idx + guerra.length).trimStart();
         } else {
-            const totalText = cargoTexto ? `${fullName} - ${cargoTexto}` : fullName;
-            doc.setFont('helvetica', 'normal');
-            doc.text(totalText, x, y, { align: 'center' });
+            before = fullName;
         }
+
+        const parts: { text: string; bold?: boolean }[] = [];
+
+        if (before) parts.push({ text: before });
+        if (boldPart) parts.push({ text: boldPart, bold: true });
+        if (after) parts.push({ text: after });
+        if (cargoTexto) parts.push({ text: ` - ${cargoTexto}` });
+
+        const widths = parts.map(p => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            return doc.getTextWidth(p.text);
+        });
+
+        const totalW = widths.reduce((a, b) => a + b, 0);
+        let startX = x - (totalW / 2);
+
+        parts.forEach((p, i) => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            doc.text(p.text, startX, y);
+            startX += widths[i];
+        });
     };
 
     drawNameWithBoldGuerra(
