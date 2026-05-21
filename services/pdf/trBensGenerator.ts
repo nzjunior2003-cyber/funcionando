@@ -428,13 +428,23 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
     doc.setFontSize(10);
 
-    const drawNameWithBoldGuerra = (nomeCompleto: string, nomeGuerra: string, x: number, y: number) => {
+    const drawNameWithBoldGuerra = (
+        nomeCompleto: string,
+        nomeGuerra: string,
+        cargo: string,
+        x: number,
+        y: number
+    ) => {
         const fullName = (nomeCompleto || '').trim();
         const guerra = (nomeGuerra || '').trim();
+        const cargoTexto = (cargo || '').trim();
 
         if (!fullName) return;
 
         const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
 
         if (idx >= 0) {
             const before = fullName.slice(0, idx);
@@ -444,8 +454,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             const beforeW = before ? doc.getTextWidth(before) : 0;
             const boldW = boldPart ? doc.getTextWidth(boldPart) : 0;
             const afterW = after ? doc.getTextWidth(after) : 0;
+            const cargoW = cargoTexto ? doc.getTextWidth(` - ${cargoTexto}`) : 0;
 
-            const totalW = beforeW + boldW + afterW;
+            const totalW = beforeW + boldW + afterW + cargoW;
             let startX = x - (totalW / 2);
 
             if (before) {
@@ -463,17 +474,24 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             if (after) {
                 doc.setFont('helvetica', 'normal');
                 doc.text(after, startX, y);
+                startX += afterW;
+            }
+
+            if (cargoTexto) {
+                doc.setFont('helvetica', 'normal');
+                doc.text(` - ${cargoTexto}`, startX, y);
             }
         } else {
+            const totalText = cargoTexto ? `${fullName} - ${cargoTexto}` : fullName;
             doc.setFont('helvetica', 'normal');
-            doc.text(fullName, x, y, { align: 'center' });
+            doc.text(totalText, x, y, { align: 'center' });
         }
     };
 
-    // mantém a ordem exatamente como veio do formulário TR
     drawNameWithBoldGuerra(
         data.nome || '',
         data.nomeGuerra || '',
+        data.cargo || '',
         sigX,
         finalY + 5
     );
