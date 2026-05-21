@@ -265,20 +265,17 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const fb: any[] = [];
     let seqItem = 1;
 
-    // Linha de cabeçalho das colunas (repetida a cada lote)
     const headerRow = [
-        { content: 'Item',             styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Descrição',        styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+        { content: 'Item', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+        { content: 'Descrição', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
         { content: 'AMPLA OU\nME/EPP', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Valor Unit.',       styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Qtd',              styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Total',            styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+        { content: 'Valor Unit.', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+        { content: 'Qtd', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+        { content: 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
     ];
 
-    // Linha separadora branca entre blocos
     const separatorRow = [{ content: '', colSpan: 6, styles: { fillColor: [255, 255, 255] as [number, number, number], cellPadding: 1 } }];
 
-    // Agrupar itens por lote
     const lotesOrdemFinal: string[] = [];
     const lotesBucketFinal: Record<string, typeof data.itemGroups> = {};
     const avulsosFinal: typeof data.itemGroups = [];
@@ -295,7 +292,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     });
 
-    // Auxiliar: empurra linha de item
     const processarItem = (g: OrcamentoData['itemGroups'][0]) => {
         const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
         const qtdTotal = Number(g.quantidadeTotal) || 0;
@@ -335,7 +331,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
-    // Controle de primeiro bloco
     let isFirstBlock = true;
 
     const pushSeparator = () => {
@@ -343,14 +338,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         isFirstBlock = false;
     };
 
-    // Processar lotes
     lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
-        const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
+        const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota' && Number(c.quantidade) > 0));
 
         if (temAmpla && temCota) {
-            // --- Sub-lote AMPLA ---
             pushSeparator();
             fb.push([{
                 content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
@@ -379,14 +372,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 seqItem++;
             });
             fb.push([{
-                content: `Subtotal — LOTE ${loteId} AMPLA`, colSpan: 5,
+                content: `Subtotal — LOTE ${loteId} AMPLA`,
+                colSpan: 5,
                 styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subCentavosAmpla / 100, 'moeda'),
                 styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
             }]);
 
-            // --- Sub-lote ME/EPP ---
             fb.push(separatorRow);
             fb.push([{
                 content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
@@ -415,7 +408,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 seqItem++;
             });
             fb.push([{
-                content: `Subtotal — LOTE ${loteId} ME/EPP`, colSpan: 5,
+                content: `Subtotal — LOTE ${loteId} ME/EPP`,
+                colSpan: 5,
                 styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subCentavosME / 100, 'moeda'),
@@ -423,7 +417,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             }]);
 
         } else {
-            // --- Lote simples (só AMPLA ou só ME/EPP) ---
             const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
             pushSeparator();
             fb.push([{
@@ -438,7 +431,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             const subLote = (totalCentavos - subAntes) / 100;
 
             fb.push([{
-                content: `Subtotal — LOTE ${loteId}`, colSpan: 5,
+                content: `Subtotal — LOTE ${loteId}`,
+                colSpan: 5,
                 styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subLote, 'moeda'),
@@ -447,7 +441,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     });
 
-    // Itens avulsos (sem lote)
     if (avulsosFinal.length > 0) {
         pushSeparator();
         fb.push(headerRow);
@@ -477,14 +470,49 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     y = (doc as any).lastAutoTable.finalY + 10;
 
 
-    const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
-        if (!nome) return;
+    const drawSignatureLocal = (nomeCompleto: string, nomeGuerra: string, funcao: string, xPos: number, yPos: number) => {
+        if (!nomeCompleto) return;
+
         doc.setLineWidth(0.2);
         doc.line(xPos - 55, yPos, xPos + 55, yPos);
-        doc.setFont('helvetica', 'bold');
+
+        doc.setFont('helvetica', 'normal');
         doc.setFontSize(9);
-        const nomeCargo = cargo ? `${nome} - ${cargo}` : nome;
-        doc.text(nomeCargo, xPos, yPos + 4, { align: 'center' });
+
+        const textoBase = nomeCompleto.trim();
+        const idx = nomeGuerra ? textoBase.indexOf(nomeGuerra.trim()) : -1;
+
+        if (idx >= 0) {
+            const antes = textoBase.slice(0, idx);
+            const guerra = textoBase.slice(idx, idx + nomeGuerra.trim().length);
+            const depois = textoBase.slice(idx + nomeGuerra.trim().length);
+
+            const larguraAntes = doc.getTextWidth(antes);
+            const larguraGuerra = doc.getTextWidth(guerra);
+            const larguraDepois = doc.getTextWidth(depois);
+            const totalWidth = larguraAntes + larguraGuerra + larguraDepois;
+
+            let x = xPos - (totalWidth / 2);
+
+            if (antes) {
+                doc.setFont('helvetica', 'normal');
+                doc.text(antes, x, yPos + 4);
+                x += larguraAntes;
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.text(guerra, x, yPos + 4);
+            x += larguraGuerra;
+
+            if (depois) {
+                doc.setFont('helvetica', 'normal');
+                doc.text(depois, x, yPos + 4);
+            }
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.text(textoBase, xPos, yPos + 4, { align: 'center' });
+        }
+
         if (funcao) {
             doc.setFont('helvetica', 'normal');
             doc.text(funcao, xPos, yPos + 8, { align: 'center' });
@@ -498,18 +526,26 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     const centerX = PAGE_WIDTH / 2;
 
-    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
-    const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
-
-    drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
+    drawSignatureLocal(
+        data.assinante1Nome || '',
+        data.assinante1NomeGuerra || '',
+        data.assinante1Funcao || '',
+        centerX,
+        y
+    );
 
     if (data.assinante2Nome) {
         y += 45;
         addPage(30);
-        drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
+        drawSignatureLocal(
+            data.assinante2Nome || '',
+            data.assinante2NomeGuerra || '',
+            data.assinante2Funcao || '',
+            centerX,
+            y
+        );
     }
 
-    // Rodapé
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
