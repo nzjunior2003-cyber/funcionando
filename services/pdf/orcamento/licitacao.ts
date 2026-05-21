@@ -242,221 +242,233 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Tabela Final
-    addPage(40);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
+   // Tabela Final
+addPage(40);
+doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
 
-    let totalCentavos = 0;
-    const fb: any[] = [];
-    let seqItem = 1;
+let totalCentavos = 0;
+const fb: any[] = [];
+let seqItem = 1;
 
-    // Agrupar itens por lote
-    const lotesOrdemFinal: string[] = [];
-    const lotesBucketFinal: Record<string, typeof data.itemGroups> = {};
-    const avulsosFinal: typeof data.itemGroups = [];
+// Linha de cabeçalho das colunas (repetida a cada lote)
+const headerRow = [
+    { content: 'Item',              styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+    { content: 'Descrição',         styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+    { content: 'AMPLA OU\nME/EPP',  styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+    { content: 'Valor Unit.',        styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+    { content: 'Qtd',               styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+    { content: 'Total',             styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
+];
 
-    data.itemGroups.forEach(g => {
-        if (g.loteId) {
-            if (!lotesBucketFinal[g.loteId]) {
-                lotesBucketFinal[g.loteId] = [];
-                lotesOrdemFinal.push(g.loteId);
-            }
-            lotesBucketFinal[g.loteId].push(g);
-        } else {
-            avulsosFinal.push(g);
+// Linha de separação discreta entre blocos
+const separatorRow = [{ content: '', colSpan: 6, styles: { fillColor: [220, 220, 220] as [number,number,number], cellPadding: 1 } }];
+
+// Agrupar itens por lote
+const lotesOrdemFinal: string[] = [];
+const lotesBucketFinal: Record<string, typeof data.itemGroups> = {};
+const avulsosFinal: typeof data.itemGroups = [];
+
+data.itemGroups.forEach(g => {
+    if (g.loteId) {
+        if (!lotesBucketFinal[g.loteId]) {
+            lotesBucketFinal[g.loteId] = [];
+            lotesOrdemFinal.push(g.loteId);
         }
-    });
+        lotesBucketFinal[g.loteId].push(g);
+    } else {
+        avulsosFinal.push(g);
+    }
+});
 
-    // Função auxiliar: processa um item e empurra linha em fb
-    const processarItem = (g: OrcamentoData['itemGroups'][0]) => {
-        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-        const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
-        const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
+// Auxiliar: empurra linha de item
+const processarItem = (g: OrcamentoData['itemGroups'][0]) => {
+    const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+    const qtdTotal = Number(g.quantidadeTotal) || 0;
+    const totalLinha = Math.round(est * qtdTotal * 100) / 100;
+    const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
-        if (cotasValidas && cotasValidas.length > 0) {
-            const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
-            cotasValidas.forEach((c) => {
-                const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
-                const label = (cotasValidas.length === 1)
-                    ? (c.id === 'ampla' ? 'AMPLA' : 'ME/EPP')
-                    : (cQtd === maxQtd ? 'AMPLA' : 'ME/EPP');
-                fb.push([
-                    seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
-                    label,
-                    formatValue(est, g.tipoValor),
-                    cQtd,
-                    formatValue(cTotal, g.tipoValor)
-                ]);
-                seqItem++;
-            });
-        } else {
-            totalCentavos += Math.round(totalLinha * 100);
+    if (cotasValidas && cotasValidas.length > 0) {
+        const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
+        cotasValidas.forEach((c) => {
+            const cQtd = Number(c.quantidade) || 0;
+            const cTotal = Math.round(cQtd * est * 100) / 100;
+            totalCentavos += Math.round(cTotal * 100);
+            const label = (cotasValidas.length === 1)
+                ? (c.id === 'ampla' ? 'AMPLA' : 'ME/EPP')
+                : (cQtd === maxQtd ? 'AMPLA' : 'ME/EPP');
             fb.push([
                 seqItem.toString(),
                 { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
-                'AMPLA',
+                label,
                 formatValue(est, g.tipoValor),
-                qtdTotal,
-                formatValue(totalLinha, g.tipoValor)
+                cQtd,
+                formatValue(cTotal, g.tipoValor)
             ]);
             seqItem++;
-        }
-    };
-
-    // Processar lotes
-    lotesOrdemFinal.forEach(loteId => {
-        const itensLote = lotesBucketFinal[loteId];
-
-        const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
-        const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
-
-        if (temAmpla && temCota) {
-            // Sub-lote AMPLA
-            fb.push([{
-                content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
-                colSpan: 6,
-                styles: {
-                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
-            itensLote.forEach(g => {
-                const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-                const cotaAmpla = g.cotas?.find(c => c.id === 'ampla' && Number(c.quantidade) > 0);
-                if (!cotaAmpla) return;
-                const cQtd = Number(cotaAmpla.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
-                fb.push([
-                    seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
-                    'AMPLA',
-                    formatValue(est, g.tipoValor),
-                    cQtd,
-                    formatValue(cTotal, g.tipoValor)
-                ]);
-                seqItem++;
-            });
-
-            // Sub-lote ME/EPP
-            fb.push([{
-                content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
-                colSpan: 6,
-                styles: {
-                    fillColor: LBLUE, textColor: [0, 0, 0] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
-            itensLote.forEach(g => {
-                const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-                const cotaME = g.cotas?.find(c => c.id === 'cota' && Number(c.quantidade) > 0);
-                if (!cotaME) return;
-                const cQtd = Number(cotaME.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
-                fb.push([
-                    seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
-                    'ME/EPP',
-                    formatValue(est, g.tipoValor),
-                    cQtd,
-                    formatValue(cTotal, g.tipoValor)
-                ]);
-                seqItem++;
-            });
-
-        } else {
-            // Lote simples (só AMPLA ou só ME/EPP)
-            const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
-            fb.push([{
-                content: `LOTE ${loteId} — ${tipoLote}`,
-                colSpan: 6,
-                styles: {
-                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
-            itensLote.forEach(processarItem);
-        }
-    });
-
-    // Itens avulsos (sem lote)
-    avulsosFinal.forEach(processarItem);
-
-    const total = totalCentavos / 100;
-
-    fb.push([{
-        content: 'TOTAL', colSpan: 5,
-        styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW }
-    }, {
-        content: formatValue(total, 'moeda'),
-        styles: { fontStyle: 'bold', fillColor: YELLOW }
-    }]);
-
-    autoTable(doc, {
-        startY: y,
-        head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']],
-        body: fb,
-        theme: 'grid',
-        rowPageBreak: 'avoid',
-        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' },
-        styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 15 } },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
-    });
-    y = (doc as any).lastAutoTable.finalY + 10;
-
-    const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
-        if (!nome) return;
-        doc.setLineWidth(0.2);
-        doc.line(xPos - 55, yPos, xPos + 55, yPos);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        const nomeCargo = cargo ? `${nome} - ${cargo}` : nome;
-        doc.text(nomeCargo, xPos, yPos + 4, { align: 'center' });
-        if (funcao) {
-            doc.setFont('helvetica', 'normal');
-            doc.text(funcao, xPos, yPos + 8, { align: 'center' });
-        }
-    };
-
-    addPage(40);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
-    y += 35;
-
-    const centerX = PAGE_WIDTH / 2;
-
-    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
-    const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
-
-    drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
-
-    if (data.assinante2Nome) {
-        y += 45;
-        addPage(30);
-        drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
-    }
-
-    // Rodapé
-    const totalPages = (doc as any).internal.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        if (i === totalPages) {
-            drawInstitutionalFooter(doc, data.setor || '', i, totalPages);
-        } else {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(8);
-            doc.text(`Página ${i} de ${totalPages}`, PAGE_WIDTH - MARGIN_RIGHT, PAGE_HEIGHT - 10, { align: 'right' });
-        }
+        });
+    } else {
+        totalCentavos += Math.round(totalLinha * 100);
+        fb.push([
+            seqItem.toString(),
+            { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+            'AMPLA',
+            formatValue(est, g.tipoValor),
+            qtdTotal,
+            formatValue(totalLinha, g.tipoValor)
+        ]);
+        seqItem++;
     }
 };
+
+// Auxiliar: calcula subtotal de um grupo de itens
+const calcSubtotalItens = (itens: typeof data.itemGroups): number => {
+    let centavos = 0;
+    itens.forEach(g => {
+        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+        const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
+        if (cotasValidas && cotasValidas.length > 0) {
+            cotasValidas.forEach(c => {
+                centavos += Math.round(Math.round((Number(c.quantidade) || 0) * est * 100) / 100 * 100);
+            });
+        } else {
+            const qtd = Number(g.quantidadeTotal) || 0;
+            centavos += Math.round(Math.round(qtd * est * 100) / 100 * 100);
+        }
+    });
+    return centavos / 100;
+};
+
+// Processar lotes
+const isFirstBlock = { value: true };
+
+const pushSeparator = () => {
+    if (!isFirstBlock.value) fb.push(separatorRow);
+    isFirstBlock.value = false;
+};
+
+lotesOrdemFinal.forEach(loteId => {
+    const itensLote = lotesBucketFinal[loteId];
+    const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
+    const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
+
+    if (temAmpla && temCota) {
+        // --- Sub-lote AMPLA ---
+        pushSeparator();
+        fb.push([{
+            content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
+            colSpan: 6,
+            styles: { fillColor: BLUE, textColor: [255,255,255] as [number,number,number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+        }]);
+        fb.push(headerRow);
+
+        let subCentavosAmpla = 0;
+        itensLote.forEach(g => {
+            const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+            const cotaAmpla = g.cotas?.find(c => c.id === 'ampla' && Number(c.quantidade) > 0);
+            if (!cotaAmpla) return;
+            const cQtd = Number(cotaAmpla.quantidade) || 0;
+            const cTotal = Math.round(cQtd * est * 100) / 100;
+            totalCentavos += Math.round(cTotal * 100);
+            subCentavosAmpla += Math.round(cTotal * 100);
+            fb.push([
+                seqItem.toString(),
+                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                'AMPLA', formatValue(est, g.tipoValor), cQtd, formatValue(cTotal, g.tipoValor)
+            ]);
+            seqItem++;
+        });
+        fb.push([{
+            content: `Subtotal — LOTE ${loteId} AMPLA`, colSpan: 5,
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+        }, {
+            content: formatValue(subCentavosAmpla / 100, 'moeda'),
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+        }]);
+
+        // --- Sub-lote ME/EPP ---
+        fb.push(separatorRow);
+        fb.push([{
+            content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
+            colSpan: 6,
+            styles: { fillColor: LBLUE, textColor: [0,0,0] as [number,number,number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+        }]);
+        fb.push(headerRow);
+
+        let subCentavosME = 0;
+        itensLote.forEach(g => {
+            const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+            const cotaME = g.cotas?.find(c => c.id === 'cota' && Number(c.quantidade) > 0);
+            if (!cotaME) return;
+            const cQtd = Number(cotaME.quantidade) || 0;
+            const cTotal = Math.round(cQtd * est * 100) / 100;
+            totalCentavos += Math.round(cTotal * 100);
+            subCentavosME += Math.round(cTotal * 100);
+            fb.push([
+                seqItem.toString(),
+                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                'ME/EPP', formatValue(est, g.tipoValor), cQtd, formatValue(cTotal, g.tipoValor)
+            ]);
+            seqItem++;
+        });
+        fb.push([{
+            content: `Subtotal — LOTE ${loteId} ME/EPP`, colSpan: 5,
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+        }, {
+            content: formatValue(subCentavosME / 100, 'moeda'),
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+        }]);
+
+    } else {
+        // --- Lote simples ---
+        const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
+        pushSeparator();
+        fb.push([{
+            content: `LOTE ${loteId} — ${tipoLote}`,
+            colSpan: 6,
+            styles: { fillColor: BLUE, textColor: [255,255,255] as [number,number,number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+        }]);
+        fb.push(headerRow);
+
+        const subAntes = totalCentavos;
+        itensLote.forEach(processarItem);
+        const subLote = (totalCentavos - subAntes) / 100;
+
+        fb.push([{
+            content: `Subtotal — LOTE ${loteId}`, colSpan: 5,
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+        }, {
+            content: formatValue(subLote, 'moeda'),
+            styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+        }]);
+    }
+});
+
+// Itens avulsos (sem lote)
+if (avulsosFinal.length > 0) {
+    pushSeparator();
+    fb.push(headerRow);
+    avulsosFinal.forEach(processarItem);
+}
+
+const total = totalCentavos / 100;
+
+fb.push([{
+    content: 'TOTAL', colSpan: 5,
+    styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW }
+}, {
+    content: formatValue(total, 'moeda'),
+    styles: { fontStyle: 'bold', fillColor: YELLOW }
+}]);
+
+autoTable(doc, {
+    startY: y,
+    body: fb,           // <-- sem "head", tudo está inline no body agora
+    theme: 'grid',
+    rowPageBreak: 'avoid',
+    styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+    alternateRowStyles: {},   // desativa zebra padrão para não conflitar com cabeçalhos inline
+    columnStyles: { 0: { cellWidth: 15 } },
+    margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+});
+y = (doc as any).lastAutoTable.finalY + 10;
