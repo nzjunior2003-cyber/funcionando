@@ -10,7 +10,6 @@ import {
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
-
 // ============================================================================
 // DICIONÁRIOS DE TRADUÇÃO (TEXTOS INTEGRAIS DA LEI 14.133/21)
 // ============================================================================
@@ -425,60 +424,65 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setDrawColor(120, 120, 120); 
     doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);
 
-    doc.setFontSize(10);
-
-    const drawNameWithBoldGuerra = (
+    // FUNÇÃO BLINDADA CONTRA NOME EMENDADO / DUPLICADO
+    const drawNameWithBoldGuerraAndCargo = (
         nomeCompleto: string,
         nomeGuerra: string,
         cargo: string,
         x: number,
         y: number
     ) => {
-        const fullName = (nomeCompleto || '').trim();
+        let fullName = (nomeCompleto || '').trim();
         const guerra = (nomeGuerra || '').trim();
         const cargoTexto = (cargo || '').trim();
 
-        if (!fullName) return;
+        if (!fullName && !guerra) return;
 
         doc.setFontSize(10);
 
-        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
-
-        let before = '';
-        let boldPart = '';
-        let after = '';
-
-        if (idx >= 0) {
-            before = fullName.slice(0, idx).trimEnd();
-            boldPart = fullName.slice(idx, idx + guerra.length).trim();
-            after = fullName.slice(idx + guerra.length).trimStart();
-        } else {
-            before = fullName;
+        // Remove o nome de guerra de dentro do nome civil usando expressão regular segura
+        if (guerra) {
+            const escapeRegExp = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const regex = new RegExp(`\\s*${escapeRegExp(guerra)}\\s*`, 'ig');
+            fullName = fullName.replace(regex, ' ').trim();
         }
 
-        const parts: { text: string; bold?: boolean }[] = [];
+        const before = fullName; // O que sobrou é a parte Normal
+        
+        // Constrói a parte que ficará em Negrito
+        let boldText = '';
+        if (guerra) boldText += guerra;
+        if (cargoTexto) boldText += (boldText ? ` - ${cargoTexto}` : cargoTexto);
 
-        if (before) parts.push({ text: before });
-        if (boldPart) parts.push({ text: boldPart, bold: true });
-        if (after) parts.push({ text: after });
-        if (cargoTexto) parts.push({ text: ` - ${cargoTexto}` });
+        // Mede a largura das partes
+        doc.setFont('helvetica', 'normal');
+        const w1 = before ? doc.getTextWidth(before) : 0;
+        
+        doc.setFont('helvetica', 'bold');
+        const w2 = boldText ? doc.getTextWidth(boldText) : 0;
 
-        const widths = parts.map(p => {
-            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-            return doc.getTextWidth(p.text);
-        });
+        // Se existirem as duas partes, força fisicamente o tamanho de um espaço entre elas
+        const spaceWidth = (before && boldText) ? doc.getTextWidth(' ') : 0;
 
-        const totalW = widths.reduce((a, b) => a + b, 0);
+        // Calcula de onde começar a desenhar para manter centralizado
+        const totalW = w1 + spaceWidth + w2;
         let startX = x - (totalW / 2);
 
-        parts.forEach((p, i) => {
-            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-            doc.text(p.text, startX, y);
-            startX += widths[i];
-        });
+        // Desenha a parte Normal
+        if (before) {
+            doc.setFont('helvetica', 'normal');
+            doc.text(before, startX, y);
+            startX += w1 + spaceWidth;
+        }
+
+        // Desenha a parte em Negrito
+        if (boldText) {
+            doc.setFont('helvetica', 'bold');
+            doc.text(boldText, startX, y);
+        }
     };
 
-    drawNameWithBoldGuerra(
+    drawNameWithBoldGuerraAndCargo(
         data.nome || '',
         data.nomeGuerra || '',
         data.cargo || '',
