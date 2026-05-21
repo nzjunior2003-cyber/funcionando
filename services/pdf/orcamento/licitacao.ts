@@ -10,6 +10,7 @@ const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
 const ZEBRA_BLUE: [number, number, number] = [244, 249, 255];
+const SUBTOTAL_GRAY: [number, number, number] = [230, 230, 230];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const SAFE_BOTTOM_MARGIN = 45;
 
@@ -274,8 +275,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         { content: 'Total',            styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
     ];
 
-    // Linha separadora discreta entre blocos
-    const separatorRow = [{ content: '', colSpan: 6, styles: { fillColor: [220, 220, 220] as [number, number, number], cellPadding: 1 } }];
+    // Linha separadora branca entre blocos
+    const separatorRow = [{ content: '', colSpan: 6, styles: { fillColor: [255, 255, 255] as [number, number, number], cellPadding: 1 } }];
 
     // Agrupar itens por lote
     const lotesOrdemFinal: string[] = [];
@@ -334,7 +335,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
-    // Controle de primeiro bloco (para não colocar separador antes do primeiro)
+    // Controle de primeiro bloco
     let isFirstBlock = true;
 
     const pushSeparator = () => {
@@ -379,10 +380,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             });
             fb.push([{
                 content: `Subtotal — LOTE ${loteId} AMPLA`, colSpan: 5,
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subCentavosAmpla / 100, 'moeda'),
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
             }]);
 
             // --- Sub-lote ME/EPP ---
@@ -415,10 +416,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             });
             fb.push([{
                 content: `Subtotal — LOTE ${loteId} ME/EPP`, colSpan: 5,
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subCentavosME / 100, 'moeda'),
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
             }]);
 
         } else {
@@ -438,10 +439,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
             fb.push([{
                 content: `Subtotal — LOTE ${loteId}`, colSpan: 5,
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'right', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
             }, {
                 content: formatValue(subLote, 'moeda'),
-                styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', valign: 'middle' }
+                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
             }]);
         }
     });
