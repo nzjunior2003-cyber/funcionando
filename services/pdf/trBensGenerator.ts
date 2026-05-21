@@ -440,27 +440,25 @@ const drawNameWithBoldGuerra = (
 
     if (!fullName) return;
 
-    doc.setFontSize(10);
-
     const parts: { text: string; bold?: boolean }[] = [];
     const lowerFull = fullName.toLowerCase();
     const lowerGuerra = guerra.toLowerCase();
 
     if (guerra && lowerFull.includes(lowerGuerra)) {
         const idx = lowerFull.indexOf(lowerGuerra);
-        const before = fullName.slice(0, idx);
-        const boldPart = fullName.slice(idx, idx + guerra.length);
-        const after = fullName.slice(idx + guerra.length);
+        const before = fullName.slice(0, idx).trimEnd();
+        const boldPart = fullName.slice(idx, idx + guerra.length).trim();
+        const after = fullName.slice(idx + guerra.length).trimStart();
 
         if (before) parts.push({ text: before });
-        if (boldPart) parts.push({ text: boldPart, bold: true });
+        if (boldPart) parts.push({ text: ` ${boldPart} `, bold: true });
         if (after) parts.push({ text: after });
     } else {
         parts.push({ text: fullName });
     }
 
     if (cargoTexto) {
-        parts.push({ text: ` - ${cargoTexto}` });
+        parts.push({ text: ` - ${cargoTexto}`, bold: true });
     }
 
     const widths = parts.map(p => {
@@ -468,7 +466,7 @@ const drawNameWithBoldGuerra = (
         return doc.getTextWidth(p.text);
     });
 
-    const totalW = widths.reduce((a, b) => a + b, 0);
+    const totalW = widths.reduce((sum, w) => sum + w, 0);
     let startX = x - (totalW / 2);
 
     parts.forEach((p, i) => {
