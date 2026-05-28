@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable, { RowInput } from 'jspdf-autotable';
-import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
+import { OrcamentoData } from '../../../types';
 import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
@@ -8,15 +8,14 @@ const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
-const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; // Azul Clarinho para as zebras das tabelas
+const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; 
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-const SAFE_BOTTOM_MARGIN = 45; // Margem de segurança para o rodapé
+const SAFE_BOTTOM_MARGIN = 45; 
 
 export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) => {
     let y = MARGIN_TOP;
     setDefaultFont(doc);
 
-    // Atualizado para respeitar a SAFE_BOTTOM_MARGIN
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
 
     const drawHeader = (title: string, sub: string) => {
@@ -33,15 +32,26 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
         doc.setTextColor(0); y += h;
     };
 
-    // Header
-    y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
+    // Helper utilitário para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
+    const getPeriodMultiplier = (item: any): number => {
+        if (!item.periodoContratacao) return 1;
+        const match = item.periodoContratacao.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 1;
+    };
+
+    y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO - DISPENSA', `PAE n° ${data.pae || 'NNNN'}`);
 
     // Sec 1
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
     const s1Body = data.itemGroups.map((g, i) => {
         const row: any[] = [];
         if (i === 0) row.push({ content: 'O QUE SERÁ\nPESQUISADO?', rowSpan: data.itemGroups.length, styles: { valign: 'middle', halign: 'right', fillColor: [255,255,255] } });
-        row.push({ content: g.itemTR, styles: { fillColor: GRAY } }, g.descricao, g.codigoSimas || '-', g.unidade, g.quantidadeTotal);
+        
+        const descTexto = (g as any).periodoContratacao 
+            ? `${g.descricao}\n(Período de contratação: ${(g as any).periodoContratacao})`
+            : g.descricao;
+
+        row.push({ content: g.itemTR, styles: { fillColor: GRAY } }, descTexto, g.codigoSimas || '-', g.unidade, g.quantidadeTotal);
         return row;
     });
     autoTable(doc, {
@@ -123,13 +133,13 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
     autoTable(doc, { startY: y, head: [['Item', 'Preços Encontrados']], body: s6b, theme: 'grid', headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY;
 
-    const desc = data.houveDescarte;
+    const desc = (data as any).houveDescarte;
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         body: [[
             { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
             { content: `[ ${desc === 'sim' ? 'X' : ' '} ] Sim.\n[ ${desc === 'nao' ? 'X' : ' '} ] Não.`, styles: { cellWidth: 30, halign: 'center' } },
-            { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
+            { content: `Justificativa: ${desc === 'sim' ? (data as any).justificativaDescarte : 'Não se aplica.'}` }
         ]]
     });
     y = (doc as any).lastAutoTable.finalY + 12;
@@ -139,31 +149,32 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
-    // erros de ponto flutuante na soma de múltiplas parcelas.
     let totalCentavos = 0;
     const fb: any[] = [];
     
     data.itemGroups.forEach(g => {
-        // CORREÇÃO PRINCIPAL: arredondar estimativaUnitaria para 2 casas
-        // decimais ANTES de qualquer multiplicação.
         const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+        const kMultiplier = getPeriodMultiplier(g); // Multiplicador de período de locação/assinatura
         const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
         
-        const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
+        // MATEMÁTICA ATUALIZADA: Multiplica Unitário × Quantidade × Período
+        const totalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
+        const cotasValidas = (g as any).cotas?.filter((c: any) => Number(c.quantidade) > 0);
+
+        const descExibicao = (g as any).periodoContratacao 
+            ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
+            : g.descricao;
 
         if (cotasValidas && cotasValidas.length > 0) {
-            cotasValidas.forEach((c, i) => {
+            cotasValidas.forEach((c: any, i: number) => {
                 const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
-                
-                // Acumula em centavos para evitar drift de ponto flutuante
+                // MATEMÁTICA ATUALIZADA NA COTA:
+                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
                 totalCentavos += Math.round(cTotal * 100);
                 
                 fb.push([
                     i === 0 ? { content: g.itemTR, styles: { fillColor: GRAY } } : '',
-                    i === 0 ? g.descricao : '',
+                    i === 0 ? descExibicao : '',
                     c.id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP',
                     formatValue(est, g.tipoValor), 
                     cQtd, 
@@ -171,12 +182,10 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
                 ]);
             });
         } else {
-            // Acumula em centavos para evitar drift de ponto flutuante
             totalCentavos += Math.round(totalLinha * 100);
-            
             fb.push([
                 { content: g.itemTR, styles: { fillColor: GRAY } }, 
-                g.descricao, 
+                descExibicao, 
                 'AMPLA', 
                 formatValue(est, g.tipoValor), 
                 qtdTotal, 
@@ -185,9 +194,7 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
         }
     });
     
-    // Converte centavos de volta para reais com precisão exata
     const total = totalCentavos / 100;
-
     fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
     autoTable(doc, {
@@ -199,24 +206,35 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Assinaturas Verticalizadas e Centralizadas
-    addPage(50);
+    // Assinaturas
+    y = PAGE_HEIGHT - 60;
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
     
+    y += 20;
     const sigX = PAGE_WIDTH / 2;
+    doc.setLineWidth(0.1); doc.setDrawColor(120);
+    doc.line(sigX - 40, y, sigX + 40, y);
+
+    const guerraPart = (data.assinante1NomeGuerra || '').trim();
+    const cargoPart = (data.assinante1Cargo || '').trim();
+    const civilPart = (data.assinante1Nome || '').replace(new RegExp(`\\s*${guerraPart}\\s*`, 'i'), ' ').trim();
+    const boldText = (guerraPart ? ` ${guerraPart}` : '') + (cargoPart ? ` - ${cargoPart}` : '');
     
-    y += 30;
-    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    const w1 = doc.getTextWidth(civilPart);
+    doc.setFont('helvetica', 'bold');
+    const w2 = doc.getTextWidth(boldText);
     
-    if (data.assinante2Nome) {
-        y += 15;
-        addPage(40);
-        y += 25;
-        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
+    doc.text(civilPart, sigX - ((w1 + w2) / 2), y + 5);
+    doc.text(boldText, sigX - ((w1 + w2) / 2) + w1, y + 5);
+    
+    if (data.assinante1Funcao) {
+        doc.setFont('helvetica', 'normal');
+        doc.text(data.assinante1Funcao, sigX, y + 10, { align: 'center' });
     }
 
-    // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA COM NUMERAÇÃO EM TODAS
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);

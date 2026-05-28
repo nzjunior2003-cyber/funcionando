@@ -4,24 +4,19 @@ import { OrcamentoData } from '../../../types';
 import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
-
 const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
 const ZEBRA_BLUE: [number, number, number] = [244, 249, 255];
-const SUBTOTAL_GRAY: [number, number, number] = [230, 230, 230];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const SAFE_BOTTOM_MARGIN = 45;
-
 
 export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) => {
     let y = MARGIN_TOP;
     setDefaultFont(doc);
 
-
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
-
 
     const drawHeader = (title: string, sub: string) => {
         doc.setFont('helvetica', 'bold');
@@ -52,22 +47,21 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         y += h;
     };
 
+    const checkboxHook = (hookData: any) => {
+        if (hookData.cell.raw && hookData.cell.raw.hasCheckboxes) {
+            const states = hookData.cell.raw.checkboxStates;
+            let startX = hookData.cell.x + 3;
 
-    const checkboxHook = (data: any) => {
-        if (data.cell.raw && data.cell.raw.hasCheckboxes) {
-            const states = data.cell.raw.checkboxStates;
-            let startX = data.cell.x + 3;
-
-            if (data.cell.styles.halign === 'center') {
-                const firstLine = data.cell.text[0] || '';
-                doc.setFont('helvetica', data.cell.styles.fontStyle);
-                doc.setFontSize(data.cell.styles.fontSize);
+            if (hookData.cell.styles.halign === 'center') {
+                const firstLine = hookData.cell.text[0] || '';
+                doc.setFont('helvetica', hookData.cell.styles.fontStyle);
+                doc.setFontSize(hookData.cell.styles.fontSize);
                 const textWidth = doc.getTextWidth(firstLine);
-                startX = data.cell.x + (data.cell.width / 2) - (textWidth / 2) - 4;
+                startX = hookData.cell.x + (hookData.cell.width / 2) - (textWidth / 2) - 4;
             }
 
-            const startY = data.cell.y + data.cell.padding('top') + 1.2;
-            const lineHeight = data.cell.styles.fontSize * 0.352777 * 1.15;
+            const startY = hookData.cell.y + hookData.cell.padding('top') + 1.2;
+            const lineHeight = hookData.cell.styles.fontSize * 0.352777 * 1.15;
 
             states.forEach((isChecked: boolean, i: number) => {
                 const rectY = startY + (i * lineHeight);
@@ -82,9 +76,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
+    // Helper utilitário para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
+    const getPeriodMultiplier = (item: any): number => {
+        if (!item.periodoContratacao) return 1;
+        const match = item.periodoContratacao.match(/\d+/);
+        return match ? parseInt(match[0], 10) : 1;
+    };
 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
-
 
     // Sec 1
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
@@ -99,9 +98,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     ]);
 
     data.itemGroups.forEach(g => {
+        const descTexto = (g as any).periodoContratacao 
+            ? `${g.descricao}\n(Período de contratação: ${(g as any).periodoContratacao})`
+            : g.descricao;
+
         s1Body.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
-            { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+            { content: descTexto, styles: { halign: 'left', valign: 'middle' } },
             { content: g.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: g.unidade, styles: { halign: 'center', valign: 'middle' } },
             { content: (g.quantidadeTotal || 0).toString(), styles: { halign: 'center', valign: 'middle' } }
@@ -120,7 +123,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-
     // Sec 2
     drawHeader('2 - FONTES CONSULTADAS PARA A PESQUISA DE PREÇO', '(art. 2º, III, e art. 4º do Decreto Estadual nº 2.734/2022)');
     const fMap = [
@@ -138,19 +140,17 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y += 22;
 
-
     // Sec 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
     autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', rowPageBreak: 'avoid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
-
 
     // Sec 4
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
-        { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [isDir, !isDir], styles: { halign: 'left' } },
+        { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [isDir, !isDir], styles: { halign: 'left' } },
         { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
     ]];
     if (isDir && data.fornecedoresDiretos?.length) {
@@ -164,7 +164,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             s4b.push([
                 i === 0 ? { content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length } : '',
                 { content: f.nome, styles: { halign: 'center' } },
-                { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [f.requisitos === 'sim', f.requisitos === 'nao'], styles: { halign: 'left' } }
+                { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [f.requisitos === 'sim', f.requisitos === 'nao'], styles: { halign: 'left' } }
             ]);
         });
     }
@@ -178,21 +178,19 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-
     // Sec 5
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
-    const met = data.metodologia;
+    const mt = data.metodologia;
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
         body: [[
-            { content: 'Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [met === 'menor'], styles: { fontStyle: met === 'menor' ? 'bold' : 'normal', halign: 'center' } },
-            { content: 'Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [met === 'media'], styles: { fontStyle: met === 'media' ? 'bold' : 'normal', halign: 'center' } },
-            { content: 'Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [met === 'mediana'], styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal', halign: 'center' } }
+            { content: 'Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [mt === 'menor'], styles: { fontStyle: mt === 'menor' ? 'bold' : 'normal', halign: 'center' } },
+            { content: 'Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [mt === 'media'], styles: { fontStyle: mt === 'media' ? 'bold' : 'normal', halign: 'center' } },
+            { content: 'Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [mt === 'mediana'], styles: { fontStyle: mt === 'mediana' ? 'bold' : 'normal', halign: 'center' } }
         ]],
         didDrawCell: checkboxHook
     });
     y = (doc as any).lastAutoTable.finalY + 8;
-
 
     // Sec 6
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
@@ -248,13 +246,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         body: [[
             { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
-            { content: `      Sim.\n      Não.`, hasCheckboxes: true, checkboxStates: [desc === 'sim', desc === 'nao'], styles: { cellWidth: 30, halign: 'left' } },
+            { content: `      Sim.\n      Não.`, hasCheckboxes: true, checkboxStates: [desc === 'sim', desc === 'nao'], styles: { cellWidth: 30, halign: 'left' } },
             { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
         ]],
         didDrawCell: checkboxHook
     });
     y = (doc as any).lastAutoTable.finalY + 12;
-
 
     // Tabela Final
     addPage(40);
@@ -265,17 +262,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const fb: any[] = [];
     let seqItem = 1;
 
-    const headerRow = [
-        { content: 'Item', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Descrição', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'AMPLA OU\nME/EPP', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Valor Unit.', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Qtd', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-        { content: 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' } },
-    ];
-
-    const separatorRow = [{ content: '', colSpan: 6, styles: { fillColor: [255, 255, 255] as [number, number, number], cellPadding: 1 } }];
-
+    // Agrupar itens por lote
     const lotesOrdemFinal: string[] = [];
     const lotesBucketFinal: Record<string, typeof data.itemGroups> = {};
     const avulsosFinal: typeof data.itemGroups = [];
@@ -294,22 +281,30 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     const processarItem = (g: OrcamentoData['itemGroups'][0]) => {
         const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+        const kMultiplier = getPeriodMultiplier(g); // Multiplicador de período de locação/assinatura
         const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
+        
+        // MATEMÁTICA ATUALIZADA: Multiplica Unitário × Quantidade × Período
+        const totalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
+
+        const descExibicao = (g as any).periodoContratacao 
+            ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
+            : g.descricao;
 
         if (cotasValidas && cotasValidas.length > 0) {
             const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
+                // MATEMÁTICA ATUALIZADA NA COTA:
+                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
                 totalCentavos += Math.round(cTotal * 100);
                 const label = (cotasValidas.length === 1)
                     ? (c.id === 'ampla' ? 'AMPLA' : 'ME/EPP')
                     : (cQtd === maxQtd ? 'AMPLA' : 'ME/EPP');
                 fb.push([
                     seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
                     label,
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -321,49 +316,50 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             totalCentavos += Math.round(totalLinha * 100);
             fb.push([
                 seqItem.toString(),
-                { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
                 'AMPLA',
                 formatValue(est, g.tipoValor),
                 qtdTotal,
                 formatValue(totalLinha, g.tipoValor)
-            ]);
-            seqItem++;
-        }
-    };
+                ]);
+                seqItem++;
+            }
+        };
 
-    let isFirstBlock = true;
-
-    const pushSeparator = () => {
-        if (!isFirstBlock) fb.push(separatorRow);
-        isFirstBlock = false;
-    };
-
+    // Processar lotes
     lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
+
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
-        const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota' && Number(c.quantidade) > 0));
+        const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
 
         if (temAmpla && temCota) {
-            pushSeparator();
+            // Sub-lote AMPLA
             fb.push([{
                 content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
                 colSpan: 6,
-                styles: { fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+                styles: {
+                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
+                    fontStyle: 'bold', halign: 'left', valign: 'middle',
+                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
+                }
             }]);
-            fb.push(headerRow);
-
-            let subCentavosAmpla = 0;
             itensLote.forEach(g => {
                 const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+                const kMultiplier = getPeriodMultiplier(g);
                 const cotaAmpla = g.cotas?.find(c => c.id === 'ampla' && Number(c.quantidade) > 0);
                 if (!cotaAmpla) return;
                 const cQtd = Number(cotaAmpla.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
+                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
                 totalCentavos += Math.round(cTotal * 100);
-                subCentavosAmpla += Math.round(cTotal * 100);
+                
+                const descExibicao = (g as any).periodoContratacao 
+                    ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
+                    : g.descricao;
+
                 fb.push([
                     seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
                     'AMPLA',
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -371,35 +367,33 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 ]);
                 seqItem++;
             });
-            fb.push([{
-                content: `Subtotal — LOTE ${loteId} AMPLA`,
-                colSpan: 5,
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
-            }, {
-                content: formatValue(subCentavosAmpla / 100, 'moeda'),
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
-            }]);
 
-            fb.push(separatorRow);
+            // Sub-lote ME/EPP
             fb.push([{
                 content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
                 colSpan: 6,
-                styles: { fillColor: LBLUE, textColor: [0, 0, 0] as [number, number, number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+                styles: {
+                    fillColor: LBLUE, textColor: [0, 0, 0] as [number, number, number],
+                    fontStyle: 'bold', halign: 'left', valign: 'middle',
+                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
+                }
             }]);
-            fb.push(headerRow);
-
-            let subCentavosME = 0;
             itensLote.forEach(g => {
                 const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+                const kMultiplier = getPeriodMultiplier(g);
                 const cotaME = g.cotas?.find(c => c.id === 'cota' && Number(c.quantidade) > 0);
                 if (!cotaME) return;
                 const cQtd = Number(cotaME.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
+                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
                 totalCentavos += Math.round(cTotal * 100);
-                subCentavosME += Math.round(cTotal * 100);
+
+                const descExibicao = (g as any).periodoContratacao 
+                    ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
+                    : g.descricao;
+
                 fb.push([
                     seqItem.toString(),
-                    { content: g.descricao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
                     'ME/EPP',
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -407,45 +401,24 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 ]);
                 seqItem++;
             });
-            fb.push([{
-                content: `Subtotal — LOTE ${loteId} ME/EPP`,
-                colSpan: 5,
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
-            }, {
-                content: formatValue(subCentavosME / 100, 'moeda'),
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
-            }]);
 
         } else {
             const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
-            pushSeparator();
             fb.push([{
                 content: `LOTE ${loteId} — ${tipoLote}`,
                 colSpan: 6,
-                styles: { fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+                styles: {
+                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
+                    fontStyle: 'bold', halign: 'left', valign: 'middle',
+                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
+                }
             }]);
-            fb.push(headerRow);
-
-            const subAntes = totalCentavos;
             itensLote.forEach(processarItem);
-            const subLote = (totalCentavos - subAntes) / 100;
-
-            fb.push([{
-                content: `Subtotal — LOTE ${loteId}`,
-                colSpan: 5,
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'right', valign: 'middle' }
-            }, {
-                content: formatValue(subLote, 'moeda'),
-                styles: { fillColor: SUBTOTAL_GRAY, fontStyle: 'bold', halign: 'center', valign: 'middle' }
-            }]);
         }
     });
 
-    if (avulsosFinal.length > 0) {
-        pushSeparator();
-        fb.push(headerRow);
-        avulsosFinal.forEach(processarItem);
-    }
+    // Itens avulsos (sem lote)
+    avulsosFinal.forEach(processarItem);
 
     const total = totalCentavos / 100;
 
@@ -459,60 +432,26 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     autoTable(doc, {
         startY: y,
+        head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']],
         body: fb,
         theme: 'grid',
         rowPageBreak: 'avoid',
+        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        alternateRowStyles: {},
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 15 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-
-    const drawSignatureLocal = (nomeCompleto: string, nomeGuerra: string, funcao: string, xPos: number, yPos: number) => {
-        if (!nomeCompleto) return;
-
+    const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
+        if (!nome) return;
         doc.setLineWidth(0.2);
         doc.line(xPos - 55, yPos, xPos + 55, yPos);
-
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.setFontSize(9);
-
-        const textoBase = nomeCompleto.trim();
-        const idx = nomeGuerra ? textoBase.indexOf(nomeGuerra.trim()) : -1;
-
-        if (idx >= 0) {
-            const antes = textoBase.slice(0, idx);
-            const guerra = textoBase.slice(idx, idx + nomeGuerra.trim().length);
-            const depois = textoBase.slice(idx + nomeGuerra.trim().length);
-
-            const larguraAntes = doc.getTextWidth(antes);
-            const larguraGuerra = doc.getTextWidth(guerra);
-            const larguraDepois = doc.getTextWidth(depois);
-            const totalWidth = larguraAntes + larguraGuerra + larguraDepois;
-
-            let x = xPos - (totalWidth / 2);
-
-            if (antes) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(antes, x, yPos + 4);
-                x += larguraAntes;
-            }
-
-            doc.setFont('helvetica', 'bold');
-            doc.text(guerra, x, yPos + 4);
-            x += larguraGuerra;
-
-            if (depois) {
-                doc.setFont('helvetica', 'normal');
-                doc.text(depois, x, yPos + 4);
-            }
-        } else {
-            doc.setFont('helvetica', 'normal');
-            doc.text(textoBase, xPos, yPos + 4, { align: 'center' });
-        }
-
+        const nomeCargo = cargo ? `${nome} - ${cargo}` : nome;
+        doc.text(nomeCargo, xPos, yPos + 4, { align: 'center' });
         if (funcao) {
             doc.setFont('helvetica', 'normal');
             doc.text(funcao, xPos, yPos + 8, { align: 'center' });
@@ -525,25 +464,15 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     y += 35;
 
     const centerX = PAGE_WIDTH / 2;
+    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
+    const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
 
-    drawSignatureLocal(
-        data.assinante1Nome || '',
-        data.assinante1NomeGuerra || '',
-        data.assinante1Funcao || '',
-        centerX,
-        y
-    );
+    drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
 
     if (data.assinante2Nome) {
         y += 45;
         addPage(30);
-        drawSignatureLocal(
-            data.assinante2Nome || '',
-            data.assinante2NomeGuerra || '',
-            data.assinante2Funcao || '',
-            centerX,
-            y
-        );
+        drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
     }
 
     const totalPages = (doc as any).internal.getNumberOfPages();

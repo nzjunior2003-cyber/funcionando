@@ -123,10 +123,10 @@ const ItemForm: React.FC<{
     onAddPrice: (itemGroupId: string, source: string) => void;
     onPriceChange: (itemGroupId: string, priceId: string, value: string) => void;
     onRemovePrice: (itemGroupId: string, priceId: string) => void;
-    onTogglePriceInclusion: (priceId: string, included: boolean) => void;
+    onPriceInclusionToggle: (priceId: string, included: boolean) => void;
     valorReferencia: number;
     isLoteItem?: boolean;
-}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onTogglePriceInclusion, valorReferencia, isLoteItem }) => {
+}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onPriceInclusionToggle, valorReferencia, isLoteItem }) => {
     
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
     const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
@@ -160,7 +160,6 @@ const ItemForm: React.FC<{
     const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
-    // CORREÇÃO: Arredondar para bater com a matemática do PDF
     const estUnitariaArredondada = Math.round((Number(group.estimativaUnitaria) || 0) * 100) / 100;
     const valorTotalItem = estUnitariaArredondada * (Number(group.quantidadeTotal) || 0);
 
@@ -222,12 +221,25 @@ const ItemForm: React.FC<{
                             </div>
                         )}
                         
-                        <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipo de Valor da Pesquisa</label>
+                        <div>
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Tipo de Valor</label>
                             <select value={group.tipoValor || 'moeda'} onChange={(e) => onGroupChange(group.id, 'tipoValor', e.target.value)} className={inputClasses}>
                                 <option value="moeda">Moeda (R$)</option>
                                 <option value="percentual">Percentual (%)</option>
                             </select>
+                        </div>
+
+                        {/* NOVO CAMPO: Período de Contratação para Locações/Assinaturas */}
+                        <div>
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Período de Contratação</label>
+                            <input 
+                                type="text" 
+                                value={(group as any).periodoContratacao || ''} 
+                                onChange={(e) => onGroupChange(group.id, 'periodoContratacao' as any, e.target.value)} 
+                                className={inputClasses} 
+                                placeholder="Ex: 12 meses, 30 dias (Opcional)" 
+                                title="Utilize para registrar o tempo de locação, assinatura ou execução de serviços continuados"
+                            />
                         </div>
 
                         {tipoOrcamento === 'gerenciador_ata' && (
@@ -298,7 +310,7 @@ const ItemForm: React.FC<{
                                     <input type="text" value={p.value} onChange={(e) => onPriceChange(group.id, p.id, e.target.value)} placeholder="0,00" className="w-32 p-2 text-sm font-bold border border-gray-300 rounded text-right dark:bg-gray-900 dark:border-gray-600 focus:ring-2 focus:ring-cbmpa-red outline-none"/>
                                 </div>
                                 <label className="flex items-center gap-2 cursor-pointer bg-gray-50 dark:bg-gray-700/50 px-2 py-1.5 rounded">
-                                    <input type="checkbox" checked={precosIncluidos[p.id] ?? true} onChange={(e) => onTogglePriceInclusion(p.id, e.target.checked)} className="h-4 w-4 text-cbmpa-blue-start rounded border-gray-300 cursor-pointer"/>
+                                    <input type="checkbox" checked={precosIncluidos[p.id] ?? true} onChange={(e) => onPriceInclusionToggle(p.id, e.target.checked)} className="h-4 w-4 text-cbmpa-blue-start rounded border-gray-300 cursor-pointer"/>
                                     <span className="text-sm font-medium dark:text-gray-300">Incluir</span>
                                 </label>
                                 <button onClick={() => onRemovePrice(group.id, p.id)} className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 p-2 rounded transition-colors text-sm font-bold ml-auto" title="Remover preço">Remover</button>
@@ -307,7 +319,6 @@ const ItemForm: React.FC<{
                     </div>
                     
                     <div className="mt-4 flex flex-wrap justify-end items-center gap-4 pt-3 border-t border-gray-200 dark:border-gray-700">
-                        {/* NOVO: Exibe o valor quebrado cru gerado pela matemática antes do arredondamento */}
                         <span className="text-xs font-medium text-gray-400 dark:text-gray-500 italic mr-auto">
                             Valor real da matemática: {group.estimativaUnitaria}
                         </span>
@@ -346,7 +357,9 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           qtd: Number(g.quantidadeTotal) || 0,
           loteId: g.loteId,
           aplicarCota: g.aplicarCotaMeEpp,
-          tipoValor: g.tipoValor
+          tipoValor: g.tipoValor,
+          // Rastreia o novo campo para re-disparar efeitos se necessário
+          periodoContratacao: (g as any).periodoContratacao
       }))
   });
 
@@ -570,9 +583,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const currentYear = currentPaeParts[0] || '2025';
   const currentNum = currentPaeParts[1] || '';
 
-  const handlePaeYearChange = (e: React.ChangeEvent<HTMLSelectElement>) => { const newYear = e.target.value; setData(prev => ({...prev, pae: `${newYear}/${currentNum}`})); };
-  const handlePaeNumChange = (e: React.ChangeEvent<HTMLInputElement>) => { const newNum = e.target.value.replace(/\D/g, ''); setData(prev => ({...prev, pae: `${currentYear}/${newNum}`})); };
-
   const lotesMap = new Map<string, OrcamentoItemGroup[]>();
   const avulsos: OrcamentoItemGroup[] = [];
   sortedItems.forEach(item => {
@@ -605,8 +615,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               {data.tipoOrcamento === 'aditivo_contratual' && (
                   <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700 animate-fade-in-down">
                       <h3 className="font-bold text-blue-800 dark:text-blue-300 mb-4 border-b border-blue-200 pb-2">Dados da Alteração</h3>
-                      
-                      {/* NOVO: Radio Buttons para Escolher Contrato ou Ata */}
                       <Field label="O que está sendo aditivado?">
                           <div className="flex gap-4 mb-4">
                               <label className="flex items-center gap-2 cursor-pointer">
@@ -825,7 +833,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                       <ItemForm 
                                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                                           tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
-                                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
+                                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
                                           valorReferencia={valorRef} isLoteItem={true}
                                       />
                                   );
