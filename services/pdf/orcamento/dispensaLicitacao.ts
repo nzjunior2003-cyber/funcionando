@@ -32,12 +32,17 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
         doc.setTextColor(0); y += h;
     };
 
-    // Helper utilitário para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
+    // Helper para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
     const getPeriodMultiplier = (item: any): number => {
         if (!item.periodoContratacao) return 1;
         const match = item.periodoContratacao.match(/\d+/);
         return match ? parseInt(match[0], 10) : 1;
     };
+
+    // Verifica se existe período preenchido em algum item da listagem
+    const temPeriodoValido = data.itemGroups.some(g => (g as any).periodoContratacao && (g as any).periodoContratacao.trim() !== '');
+    // Captura a string do primeiro período encontrado para rotular a linha final
+    const stringPeriodoGlobal = (data.itemGroups.find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO - DISPENSA', `PAE n° ${data.pae || 'NNNN'}`);
 
@@ -144,21 +149,22 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
-    // Final Table
+    // Tabela Final
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    let totalCentavos = 0;
+    let totalMensalCentavos = 0;
+    let totalGlobalPeriodoCentavos = 0;
     const fb: any[] = [];
     
     data.itemGroups.forEach(g => {
         const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-        const kMultiplier = getPeriodMultiplier(g); // Multiplicador de período de locação/assinatura
+        const kMultiplier = getPeriodMultiplier(g);
         const qtdTotal = Number(g.quantidadeTotal) || 0;
         
-        // MATEMÁTICA ATUALIZADA: Multiplica Unitário × Quantidade × Período
-        const totalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
+        const totalMensalLinha = Math.round(est * qtdTotal * 100) / 100;
+        const totalGlobalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
         const cotasValidas = (g as any).cotas?.filter((c: any) => Number(c.quantidade) > 0);
 
         const descExibicao = (g as any).periodoContratacao 
@@ -168,9 +174,11 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
         if (cotasValidas && cotasValidas.length > 0) {
             cotasValidas.forEach((c: any, i: number) => {
                 const cQtd = Number(c.quantidade) || 0;
-                // MATEMÁTICA ATUALIZADA NA COTA:
-                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
+                const cMensal = Math.round(cQtd * est * 100) / 100;
+                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
+                
+                totalMensalCentavos += Math.round(cMensal * 100);
+                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
                 
                 fb.push([
                     i === 0 ? { content: g.itemTR, styles: { fillColor: GRAY } } : '',
@@ -178,27 +186,38 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
                     c.id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP',
                     formatValue(est, g.tipoValor), 
                     cQtd, 
-                    formatValue(cTotal, g.tipoValor)
+                    formatValue(cMensal, g.tipoValor)
                 ]);
             });
         } else {
-            totalCentavos += Math.round(totalLinha * 100);
+            totalMensalCentavos += Math.round(totalMensalLinha * 100);
+            totalGlobalPeriodoCentavos += Math.round(totalGlobalLinha * 100);
             fb.push([
                 { content: g.itemTR, styles: { fillColor: GRAY } }, 
                 descExibicao, 
                 'AMPLA', 
                 formatValue(est, g.tipoValor), 
                 qtdTotal, 
-                formatValue(totalLinha, g.tipoValor)
+                formatValue(totalMensalLinha, g.tipoValor)
             ]);
         }
     });
     
-    const total = totalCentavos / 100;
-    fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
+    // Adiciona bloco intermediário "Total Mensal" se houver período (Item 2)
+    if (temPeriodoValido) {
+        fb.push([{ content: 'TOTAL MENSAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: LBLUE } }, { content: formatValue(totalMensalCentavos / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: LBLUE } }]);
+    }
+
+    const labelTotalFinal = temPeriodoValido ? `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})` : 'TOTAL';
+    const valorEfetivoFinal = temPeriodoValido ? totalGlobalPeriodoCentavos : totalMensalCentavos;
+
+    fb.push([{ content: labelTotalFinal, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(valorEfetivoFinal / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
     
+    // Altera dinamicamente o nome da coluna no Head (Item 1)
+    const cabeçalhoColunaFinal = temPeriodoValido ? 'Valor Mensal' : 'Total';
+
     autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
+        startY: y, head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', cabeçalhoColunaFinal]], body: fb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },

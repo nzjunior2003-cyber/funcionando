@@ -76,12 +76,17 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
-    // Helper utilitário para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
+    // Helper para extrair o multiplicador do período (Ex: "12 meses" -> 12, vazio -> 1)
     const getPeriodMultiplier = (item: any): number => {
         if (!item.periodoContratacao) return 1;
         const match = item.periodoContratacao.match(/\d+/);
         return match ? parseInt(match[0], 10) : 1;
     };
+
+    // Verifica se existe período preenchido em algum item da listagem
+    const temPeriodoValido = data.itemGroups.some(g => (g as any).periodoContratacao && (g as any).periodoContratacao.trim() !== '');
+    // Captura a string do primeiro período encontrado para rotular a linha final
+    const stringPeriodoGlobal = (data.itemGroups.find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
@@ -258,11 +263,11 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
 
-    let totalCentavos = 0;
+    let totalMensalCentavos = 0;
+    let totalGlobalPeriodoCentavos = 0;
     const fb: any[] = [];
     let seqItem = 1;
 
-    // Agrupar itens por lote
     const lotesOrdemFinal: string[] = [];
     const lotesBucketFinal: Record<string, typeof data.itemGroups> = {};
     const avulsosFinal: typeof data.itemGroups = [];
@@ -281,11 +286,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     const processarItem = (g: OrcamentoData['itemGroups'][0]) => {
         const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-        const kMultiplier = getPeriodMultiplier(g); // Multiplicador de período de locação/assinatura
+        const kMultiplier = getPeriodMultiplier(g);
         const qtdTotal = Number(g.quantidadeTotal) || 0;
         
-        // MATEMÁTICA ATUALIZADA: Multiplica Unitário × Quantidade × Período
-        const totalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
+        // Produto Puro: Unitário x Quantidade (Representa o total mensal do item)
+        const totalMensalLinha = Math.round(est * qtdTotal * 100) / 100;
+        // Produto Triplo: Unitário x Quantidade x Período
+        const totalGlobalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
         const descExibicao = (g as any).periodoContratacao 
@@ -296,9 +303,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
             cotasValidas.forEach((c) => {
                 const cQtd = Number(c.quantidade) || 0;
-                // MATEMÁTICA ATUALIZADA NA COTA:
-                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
+                const cMensal = Math.round(cQtd * est * 100) / 100;
+                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
+                
+                totalMensalCentavos += Math.round(cMensal * 100);
+                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
+
                 const label = (cotasValidas.length === 1)
                     ? (c.id === 'ampla' ? 'AMPLA' : 'ME/EPP')
                     : (cQtd === maxQtd ? 'AMPLA' : 'ME/EPP');
@@ -308,33 +318,31 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     label,
                     formatValue(est, g.tipoValor),
                     cQtd,
-                    formatValue(cTotal, g.tipoValor)
+                    formatValue(cMensal, g.tipoValor)
                 ]);
                 seqItem++;
             });
         } else {
-            totalCentavos += Math.round(totalLinha * 100);
+            totalMensalCentavos += Math.round(totalMensalLinha * 100);
+            totalGlobalPeriodoCentavos += Math.round(totalGlobalLinha * 100);
             fb.push([
                 seqItem.toString(),
                 { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
                 'AMPLA',
                 formatValue(est, g.tipoValor),
                 qtdTotal,
-                formatValue(totalLinha, g.tipoValor)
-                ]);
-                seqItem++;
-            }
-        };
+                formatValue(totalMensalLinha, g.tipoValor)
+            ]);
+            seqItem++;
+        }
+    };
 
-    // Processar lotes
     lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
-
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
         const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
 
         if (temAmpla && temCota) {
-            // Sub-lote AMPLA
             fb.push([{
                 content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
                 colSpan: 6,
@@ -350,8 +358,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 const cotaAmpla = g.cotas?.find(c => c.id === 'ampla' && Number(c.quantidade) > 0);
                 if (!cotaAmpla) return;
                 const cQtd = Number(cotaAmpla.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
+                
+                const cMensal = Math.round(cQtd * est * 100) / 100;
+                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
+                
+                totalMensalCentavos += Math.round(cMensal * 100);
+                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
                 
                 const descExibicao = (g as any).periodoContratacao 
                     ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
@@ -363,12 +375,11 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     'AMPLA',
                     formatValue(est, g.tipoValor),
                     cQtd,
-                    formatValue(cTotal, g.tipoValor)
+                    formatValue(cMensal, g.tipoValor)
                 ]);
                 seqItem++;
             });
 
-            // Sub-lote ME/EPP
             fb.push([{
                 content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
                 colSpan: 6,
@@ -384,8 +395,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 const cotaME = g.cotas?.find(c => c.id === 'cota' && Number(c.quantidade) > 0);
                 if (!cotaME) return;
                 const cQtd = Number(cotaME.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                totalCentavos += Math.round(cTotal * 100);
+                
+                const cMensal = Math.round(cQtd * est * 100) / 100;
+                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
+                
+                totalMensalCentavos += Math.round(cMensal * 100);
+                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
 
                 const descExibicao = (g as any).periodoContratacao 
                     ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
@@ -397,7 +412,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     'ME/EPP',
                     formatValue(est, g.tipoValor),
                     cQtd,
-                    formatValue(cTotal, g.tipoValor)
+                    formatValue(cMensal, g.tipoValor)
                 ]);
                 seqItem++;
             });
@@ -417,22 +432,37 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     });
 
-    // Itens avulsos (sem lote)
     avulsosFinal.forEach(processarItem);
 
-    const total = totalCentavos / 100;
+    // Se houver período indicado, acrescenta a linha "Total Mensal" com cor clara (Item 2)
+    if (temPeriodoValido) {
+        fb.push([{
+            content: 'TOTAL MENSAL', colSpan: 5,
+            styles: { halign: 'right', fontStyle: 'bold', fillColor: LBLUE }
+        }, {
+            content: formatValue(totalMensalCentavos / 100, 'moeda'),
+            styles: { fontStyle: 'bold', fillColor: LBLUE }
+        }]);
+    }
+
+    // Configura o rótulo da linha final de acordo com a existência do período (Item 3)
+    const labelTotalFinal = temPeriodoValido ? `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})` : 'TOTAL';
+    const valorEfetivoFinal = temPeriodoValido ? totalGlobalPeriodoCentavos : totalMensalCentavos;
 
     fb.push([{
-        content: 'TOTAL', colSpan: 5,
+        content: labelTotalFinal, colSpan: 5,
         styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW }
     }, {
-        content: formatValue(total, 'moeda'),
+        content: formatValue(valorEfetivoFinal / 100, 'moeda'),
         styles: { fontStyle: 'bold', fillColor: YELLOW }
     }]);
 
+    // Altera dinamicamente o nome da coluna no Head (Item 1)
+    const cabeçalhoColunaFinal = temPeriodoValido ? 'Valor Mensal' : 'Total';
+
     autoTable(doc, {
         startY: y,
-        head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']],
+        head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', cabeçalhoColunaFinal]],
         body: fb,
         theme: 'grid',
         rowPageBreak: 'avoid',
