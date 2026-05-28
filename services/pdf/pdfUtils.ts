@@ -221,38 +221,38 @@ export const drawSignature = (doc: jsPDF, name: string, cargo: string, x: number
 };
 
 export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: string, f: string, sx: number, y: number) => {
-    doc.setDrawColor(0); 
-    doc.setLineWidth(0.5); 
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.5);
     doc.line(sx - 40, y, sx + 40, y);
-    
-    let cy = y + 5; 
+
+    let cy = y + 5;
     doc.setFontSize(10);
-    
-    const nameStr = n || '';
+
+    const nameStr = (n || '').trim();
     const cargoStr = c ? ` - ${c}` : '';
-    
+
     let pre = nameStr;
     let match = '';
     let post = '';
-    
+
     if (ng && nameStr.toLowerCase().includes(ng.toLowerCase())) {
         const idx = nameStr.toLowerCase().indexOf(ng.toLowerCase());
         pre = nameStr.substring(0, idx);
         match = nameStr.substring(idx, idx + ng.length);
         post = nameStr.substring(idx + ng.length);
     }
-    
+
     doc.setFont('helvetica', 'normal');
     const wPre = pre ? doc.getTextWidth(pre) : 0;
     const wPost = post ? doc.getTextWidth(post) : 0;
-    const wCargo = cargoStr ? doc.getTextWidth(cargoStr) : 0;
-    
+    const wCargo = cargoStr ? (() => { doc.setFont('helvetica', 'bold'); return doc.getTextWidth(cargoStr); })() : 0;
+
     doc.setFont('helvetica', 'bold');
     const wMatch = match ? doc.getTextWidth(match) : 0;
-    
+
     const totalWidth = wPre + wMatch + wPost + wCargo;
     let cx = sx - (totalWidth / 2);
-    
+
     if (pre) {
         doc.setFont('helvetica', 'normal');
         doc.text(pre, cx, cy);
@@ -269,10 +269,10 @@ export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: str
         cx += wPost;
     }
     if (cargoStr) {
-        doc.setFont('helvetica', 'normal');
+        doc.setFont('helvetica', 'bold');
         doc.text(cargoStr, cx, cy);
     }
-    
+
     if (f) {
         cy += 5;
         doc.setFont('helvetica', 'normal');

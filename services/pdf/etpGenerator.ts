@@ -438,12 +438,12 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         didDrawCell: (hookData) => {
             if (hookData.section === 'body') {
                 const cell = hookData.cell;
-                const styles = cell.styles;
+                const styles = cell.styles as any;
                 const fontSizeMm = (styles.fontSize * 25.4) / 72;
                 const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15); 
-                const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).top || 1.2;
-                const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).left || 1.2;
-                const padRight = typeof styles.cellPadding === 'number' ? styles.cellPadding : (styles.cellPadding as any).right || 1.2;
+                const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.top || 1.2;
+                const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.left || 1.2;
+                const padRight = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.right || 1.2;
 
                 const textX = cell.x + padLeft;
                 const maxWidth = cell.width - padLeft - padRight;
@@ -468,7 +468,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                         doc.setLineWidth(0.15);
                         
                         if (cb.checked) {
-                            doc.setFillColor(0); 
+                            doc.setFillColor(0, 0, 0);
                             doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
                         } else {
                             doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 

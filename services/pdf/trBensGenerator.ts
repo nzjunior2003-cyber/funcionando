@@ -169,7 +169,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     doc.setLineWidth(0.15);
                     
                     if (cb.checked) {
-                        doc.setFillColor(0); 
+                        doc.setFillColor(0, 0, 0);
                         doc.rect(boxX, boxY, boxSize, boxSize, 'FD'); 
                     } else {
                         doc.rect(boxX, boxY, boxSize, boxSize, 'S'); 

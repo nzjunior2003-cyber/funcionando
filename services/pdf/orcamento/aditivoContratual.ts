@@ -88,7 +88,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
-    const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+    const isDir = data.fontesPesquisa.includes('direta');
     const boxDirSim = isDir ? '[ X ]' : '[   ]';
     const boxDirNao = !isDir ? '[ X ]' : '[   ]';
 

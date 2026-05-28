@@ -34,6 +34,7 @@ const initialDfdState: DfdData = {
 
 const initialEtpState: EtpData = {
   ...initialSignatory,
+  setor: '',
   numero: '',
   ano: new Date().getFullYear().toString(),
   pae: '',
@@ -97,6 +98,7 @@ const initialRiscoState: RiscoData = {
 };
 
 const initialOrcamentoState: OrcamentoData = {
+    setor: '',
     cidade: 'Belém',
     data: today,
     pae: '',

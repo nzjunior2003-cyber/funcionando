@@ -970,12 +970,14 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
              <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 1 (Responsável)</p>
                 <Field label="Nome Completo"><input type="text" name="assinante1Nome" value={data.assinante1Nome} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Nome de Guerra"><input type="text" name="assinante1NomeGuerra" value={data.assinante1NomeGuerra} onChange={handleChange} className={inputClasses} placeholder="Ex: Nome de Guerra" /></Field>
                 <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
                 <Field label="Função"><input type="text" name="assinante1Funcao" value={data.assinante1Funcao} onChange={handleChange} className={inputClasses} /></Field>
             </div>
             <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 2 (Opcional)</p>
                 <Field label="Nome Completo"><input type="text" name="assinante2Nome" value={data.assinante2Nome} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Nome de Guerra"><input type="text" name="assinante2NomeGuerra" value={data.assinante2NomeGuerra} onChange={handleChange} className={inputClasses} placeholder="Ex: Nome de Guerra" /></Field>
                 <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
                 <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao} onChange={handleChange} className={inputClasses} /></Field>
             </div>

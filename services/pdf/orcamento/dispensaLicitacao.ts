@@ -92,7 +92,7 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
 
     // Sec 4
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
-    const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+    const isDir = data.fontesPesquisa.includes('direta');
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
         { content: `[ ${isDir ? 'X' : ' '} ] Sim\n[ ${!isDir ? 'X' : ' '} ] Não`, styles: { halign: 'center' } },

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, drawFormattedSignature } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -22,10 +22,11 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(10);
         const lines = doc.splitTextToSize(title, USABLE_WIDTH - 4);
-        const titleHeight = lines.length * 4;
-        const subHeight = sub ? 4 : 0;
+        const titleLineHeight = 3.4;
+        const titleHeight = lines.length * titleLineHeight;
+        const subHeight = sub ? 3.4 : 0;
         const totalTextHeight = titleHeight + subHeight;
-        const paddingVertical = 8;
+        const paddingVertical = 6;
         const h = totalTextHeight + paddingVertical;
 
         addPage(h + 10);
@@ -120,7 +121,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         startY: y,
         theme: 'grid',
         body: s1Body,
-        rowPageBreak: 'avoid',
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 15 }, 2: { cellWidth: 25 }, 3: { cellWidth: 15 }, 4: { cellWidth: 15 } },
@@ -147,12 +147,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     // Sec 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', rowPageBreak: 'avoid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sec 4
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
-    const isDir = data.fontesPesquisa.length === 1 && data.fontesPesquisa.includes('direta');
+    const isDir = data.fontesPesquisa.includes('direta');
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
         { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [isDir, !isDir], styles: { halign: 'left' } },
@@ -174,7 +174,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         });
     }
     autoTable(doc, {
-        startY: y, body: s4b, theme: 'grid', rowPageBreak: 'avoid',
+        startY: y, body: s4b, theme: 'grid',
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } },
@@ -186,13 +186,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     // Sec 5
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const mt = data.metodologia;
+    const metodologiaBody: any[] = [[
+        { content: 'Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [mt === 'menor'], styles: { fontStyle: mt === 'menor' ? 'bold' : 'normal', halign: 'center' } },
+        { content: 'Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [mt === 'media'], styles: { fontStyle: mt === 'media' ? 'bold' : 'normal', halign: 'center' } },
+        { content: 'Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [mt === 'mediana'], styles: { fontStyle: mt === 'mediana' ? 'bold' : 'normal', halign: 'center' } }
+    ]];
     autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: 'Menor preço\n(mercado restrito)', hasCheckboxes: true, checkboxStates: [mt === 'menor'], styles: { fontStyle: mt === 'menor' ? 'bold' : 'normal', halign: 'center' } },
-            { content: 'Média\n(preços semelhantes)', hasCheckboxes: true, checkboxStates: [mt === 'media'], styles: { fontStyle: mt === 'media' ? 'bold' : 'normal', halign: 'center' } },
-            { content: 'Mediana\n(preços com grande variação)', hasCheckboxes: true, checkboxStates: [mt === 'mediana'], styles: { fontStyle: mt === 'mediana' ? 'bold' : 'normal', halign: 'center' } }
-        ]],
+        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
+        body: metodologiaBody,
         didDrawCell: checkboxHook
     });
     y = (doc as any).lastAutoTable.finalY + 8;
@@ -206,7 +207,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         if (p.length > maxPrices) maxPrices = p.length;
     });
 
-    const s6Head = [[
+    const s6Head: any[] = [[
         { content: 'Item', rowSpan: 1, styles: { halign: 'center', valign: 'middle', cellWidth: 15 } },
         { content: 'Preços Encontrados e Fontes', colSpan: maxPrices, styles: { halign: 'center', valign: 'middle' } }
     ]];
@@ -238,7 +239,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
 
     autoTable(doc, {
-        startY: y, head: s6Head, body: s6b, theme: 'grid', rowPageBreak: 'avoid',
+        startY: y, head: s6Head, body: s6b, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' },
         styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
@@ -247,13 +248,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     y = (doc as any).lastAutoTable.finalY;
 
     const desc = data.houveDescarte;
+    const descarteBody: any[] = [[
+        { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
+        { content: `      Sim.\n      Não.`, hasCheckboxes: true, checkboxStates: [desc === 'sim', desc === 'nao'], styles: { cellWidth: 30, halign: 'left' } },
+        { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
+    ]];
     autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
-            { content: `      Sim.\n      Não.`, hasCheckboxes: true, checkboxStates: [desc === 'sim', desc === 'nao'], styles: { cellWidth: 30, halign: 'left' } },
-            { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
-        ]],
+        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        body: descarteBody,
         didDrawCell: checkboxHook
     });
     y = (doc as any).lastAutoTable.finalY + 12;
@@ -465,7 +467,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', cabeçalhoColunaFinal]],
         body: fb,
         theme: 'grid',
-        rowPageBreak: 'avoid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
@@ -474,35 +475,21 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    const drawSignatureLocal = (nome: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
-        if (!nome) return;
-        doc.setLineWidth(0.2);
-        doc.line(xPos - 55, yPos, xPos + 55, yPos);
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        const nomeCargo = cargo ? `${nome} - ${cargo}` : nome;
-        doc.text(nomeCargo, xPos, yPos + 4, { align: 'center' });
-        if (funcao) {
-            doc.setFont('helvetica', 'normal');
-            doc.text(funcao, xPos, yPos + 8, { align: 'center' });
-        }
-    };
-
     addPage(40);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
     y += 35;
 
     const centerX = PAGE_WIDTH / 2;
-    const cargo1 = data.assinante1Cargo || data.assinante1NomeGuerra || (data.assinante1Nome ? 'Vol. Civil' : '');
-    const cargo2 = data.assinante2Cargo || data.assinante2NomeGuerra || '';
 
-    drawSignatureLocal(data.assinante1Nome, cargo1, data.assinante1Funcao, centerX, y);
+    if (data.assinante1Nome) {
+        drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, centerX, y);
+    }
 
     if (data.assinante2Nome) {
         y += 45;
         addPage(30);
-        drawSignatureLocal(data.assinante2Nome, cargo2, data.assinante2Funcao, centerX, y);
+        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, centerX, y);
     }
 
     const totalPages = (doc as any).internal.getNumberOfPages();
