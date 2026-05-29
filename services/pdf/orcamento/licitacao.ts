@@ -339,6 +339,30 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     };
 
+    const getItemTotalForLote = (g: OrcamentoData['itemGroups'][0]): number => {
+        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+        const kMultiplier = getPeriodMultiplier(g);
+        const qtdTotal = Number(g.quantidadeTotal) || 0;
+        const baseMultiplier = temPeriodoValido ? kMultiplier : 1;
+        const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0) || [];
+
+        if (cotasValidas.length > 0) {
+            return cotasValidas.reduce((sum, c) => sum + Math.round((Number(c.quantidade) || 0) * est * baseMultiplier * 100) / 100, 0);
+        }
+        return Math.round(est * qtdTotal * baseMultiplier * 100) / 100;
+    };
+
+    const getLoteTotal = (itensLote: typeof data.itemGroups) => itensLote.reduce((sum, item) => sum + getItemTotalForLote(item), 0);
+
+    const loteSubHeader = [
+        { content: 'Item', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        { content: 'Descrição', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        { content: 'AMPLA OU\nME/EPP', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        { content: 'Valor Unit.', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        { content: 'Qtd', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        { content: temPeriodoValido ? 'Valor Mensal' : 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } }
+    ];
+
     lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
@@ -354,6 +378,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
                 }
             }]);
+            fb.push(loteSubHeader);
             itensLote.forEach(g => {
                 const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
                 const kMultiplier = getPeriodMultiplier(g);
@@ -391,6 +416,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
                 }
             }]);
+            fb.push(loteSubHeader);
             itensLote.forEach(g => {
                 const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
                 const kMultiplier = getPeriodMultiplier(g);
@@ -418,6 +444,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 ]);
                 seqItem++;
             });
+            const loteTotal = getLoteTotal(itensLote);
+            fb.push([{
+                content: `VALOR DO LOTE ${loteId}`, colSpan: 5,
+                styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
+            }, {
+                content: formatValue(loteTotal, 'moeda'),
+                styles: { fontStyle: 'bold', fillColor: GRAY }
+            }]);
 
         } else {
             const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
@@ -430,7 +464,16 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
                 }
             }]);
+            fb.push(loteSubHeader);
             itensLote.forEach(processarItem);
+            const loteTotal = getLoteTotal(itensLote);
+            fb.push([{
+                content: `VALOR DO LOTE ${loteId}`, colSpan: 5,
+                styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
+            }, {
+                content: formatValue(loteTotal, 'moeda'),
+                styles: { fontStyle: 'bold', fillColor: GRAY }
+            }]);
         }
     });
 
@@ -464,11 +507,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     autoTable(doc, {
         startY: y,
-        head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', cabeçalhoColunaFinal]],
         body: fb,
         theme: 'grid',
-        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' },
-        styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 15 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
