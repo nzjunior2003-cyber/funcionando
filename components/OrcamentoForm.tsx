@@ -344,7 +344,16 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [loteName, setLoteName] = useState('');
+  const [editedLoteNames, setEditedLoteNames] = useState<Record<string, string>>({});
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
+
+  useEffect(() => {
+      const loteNames: Record<string, string> = {};
+      (data.itemGroups || []).forEach(item => {
+          if (item.loteId) loteNames[item.loteId] = item.loteId;
+      });
+      setEditedLoteNames(prev => ({ ...loteNames, ...prev }));
+  }, [data.itemGroups]);
 
   const triggerProps = JSON.stringify({
       precos: data.precosEncontrados,
@@ -498,6 +507,30 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           ...prev,
           itemGroups: (prev.itemGroups || []).map(g => g.loteId === loteId ? { ...g, aplicarCotaMeEpp: checked } : g)
       }));
+  };
+
+  const handleLoteNameInputChange = (loteId: string, value: string) => {
+      setEditedLoteNames(prev => ({ ...prev, [loteId]: value }));
+  };
+
+  const commitLoteRename = (oldLoteId: string) => {
+      const newLoteId = (editedLoteNames[oldLoteId] || oldLoteId).trim();
+      if (!newLoteId || newLoteId === oldLoteId) {
+          setEditedLoteNames(prev => ({ ...prev, [oldLoteId]: oldLoteId }));
+          return;
+      }
+
+      setData(prev => ({
+          ...prev,
+          itemGroups: (prev.itemGroups || []).map(item => item.loteId === oldLoteId ? { ...item, loteId: newLoteId } : item)
+      }));
+
+      setEditedLoteNames(prev => {
+          const next = { ...prev };
+          delete next[oldLoteId];
+          next[newLoteId] = newLoteId;
+          return next;
+      });
   };
 
   const handleAditivoCalculation = (id: string, type: 'pct' | 'qtd' | 'total', rawValue: string) => {
@@ -786,8 +819,22 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
                   return (
                       <div key={`lote-${loteId}`} className="border-2 border-cbmpa-blue-start rounded-lg mb-6 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
-                          <div className="bg-cbmpa-blue-start text-white p-4 flex justify-between items-center">
-                              <h3 className="font-bold text-lg">📦 LOTE {loteId}</h3>
+                          <div className="bg-cbmpa-blue-start text-white p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
+                                  <span className="text-2xl">📦</span>
+                                  <div className="min-w-0">
+                                      <div className="text-xs uppercase tracking-wide opacity-80">Lote</div>
+                                      <input
+                                          type="text"
+                                          value={editedLoteNames[loteId] ?? loteId}
+                                          onChange={(e) => handleLoteNameInputChange(loteId, e.target.value)}
+                                          onBlur={() => commitLoteRename(loteId)}
+                                          onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
+                                          className="w-full bg-transparent border-b border-white/40 focus:border-white focus:outline-none text-lg font-bold text-white placeholder-white/70"
+                                          placeholder="Digite o nome do lote"
+                                      />
+                                  </div>
+                              </div>
                               <div className="text-right">
                                   <span className="text-sm opacity-80 block">Valor Total do Lote</span>
                                   <span className="font-bold text-xl">{formatCurrencyInput(valorTotalLote)}</span>
