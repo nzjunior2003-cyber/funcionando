@@ -61,6 +61,14 @@ const formatCurrencyInput = (value: number): string => {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// NOVO: Formatador que respeita as casas decimais de taxa (%)
+const formatValueByType = (value: number, tipoValor: string = 'moeda'): string => {
+  if (tipoValor === 'percentual') {
+      return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  }
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | string, tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
   const validPrices = prices.map(p => parseValue(p, tipoValor)).filter((p): p is number => p !== null && (tipoValor === 'percentual' || p > 0));
   if (validPrices.length === 0) return 0;
@@ -128,22 +136,23 @@ const ItemForm: React.FC<{
     isLoteItem?: boolean;
 }> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onPriceInclusionToggle, valorReferencia, isLoteItem }) => {
     
-    const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
-    const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
+    // ATUALIZADO: Agora usa formatValueByType para respeitar 4 casas se for taxa
+    const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatValueByType(group.estimativaUnitaria, group.tipoValor) : '');
+    const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatValueByType(group.valorUnitarioContrato, group.tipoValor) : '');
 
-    useEffect(() => { setLocalPrice(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : ''); }, [group.estimativaUnitaria]);
-    useEffect(() => { setContractPrice(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : ''); }, [group.valorUnitarioContrato]);
+    useEffect(() => { setLocalPrice(group.estimativaUnitaria ? formatValueByType(group.estimativaUnitaria, group.tipoValor) : ''); }, [group.estimativaUnitaria, group.tipoValor]);
+    useEffect(() => { setContractPrice(group.valorUnitarioContrato ? formatValueByType(group.valorUnitarioContrato, group.tipoValor) : ''); }, [group.valorUnitarioContrato, group.tipoValor]);
 
     const handlePriceBlur = () => {
         const numericVal = parseValue(localPrice, group.tipoValor) || 0;
         onGroupChange(group.id, 'estimativaUnitaria', numericVal);
-        setLocalPrice(formatCurrencyInput(numericVal));
+        setLocalPrice(formatValueByType(numericVal, group.tipoValor));
     };
 
     const handleContractPriceBlur = () => {
         const numericVal = parseValue(contractPrice, group.tipoValor) || 0;
         onGroupChange(group.id, 'valorUnitarioContrato', numericVal);
-        setContractPrice(formatCurrencyInput(numericVal));
+        setContractPrice(formatValueByType(numericVal, group.tipoValor));
     };
 
     const handleCotaToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -155,8 +164,31 @@ const ItemForm: React.FC<{
         onGroupChange(group.id, 'aplicarCotaMeEpp', isChecked);
     };
 
+    // NOVO: Lógica da Escala de Cor Verde para as menores taxas/valores
+    const getPriceStyle = (valStr: string) => {
+        const val = parseValue(valStr, group.tipoValor);
+        if (val === null) return {};
+        
+        const validPrices = precos.map(p => parseValue(p.value, group.tipoValor)).filter((v): v is number => v !== null);
+        if (validPrices.length < 2) return {};
+
+        const min = Math.min(...validPrices);
+        const media = validPrices.reduce((a, b) => a + b, 0) / validPrices.length;
+
+        // Se o valor estiver acima ou na média, não recebe cor
+        if (val >= media) return {}; 
+
+        // Se estiver abaixo, calculamos a intensidade (0 = perto da média, 1 = o menor valor)
+        const range = media - min;
+        const intensity = range === 0 ? 0 : (media - val) / range;
+
+        return { 
+            backgroundColor: `rgba(34, 197, 94, ${0.1 + (intensity * 0.4)})`, 
+            borderColor: `rgba(34, 197, 94, ${0.4 + (intensity * 0.6)})` 
+        };
+    };
+
     const isAditivo = tipoOrcamento === 'aditivo_contratual';
-    
     const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
@@ -229,7 +261,6 @@ const ItemForm: React.FC<{
                             </select>
                         </div>
 
-                        {/* NOVO CAMPO: Período de Contratação para Locações/Assinaturas */}
                         <div>
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Período de Contratação</label>
                             <input 
@@ -244,16 +275,22 @@ const ItemForm: React.FC<{
 
                         {tipoOrcamento === 'gerenciador_ata' && (
                             <div className="col-span-2">
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado (R$)</label>
-                                <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handlePriceBlur} className={inputClasses} placeholder="0,00" />
+                                {/* ATUALIZADO: Label Dinâmico e Regex permitindo negativos ([^\d,.-]) */}
+                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">
+                                    Valor Unitário Registrado ({group.tipoValor === 'percentual' ? '%' : 'R$'})
+                                </label>
+                                <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,.-]/g, ''))} onBlur={handlePriceBlur} className={inputClasses} placeholder="0,00" />
                             </div>
                         )}
 
                         {isAditivo && (
                             <>
                                 <div className={subTipoAditivo === 'ata' ? "col-span-1" : "col-span-2"}>
-                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem (R$)</label>
-                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
+                                    {/* ATUALIZADO: Label Dinâmico e Regex permitindo negativos ([^\d,.-]) */}
+                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">
+                                        Valor Unit. Origem ({group.tipoValor === 'percentual' ? '%' : 'R$'})
+                                    </label>
+                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,.-]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
                                 </div>
                                 
                                 {subTipoAditivo === 'ata' && (
@@ -307,7 +344,8 @@ const ItemForm: React.FC<{
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
-                                    <input type="text" value={p.value} onChange={(e) => onPriceChange(group.id, p.id, e.target.value)} placeholder="0,00" className="w-32 p-2 text-sm font-bold border border-gray-300 rounded text-right dark:bg-gray-900 dark:border-gray-600 focus:ring-2 focus:ring-cbmpa-red outline-none"/>
+                                    {/* ATUALIZADO: O input agora recebe o style={getPriceStyle(p.value)} */}
+                                    <input type="text" value={p.value} onChange={(e) => onPriceChange(group.id, p.id, e.target.value)} placeholder="0,00" style={getPriceStyle(p.value)} className="w-32 p-2 text-sm font-bold border border-gray-300 rounded text-right dark:bg-gray-900 dark:border-gray-600 focus:ring-2 focus:ring-cbmpa-red outline-none transition-colors"/>
                                 </div>
                                 <label className="flex items-center gap-2 cursor-pointer bg-gray-50 dark:bg-gray-700/50 px-2 py-1.5 rounded">
                                     <input type="checkbox" checked={precosIncluidos[p.id] ?? true} onChange={(e) => onPriceInclusionToggle(p.id, e.target.checked)} className="h-4 w-4 text-cbmpa-blue-start rounded border-gray-300 cursor-pointer"/>
@@ -324,7 +362,7 @@ const ItemForm: React.FC<{
                         </span>
 
                         <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
-                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                         
                         {group.tipoValor !== 'percentual' && (
@@ -367,7 +405,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           loteId: g.loteId,
           aplicarCota: g.aplicarCotaMeEpp,
           tipoValor: g.tipoValor,
-          // Rastreia o novo campo para re-disparar efeitos se necessário
           periodoContratacao: (g as any).periodoContratacao
       }))
   });
@@ -379,7 +416,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           let hasChanges = false;
           const currentGroups = (prevData.itemGroups || []).map(g => ({...g}));
 
-          // 1. Calcular Preços
           if (['licitacao', 'dispensa_licitacao', 'adesao_ata', 'aditivo_contratual'].includes(prevData.tipoOrcamento || '')) {
               currentGroups.forEach(group => {
                   const itemPrices = prevData.precosEncontrados?.[group.id] || [];
@@ -393,7 +429,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               });
           }
 
-          // 2. Calcular Cotas
           if (prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') {
               const LIMITE_SRP_COTA = 80000;
               const TETO_VALOR_LOTE = 4800000;
@@ -896,7 +931,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                       <ItemForm 
                           key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                           tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
-                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onTogglePriceInclusion={handleInclusionChange}
+                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
                           valorReferencia={valorRef}
                       />
                   )
@@ -984,7 +1019,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               <div className="overflow-x-auto">
                   <table className="min-w-full text-xs text-left">
                       <thead className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
-                          <tr><th className="px-2 py-2">ITEM</th><th className="px-2 py-2">DESCRIÇÃO</th><th className="px-2 py-2 text-center">QTD ORIGINAL</th><th className="px-2 py-2 text-right">V. UNIT. CONTRATO</th><th className="px-2 py-2 text-right">V. TOTAL BASE</th><th className="px-2 py-2 text-center w-24">ADITIVO (%)</th><th className="px-2 py-2 text-center w-24">ADITIVO (QTD)</th><th className="px-2 py-2 text-right w-32">ADITIVO TOTAL (R$)</th><th className="px-2 py-2 text-right">NOVO V. GLOBAL</th></tr>
+                          <tr><th className="px-2 py-2">ITEM</th><th className="px-2 py-2">DESCRIÇÃO</th><th className="px-2 py-2 text-center">QTD ORIGINAL</th><th className="px-2 py-2 text-right">V. UNIT. CONTRATO</th><th className="px-2 py-2 text-right">V. TOTAL BASE</th><th className="px-2 py-2 text-center w-24">ADITIVO (%)</th><th className="px-2 py-2 text-center w-24">ADITIVO (QTD)</th><th className="px-2 py-2 text-right w-32">ADITIVO TOTAL</th><th className="px-2 py-2 text-right">NOVO V. GLOBAL</th></tr>
                       </thead>
                       <tbody>
                           {sortedItems.map(item => {
@@ -993,11 +1028,11 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               const qtdAditivo = Number(item.aditivoQuantidade) || 0; const vTotalAditivo = Number(item.aditivoValorTotal) || (qtdAditivo * vUnitReajustado); const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); const novoVGlobal = vTotalBase + vTotalAditivo;
                               return (
                                   <tr key={item.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                      <td className="px-2 py-2 font-bold">{item.itemTR}</td><td className="px-2 py-2 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td><td className="px-2 py-2 text-center">{qtdOriginal}</td><td className="px-2 py-2 text-right">{vUnitContrato.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td><td className="px-2 py-2 text-right text-blue-600 font-semibold">{vTotalBase.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className="px-2 py-2 font-bold">{item.itemTR}</td><td className="px-2 py-2 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td><td className="px-2 py-2 text-center">{qtdOriginal}</td><td className="px-2 py-2 text-right">{item.tipoValor === 'percentual' ? `${vUnitContrato.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : vUnitContrato.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td><td className="px-2 py-2 text-right text-blue-600 font-semibold">{item.tipoValor === 'percentual' ? `${vTotalBase.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : vTotalBase.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
                                       <td className="px-2 py-2 text-center"><input type="text" value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white" placeholder="%" /></td>
                                       <td className="px-2 py-2 text-center"><input type="text" value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold" placeholder="Qtd" /></td>
-                                      <td className="px-2 py-2 text-right"><input type="text" value={vTotalAditivo ? vTotalAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder="R$" /></td>
-                                      <td className="px-2 py-2 text-right font-bold">{novoVGlobal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
+                                      <td className="px-2 py-2 text-right"><input type="text" value={vTotalAditivo ? vTotalAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder={item.tipoValor === 'percentual' ? '%' : 'R$'} /></td>
+                                      <td className="px-2 py-2 text-right font-bold">{item.tipoValor === 'percentual' ? `${novoVGlobal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : novoVGlobal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
                                   </tr>
                               );
                           })}

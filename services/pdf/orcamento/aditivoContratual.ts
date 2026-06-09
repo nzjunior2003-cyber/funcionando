@@ -8,9 +8,9 @@ const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
-const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; // Azul Clarinho para as zebras das tabelas
+const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; 
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-const SAFE_BOTTOM_MARGIN = 45; // Margem de segurança para o rodapé
+const SAFE_BOTTOM_MARGIN = 45; 
 
 const nomesFontesCurto: Record<string, string> = {
     simas: 'SIMAS', nfe: 'Nota Fiscal', pncp: 'PNCP', siteEspecializado: 'Mídia Especializada',
@@ -23,7 +23,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     const isAta = data.subTipoAditivo === 'ata';
 
-    // Atualizado para respeitar a SAFE_BOTTOM_MARGIN
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
 
     const drawHeader = (title: string, sub: string) => {
@@ -216,7 +215,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         qcb.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             descInfo,
-            { content: valMercado > 0 ? formatValue(valMercado, g.tipoValor) : '-', styles: { halign: 'center' } },
+            { content: valMercado !== 0 ? formatValue(valMercado, g.tipoValor) : '-', styles: { halign: 'center' } },
             { content: formatValue(vUnitReajustado, g.tipoValor), styles: { halign: 'center' } },
             { content: formatValue(adotado, g.tipoValor), styles: { halign: 'center', fontStyle: 'bold' } }
         ]);
@@ -241,8 +240,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const tituloAlteracao = isAta ? 'PREÇO ESTIMADO DA ALTERAÇÃO DA ATA' : 'PREÇO ESTIMADO DA ALTERAÇÃO CONTRATUAL';
     doc.text(tituloAlteracao, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
-    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
-    // erros de ponto flutuante na soma de múltiplas parcelas.
     let somaItensCentavos = 0;
     const aditB: any[] = [];
     
@@ -260,10 +257,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctAditivo = Number(g.aditivoPercentual) || 0;
         const qtdAditivo = Number(g.aditivoQuantidade) || 0;
         
-        // CORREÇÃO PRINCIPAL: arredondar valor do aditivo para 2 casas
-        // decimais ANTES de acumular.
         const vAditivo = Math.round((Number(g.aditivoValorTotal || 0)) * 100) / 100; 
-        // Acumula em centavos para evitar drift de ponto flutuante
         somaItensCentavos += Math.round(vAditivo * 100);
 
         let descInfo = g.descricao;
@@ -272,15 +266,17 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         aditB.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             descInfo,
-            { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 2})}%`, styles: { halign: 'center' } },
+            { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 4})}%`, styles: { halign: 'center' } },
             { content: formatValue(vUnitReajustado, g.tipoValor), styles: { halign: 'center' } },
             { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } },
             { content: formatValue(vAditivo, g.tipoValor), styles: { halign: 'right', fontStyle: 'bold' } }
         ]);
     });
 
-    // Converte centavos de volta para reais com precisão exata
     const somaItens = somaItensCentavos / 100;
+
+    // A MÁGICA ESTÁ AQUI: Identificamos se é percentual e alteramos dinamicamente as formatações totais
+    const tipoGlobal = data.itemGroups.length > 0 ? (data.itemGroups[0].tipoValor || 'moeda') : 'moeda';
 
     if (data.aditivoTempo === 'sim') {
         const isMensal = data.aditivoTempoUnidade === 'meses';
@@ -288,7 +284,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         
         aditB.push([
             { content: labelPeriodoBase, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
-            { content: formatValue(somaItens, 'moeda'), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
+            // Aplica dinamicamente Moeda ou Percentual
+            { content: formatValue(somaItens, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
         ]);
         
         const qtdTempo = Number(data.aditivoTempoQuantidade) || 1;
@@ -298,16 +295,19 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: `${qtdTempo} ${data.aditivoTempoUnidade || 'meses'}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
         ]);
         
-        // TRAVA MATEMÁTICA NO TOTAL GERAL (COM TEMPO):
-        const totalGeral = Number((somaItens * qtdTempo).toFixed(2));
+        // TRAVA MATEMÁTICA INTELIGENTE: Se for taxa (%), o total do aditivo não deve ser multiplicado pelos meses 
+        // (a taxa já é o valor em si e não "soma" mês a mês). Caso seja R$, multiplica normalmente.
+        const totalGeral = tipoGlobal === 'percentual' ? somaItens : Number((somaItens * qtdTempo).toFixed(2));
+        
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: formatValue(totalGeral, 'moeda'), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
+            // Aplica dinamicamente Moeda ou Percentual no resultado final
+            { content: formatValue(totalGeral, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
         ]);
     } else {
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: formatValue(somaItens, 'moeda'), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
+            { content: formatValue(somaItens, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
         ]);
     }
     
