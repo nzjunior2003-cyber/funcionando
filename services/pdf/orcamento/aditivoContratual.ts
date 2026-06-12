@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { OrcamentoData } from '../../../types';
+import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
 import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
@@ -133,25 +133,45 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
     
-    const precosValidosTodos = data.itemGroups.map(g => (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false));
-    const maxPrecos = Math.max(...precosValidosTodos.map(p => p.length), 1);
+    // BLINDAGEM: Garante que TODAS as fontes marcadas no passo 2 vão gerar uma coluna, mesmo que não tenham preço preenchido!
+    const checkedSources = data.fontesPesquisa || [];
+    const processedItems = data.itemGroups.map(g => {
+        let pArray = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
+        
+        // Se o usuário marcou a fonte, mas ela não tem preço salvo, nós criamos um campo "vazio" só para forçar a impressão da coluna
+        const sourcesPresent = new Set(pArray.map(p => p.source));
+        checkedSources.forEach(src => {
+            if (!sourcesPresent.has(src)) {
+                pArray.push({ id: `dummy-${src}`, source: src, value: '' });
+            }
+        });
+        return { g, pArray };
+    });
+
+    const maxPrecos = Math.max(...processedItems.map(x => x.pArray.length), 1);
 
     const s6b: any[] = [];
-    data.itemGroups.forEach(g => {
-        const p = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
+    processedItems.forEach(({ g, pArray }) => {
         const row: any[] = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
 
-        if (p.length === 0) {
+        if (pArray.length === 0) {
             row.push({ content: 'Nenhum preço inserido.', colSpan: maxPrecos, styles: { halign: 'center', fontStyle: 'italic', valign: 'middle' } });
         } else {
             for (let i = 0; i < maxPrecos; i++) {
-                if (p[i]) {
-                    const sourceName = nomesFontesCurto[p[i].source] || p[i].source;
-                    // Blindagem no resultado de pesquisa
-                    const isPercent = g.tipoValor === 'percentual';
-                    const numValue = Number(p[i].value.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-                    const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
-                    row.push({ content: `${valRender}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                if (pArray[i]) {
+                    const sourceName = nomesFontesCurto[pArray[i].source] || pArray[i].source;
+                    const rawVal = pArray[i].value;
+                    
+                    if (!rawVal || rawVal.trim() === '') {
+                        // Se estiver vazio, imprime um "-" com o nome da fonte embaixo (Ex: - \n Similar)
+                        row.push({ content: `-\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                    } else {
+                        // Se preencheu, formata e imprime
+                        const isPercent = rawVal.includes('%') || g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
+                        const numValue = Number(rawVal.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                        const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
+                        row.push({ content: `${valRender}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                    }
                 } else {
                     row.push({ content: '-', styles: { halign: 'center', valign: 'middle' } });
                 }
@@ -205,6 +225,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         }
     }
 
+    // Função local para detectar inteligentemente se é taxa
+    const isTaxaItem = (g: OrcamentoItemGroup) => g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
+
     const qcb: any[] = [];
     data.itemGroups.forEach(g => {
         const valMercado = Number(g.estimativaUnitaria) || 0;
@@ -216,17 +239,23 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
 
-        // BLINDAGEM: Função local de formatação que ignora as falhas do pdfUtils quando é taxa
-        const renderVal = (v: number) => g.tipoValor === 'percentual' 
+        // O valor unitário (Base do contrato) nunca deve receber % se foi cadastrado como moeda, 
+        // a não ser que o TipoValor seja literalmente percentual.
+        const renderBaseVal = (v: number) => g.tipoValor === 'percentual' 
             ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` 
+            : formatValue(v, 'moeda');
+
+        // Já o valor de mercado (resultado da pesquisa) se for Taxa, leva %
+        const renderMercadoVal = (v: number) => isTaxaItem(g)
+            ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(v, 'moeda');
 
         qcb.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             descInfo,
-            { content: valMercado !== 0 ? renderVal(valMercado) : '-', styles: { halign: 'center' } },
-            { content: renderVal(vUnitReajustado), styles: { halign: 'center' } },
-            { content: renderVal(adotado), styles: { halign: 'center', fontStyle: 'bold' } }
+            { content: valMercado !== 0 ? renderMercadoVal(valMercado) : '-', styles: { halign: 'center' } },
+            { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center' } },
+            { content: renderBaseVal(adotado), styles: { halign: 'center', fontStyle: 'bold' } }
         ]);
     });
 
@@ -250,7 +279,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     doc.text(tituloAlteracao, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
     let somaItensCentavos = 0;
-    let somaPercentuais = 0; // Acumulador específico e isolado para as taxas (%)
+    let somaPercentuais = 0; 
+    let temTaxaGlobal = false; // Flag para saber se vamos imprimir a linha do Total em Taxa(%)
+    
     const aditB: any[] = [];
     
     const colAditivoValorUnit = isAta
@@ -260,6 +291,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             : 'Valor Unit. (s/ reajuste)');
 
     data.itemGroups.forEach(g => {
+        const itemTaxa = isTaxaItem(g);
+        if (itemTaxa) temTaxaGlobal = true;
+
         const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
         const vUnitContrato = Number(g.valorUnitarioContrato) || 0;
         const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
@@ -267,7 +301,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctAditivo = Number(g.aditivoPercentual) || 0;
         const qtdAditivo = Number(g.aditivoQuantidade) || 0;
         
-        somaPercentuais += pctAditivo; // Aqui acumulamos as porcentagens (inclusive os negativos!)
+        somaPercentuais += pctAditivo; 
 
         const vAditivo = Math.round((Number(g.aditivoValorTotal || 0)) * 100) / 100; 
         somaItensCentavos += Math.round(vAditivo * 100);
@@ -275,12 +309,12 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
 
-        // BLINDAGEM NO QUADRO DE ALTERAÇÃO
         const valUnitRender = g.tipoValor === 'percentual' 
             ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(vUnitReajustado, 'moeda');
 
-        const valAditivoRender = g.tipoValor === 'percentual'
+        // BLINDAGEM DO VALOR ADITIVO: Se for Taxa, imprime o Percentual. Se não for, imprime R$
+        const valAditivoRender = itemTaxa
             ? `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(vAditivo, 'moeda');
 
@@ -295,15 +329,13 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     });
 
     const somaItens = somaItensCentavos / 100;
-    const tipoGlobal = data.itemGroups.length > 0 ? (data.itemGroups[0].tipoValor || 'moeda') : 'moeda';
 
-    // A MÁGICA: Essa função desvia totalmente da função padrão se for percentual.
+    // BLINDAGEM DO TOTAL: Verifica se foi detectado algum item de Taxa de Administração
     const renderTotalFinal = (valorMoeda: number, valorTaxa: number) => {
-        if (tipoGlobal === 'percentual') {
-            // O toLocaleString formata o sinal de menos naturalmente
+        if (temTaxaGlobal) {
             return `${valorTaxa.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`;
         }
-        return formatValue(valorMoeda, 'moeda'); // Se for dinheiro normal, segue o fluxo antigo
+        return formatValue(valorMoeda, 'moeda'); 
     };
 
     if (data.aditivoTempo === 'sim') {
