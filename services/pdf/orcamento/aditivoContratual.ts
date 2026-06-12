@@ -133,12 +133,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
     
-    // BLINDAGEM: Garante que TODAS as fontes marcadas no passo 2 vão gerar uma coluna, mesmo que não tenham preço preenchido!
     const checkedSources = data.fontesPesquisa || [];
     const processedItems = data.itemGroups.map(g => {
         let pArray = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
         
-        // Se o usuário marcou a fonte, mas ela não tem preço salvo, nós criamos um campo "vazio" só para forçar a impressão da coluna
         const sourcesPresent = new Set(pArray.map(p => p.source));
         checkedSources.forEach(src => {
             if (!sourcesPresent.has(src)) {
@@ -163,10 +161,8 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
                     const rawVal = pArray[i].value;
                     
                     if (!rawVal || rawVal.trim() === '') {
-                        // Se estiver vazio, imprime um "-" com o nome da fonte embaixo (Ex: - \n Similar)
                         row.push({ content: `-\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
                     } else {
-                        // Se preencheu, formata e imprime
                         const isPercent = rawVal.includes('%') || g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
                         const numValue = Number(rawVal.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
                         const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
@@ -225,7 +221,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         }
     }
 
-    // Função local para detectar inteligentemente se é taxa
     const isTaxaItem = (g: OrcamentoItemGroup) => g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
 
     const qcb: any[] = [];
@@ -239,13 +234,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
 
-        // O valor unitário (Base do contrato) nunca deve receber % se foi cadastrado como moeda, 
-        // a não ser que o TipoValor seja literalmente percentual.
         const renderBaseVal = (v: number) => g.tipoValor === 'percentual' 
             ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` 
             : formatValue(v, 'moeda');
 
-        // Já o valor de mercado (resultado da pesquisa) se for Taxa, leva %
         const renderMercadoVal = (v: number) => isTaxaItem(g)
             ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(v, 'moeda');
@@ -280,7 +272,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     
     let somaItensCentavos = 0;
     let somaPercentuais = 0; 
-    let temTaxaGlobal = false; // Flag para saber se vamos imprimir a linha do Total em Taxa(%)
+    let temTaxaGlobal = false; 
     
     const aditB: any[] = [];
     
@@ -313,10 +305,14 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(vUnitReajustado, 'moeda');
 
-        // BLINDAGEM DO VALOR ADITIVO: Se for Taxa, imprime o Percentual. Se não for, imprime R$
         const valAditivoRender = itemTaxa
             ? `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
             : formatValue(vAditivo, 'moeda');
+
+        // AJUSTE CRUCIAL: Se for taxa, o "Novo Valor Global" mostra a própria taxa com reajuste (que é o que prevalece)
+        const novoVGlobalRender = itemTaxa 
+            ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
+            : formatValue(vAditivo + (qtdAditivo * vUnitReajustado), 'moeda');
 
         aditB.push([
             { content: g.itemTR, styles: { halign: 'center' } },
@@ -324,13 +320,15 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 4})}%`, styles: { halign: 'center' } },
             { content: valUnitRender, styles: { halign: 'center' } },
             { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } },
-            { content: valAditivoRender, styles: { halign: 'right', fontStyle: 'bold' } }
+            { content: valAditivoRender, styles: { halign: 'right', fontStyle: 'bold' } },
+            // A nova coluna do Novo V. Global:
+            { content: novoVGlobalRender, styles: { halign: 'right', fontStyle: 'bold' } }
         ]);
     });
 
     const somaItens = somaItensCentavos / 100;
+    const tipoGlobal = data.itemGroups.length > 0 ? (data.itemGroups[0].tipoValor || 'moeda') : 'moeda';
 
-    // BLINDAGEM DO TOTAL: Verifica se foi detectado algum item de Taxa de Administração
     const renderTotalFinal = (valorMoeda: number, valorTaxa: number) => {
         if (temTaxaGlobal) {
             return `${valorTaxa.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`;
@@ -343,33 +341,34 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const labelPeriodoBase = isMensal ? 'VALOR MENSAL' : 'VALOR ANUAL';
         
         aditB.push([
-            { content: labelPeriodoBase, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+            { content: labelPeriodoBase, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
             { content: renderTotalFinal(somaItens, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
         ]);
         
         const qtdTempo = Number(data.aditivoTempoQuantidade) || 1;
         
         aditB.push([
-            { content: 'PERÍODO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+            { content: 'PERÍODO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
             { content: `${qtdTempo} ${data.aditivoTempoUnidade || 'meses'}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
         ]);
         
         const totalGeralMoeda = Number((somaItens * qtdTempo).toFixed(2));
         
         aditB.push([
-            { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
+            { content: 'TOTAL DO ADITIVO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
             { content: renderTotalFinal(totalGeralMoeda, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
         ]);
     } else {
         aditB.push([
-            { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
+            { content: 'TOTAL DO ADITIVO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
             { content: renderTotalFinal(somaItens, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
         ]);
     }
     
     autoTable(doc, {
         startY: y, 
-        head: [['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Valor Aditivo']], 
+        // Adicionada de volta a coluna do Novo V. Global no cabeçalho
+        head: [['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Valor Aditivo', 'Novo V. Global']], 
         body: aditB, 
         theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, 
