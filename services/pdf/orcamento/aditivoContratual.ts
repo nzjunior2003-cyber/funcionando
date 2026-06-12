@@ -147,7 +147,11 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             for (let i = 0; i < maxPrecos; i++) {
                 if (p[i]) {
                     const sourceName = nomesFontesCurto[p[i].source] || p[i].source;
-                    row.push({ content: `${formatValue(p[i].value, g.tipoValor)}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                    // Blindagem no resultado de pesquisa
+                    const isPercent = g.tipoValor === 'percentual';
+                    const numValue = Number(p[i].value.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                    const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
+                    row.push({ content: `${valRender}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
                 } else {
                     row.push({ content: '-', styles: { halign: 'center', valign: 'middle' } });
                 }
@@ -212,12 +216,17 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
 
+        // BLINDAGEM: Função local de formatação que ignora as falhas do pdfUtils quando é taxa
+        const renderVal = (v: number) => g.tipoValor === 'percentual' 
+            ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` 
+            : formatValue(v, 'moeda');
+
         qcb.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             descInfo,
-            { content: valMercado !== 0 ? formatValue(valMercado, g.tipoValor) : '-', styles: { halign: 'center' } },
-            { content: formatValue(vUnitReajustado, g.tipoValor), styles: { halign: 'center' } },
-            { content: formatValue(adotado, g.tipoValor), styles: { halign: 'center', fontStyle: 'bold' } }
+            { content: valMercado !== 0 ? renderVal(valMercado) : '-', styles: { halign: 'center' } },
+            { content: renderVal(vUnitReajustado), styles: { halign: 'center' } },
+            { content: renderVal(adotado), styles: { halign: 'center', fontStyle: 'bold' } }
         ]);
     });
 
@@ -241,6 +250,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     doc.text(tituloAlteracao, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
     
     let somaItensCentavos = 0;
+    let somaPercentuais = 0; // Acumulador específico e isolado para as taxas (%)
     const aditB: any[] = [];
     
     const colAditivoValorUnit = isAta
@@ -257,26 +267,44 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctAditivo = Number(g.aditivoPercentual) || 0;
         const qtdAditivo = Number(g.aditivoQuantidade) || 0;
         
+        somaPercentuais += pctAditivo; // Aqui acumulamos as porcentagens (inclusive os negativos!)
+
         const vAditivo = Math.round((Number(g.aditivoValorTotal || 0)) * 100) / 100; 
         somaItensCentavos += Math.round(vAditivo * 100);
 
         let descInfo = g.descricao;
         if (isAta && g.numeroAtaAditivo) descInfo += `\n(Ata: ${g.numeroAtaAditivo})`;
 
+        // BLINDAGEM NO QUADRO DE ALTERAÇÃO
+        const valUnitRender = g.tipoValor === 'percentual' 
+            ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
+            : formatValue(vUnitReajustado, 'moeda');
+
+        const valAditivoRender = g.tipoValor === 'percentual'
+            ? `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
+            : formatValue(vAditivo, 'moeda');
+
         aditB.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             descInfo,
             { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 4})}%`, styles: { halign: 'center' } },
-            { content: formatValue(vUnitReajustado, g.tipoValor), styles: { halign: 'center' } },
+            { content: valUnitRender, styles: { halign: 'center' } },
             { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } },
-            { content: formatValue(vAditivo, g.tipoValor), styles: { halign: 'right', fontStyle: 'bold' } }
+            { content: valAditivoRender, styles: { halign: 'right', fontStyle: 'bold' } }
         ]);
     });
 
     const somaItens = somaItensCentavos / 100;
-
-    // A MÁGICA ESTÁ AQUI: Identificamos se é percentual e alteramos dinamicamente as formatações totais
     const tipoGlobal = data.itemGroups.length > 0 ? (data.itemGroups[0].tipoValor || 'moeda') : 'moeda';
+
+    // A MÁGICA: Essa função desvia totalmente da função padrão se for percentual.
+    const renderTotalFinal = (valorMoeda: number, valorTaxa: number) => {
+        if (tipoGlobal === 'percentual') {
+            // O toLocaleString formata o sinal de menos naturalmente
+            return `${valorTaxa.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`;
+        }
+        return formatValue(valorMoeda, 'moeda'); // Se for dinheiro normal, segue o fluxo antigo
+    };
 
     if (data.aditivoTempo === 'sim') {
         const isMensal = data.aditivoTempoUnidade === 'meses';
@@ -284,8 +312,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         
         aditB.push([
             { content: labelPeriodoBase, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
-            // Aplica dinamicamente Moeda ou Percentual
-            { content: formatValue(somaItens, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
+            { content: renderTotalFinal(somaItens, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
         ]);
         
         const qtdTempo = Number(data.aditivoTempoQuantidade) || 1;
@@ -295,19 +322,16 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: `${qtdTempo} ${data.aditivoTempoUnidade || 'meses'}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
         ]);
         
-        // TRAVA MATEMÁTICA INTELIGENTE: Se for taxa (%), o total do aditivo não deve ser multiplicado pelos meses 
-        // (a taxa já é o valor em si e não "soma" mês a mês). Caso seja R$, multiplica normalmente.
-        const totalGeral = tipoGlobal === 'percentual' ? somaItens : Number((somaItens * qtdTempo).toFixed(2));
+        const totalGeralMoeda = Number((somaItens * qtdTempo).toFixed(2));
         
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            // Aplica dinamicamente Moeda ou Percentual no resultado final
-            { content: formatValue(totalGeral, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
+            { content: renderTotalFinal(totalGeralMoeda, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
         ]);
     } else {
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: formatValue(somaItens, tipoGlobal), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
+            { content: renderTotalFinal(somaItens, somaPercentuais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
         ]);
     }
     
