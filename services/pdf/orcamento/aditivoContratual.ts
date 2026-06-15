@@ -22,6 +22,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     setDefaultFont(doc);
 
     const isAta = data.subTipoAditivo === 'ata';
+    
+    // FUNÇÃO REINSERIDA: Verifica se o item é uma taxa/percentual
+    const isTaxaItem = (g: any) => g.tipoValor === 'percentual' || String(g.descricao || '').toLowerCase().includes('taxa');
+
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
 
     const drawHeader = (title: string, sub: string) => {
@@ -66,7 +70,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
-    // Seção 2 a 5 originais preservadas contra alterações de estrutura
     drawHeader('2 - FONTES CONSULTADAS PARA A PESQUISA DE PREÇO', '(art. 2º, III, e art. 4º do Decreto Estadual nº 2.734/2022)');
     const fMap = [['simas', 'SIMAS (banco referencial de preço).'], ['nfe', 'Base nacional de notas fiscais eletrônicas.'], ['pncp', 'Portal Nacional de Compras Públicas (PNCP).'], ['siteEspecializado', 'Mídia especializada.'], ['contratacaoSimilar', 'Contratações similares feitas pela administração pública.'], ['direta', 'Pesquisa direta com fornecedores.']];
     y += 4;
@@ -107,7 +110,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    const tituloQuadro = isAta ? 'QUADRO COMPARATIVO - ADITIVO À ATA DE REGISTRO DE PREÇOS' : `QUADRO COMPARATIVO - ADITIVO CONTRATUAL`;
+    const tituloQuadro = isAta ? 'QUADRO COMPARATIVO - ADITIVO À ATA DE REGISTRO DE PREÇOS' : `QUADRO COMPARATIVO - ADITIVO CONTRATUAL - CONTRATO ${data.numeroContrato || 'NNNN'}/${data.anoContrato || 'AAAA'}`;
     doc.text(tituloQuadro, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
 
     let colValorReferencia = isAta ? 'Valor Unitário da Ata' : 'Valor Unitário Contrato';
@@ -124,9 +127,11 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         if (isAta && (g as any).numeroAtaAditivo) descInfo += `\n(Ata: ${(g as any).numeroAtaAditivo})`;
 
         const renderBaseVal = (v: number) => g.tipoValor === 'percentual' ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
+        const renderMercadoVal = (v: number) => isTaxaItem(g) ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
+
         return [
             { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
-            { content: g.estimativaUnitaria ? renderBaseVal(Number(g.estimativaUnitaria)) : '-', styles: { halign: 'center' } },
+            { content: g.estimativaUnitaria ? renderMercadoVal(Number(g.estimativaUnitaria)) : '-', styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center', fontStyle: 'bold' } }
         ];
@@ -161,7 +166,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
         const vUnitContrato = Number(g.valorUnitarioContrato) || 0;
         
-        // CORREÇÃO CIRÚRGICA: Arredonda o valor reajustado para limpar as micro-dízimas nativas do JS
         const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
         
         if (itemTaxa) { temTaxaGlobal = true; taxaReferenciaGlobal = vUnitReajustado; }
@@ -169,7 +173,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const pctAditivo = Number(gAny.aditivoPercentual) || 0;
         const qtdAditivo = Number(gAny.aditivoQuantidade) || 0;
 
-        // CALCULO TRAVADO DA LINHA: Multiplica o valor unitário já arredondado pela quantidade exata
         const vAditivoMensal = Math.round((vUnitReajustado * qtdAditivo) * 100) / 100;
         const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
         const vAditivoPeriodo = Math.round((vAditivoMensal * qtdTempo) * 100) / 100;
