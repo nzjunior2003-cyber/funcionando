@@ -23,7 +23,6 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     const isAta = data.subTipoAditivo === 'ata';
     
-    // FUNÇÃO REINSERIDA: Verifica se o item é uma taxa/percentual
     const isTaxaItem = (g: any) => g.tipoValor === 'percentual' || String(g.descricao || '').toLowerCase().includes('taxa');
 
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
@@ -97,11 +96,62 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
-    const s6b: any[] = (data.itemGroups || []).map(g => {
-        const p = (data.precosEncontrados?.[g.id] || []).filter(x => data.precosIncluidos?.[x.id] !== false);
-        return [{ content: g.itemTR, styles: { halign: 'center' } }, p.length ? p.map(x => formatValue(x.value, g.tipoValor)).join(' | ') : '-'];
+    
+    // RESTAURAÇÃO DAS COLUNAS DINÂMICAS E NOMES DAS FONTES
+    const checkedSources = data.fontesPesquisa || [];
+    const processedItems = (data.itemGroups || []).map(g => {
+        let pArray = (data.precosEncontrados?.[g.id] || []).filter(x => data.precosIncluidos?.[x.id] !== false);
+        
+        const sourcesPresent = new Set(pArray.map(p => p.source));
+        checkedSources.forEach(src => {
+            if (!sourcesPresent.has(src)) {
+                pArray.push({ id: `dummy-${src}`, source: src, value: '' });
+            }
+        });
+        return { g, pArray };
     });
-    autoTable(doc, { startY: y, head: [['Item', 'Preços Encontrados']], body: s6b, theme: 'grid', headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+
+    const maxPrecos = Math.max(...processedItems.map(x => x.pArray.length), 1);
+
+    const s6b: any[] = [];
+    processedItems.forEach(({ g, pArray }) => {
+        const row: any[] = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
+
+        if (pArray.length === 0) {
+            row.push({ content: 'Nenhum preço inserido.', colSpan: maxPrecos, styles: { halign: 'center', fontStyle: 'italic', valign: 'middle' } });
+        } else {
+            for (let i = 0; i < maxPrecos; i++) {
+                if (pArray[i]) {
+                    const sourceName = nomesFontesCurto[pArray[i].source] || pArray[i].source;
+                    const rawVal = pArray[i].value;
+                    
+                    if (!rawVal || String(rawVal).trim() === '') {
+                        row.push({ content: `-\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                    } else {
+                        const isPercent = String(rawVal).includes('%') || isTaxaItem(g);
+                        const numValue = Number(String(rawVal).replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
+                        const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
+                        row.push({ content: `${valRender}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
+                    }
+                } else {
+                    row.push({ content: '-', styles: { halign: 'center', valign: 'middle' } });
+                }
+            }
+        }
+        s6b.push(row);
+    });
+
+    autoTable(doc, { 
+        startY: y, 
+        head: [[{ content: 'Item', styles: { halign: 'center', valign: 'middle' } }, { content: 'Preços Encontrados e Fontes', colSpan: maxPrecos, styles: { halign: 'center' } }]], 
+        body: s6b, 
+        theme: 'grid', 
+        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
+        styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, 
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        columnStyles: { 0: { cellWidth: 15 } }
+    });
     y = (doc as any).lastAutoTable.finalY;
 
     const desc = data.houveDescarte;
