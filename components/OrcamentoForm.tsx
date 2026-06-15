@@ -155,7 +155,6 @@ const ItemForm: React.FC<{
         onGroupChange(group.id, 'aplicarCotaMeEpp', isChecked);
     };
 
-    const isAditivo = tipoOrcamento === 'aditivo_contratual';
     const isAboveTeto = valorReferencia > 4800000;
     const isExclusivoME = valorReferencia <= 80000 && valorReferencia > 0;
     
@@ -205,7 +204,7 @@ const ItemForm: React.FC<{
                             <input type="number" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
                         </div>
 
-                        {!isLoteItem && tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
+                        {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
                             <div className={`col-span-2 mt-1 mb-1 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
                                 <label className="flex items-center gap-2 cursor-pointer">
                                     <input 
@@ -236,7 +235,6 @@ const ItemForm: React.FC<{
                                 onChange={(e) => onGroupChange(group.id, 'periodoContratacao' as any, e.target.value)} 
                                 className={inputClasses} 
                                 placeholder="Ex: 12 meses, 30 dias (Opcional)" 
-                                title="Utilize para registrar o tempo de locação, assinatura ou execução de serviços continuados"
                             />
                         </div>
 
@@ -247,13 +245,12 @@ const ItemForm: React.FC<{
                             </div>
                         )}
 
-                        {isAditivo && (
+                        {tipoOrcamento === 'aditivo_contratual' && (
                             <>
                                 <div className={subTipoAditivo === 'ata' ? "col-span-1" : "col-span-2"}>
                                     <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem (R$)</label>
                                     <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
                                 </div>
-                                
                                 {subTipoAditivo === 'ata' && (
                                     <div className="col-span-1 animate-fade-in-down">
                                         <label className="block text-sm font-medium mb-1 text-purple-600 dark:text-purple-400">Nº da Ata Origem</label>
@@ -263,20 +260,6 @@ const ItemForm: React.FC<{
                             </>
                         )}
                     </div>
-                    
-                    {!isLoteItem && tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && group.cotas && group.cotas.length > 0 && (
-                        <div className="col-span-1 md:col-span-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-2 rounded text-xs border dark:border-gray-600">
-                            <span className="font-bold text-gray-600 dark:text-gray-300">Distribuição Final do Item:</span>
-                            <div className="flex gap-4 mt-1">
-                                {group.cotas.map((c, idx) => (
-                                    <span key={idx} className={`${c.tipo?.includes('ME/EPP') ? 'text-blue-600 dark:text-blue-400' : 'text-gray-600 dark:text-gray-400'}`}>
-                                        {c.tipo}: <strong>{c.quantidade}</strong>
-                                    </span>
-                                ))}
-                            </div>
-                            {group.aplicarCotaMeEpp === false && !isAboveTeto && <div className="text-cbmpa-red font-bold mt-1">Item assinalado manualmente como AMPLA concorrência.</div>}
-                        </div>
-                    )}
                 </div>
             </div>
 
@@ -320,11 +303,9 @@ const ItemForm: React.FC<{
                         <span className="text-xs font-medium text-gray-400 dark:text-gray-500 italic mr-auto">
                             Valor real da matemática: {group.estimativaUnitaria}
                         </span>
-
                         <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
                             Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
-                        
                         {group.tipoValor !== 'percentual' && (
                             <span className="text-sm font-bold text-cbmpa-red bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-md shadow-sm border border-red-100 dark:border-red-800">
                                 Total do Item: {valorTotalItem.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -350,12 +331,19 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       metodologia: data.metodologia,
       modalidade: data.modalidadeLicitacao,
       tipoOrcamento: data.tipoOrcamento,
+      haveraReajuste: data.haveraReajuste,
+      porcentagemReajuste: data.porcentagemReajuste,
+      aditivoTempoQuantidade: data.aditivoTempoQuantidade,
+      aditivoTempo: data.aditivoTempo,
       itensProps: (data.itemGroups || []).map(g => ({
           id: g.id,
           qtd: Number(g.quantidadeTotal) || 0,
           loteId: g.loteId,
           aplicarCota: g.aplicarCotaMeEpp,
           tipoValor: g.tipoValor,
+          valorUnitarioContrato: g.valorUnitarioContrato,
+          aditivoQuantidade: (g as any).aditivoQuantidade,
+          aditivoValorTotal: (g as any).aditivoValorTotal,
           periodoContratacao: (g as any).periodoContratacao
       }))
   });
@@ -367,8 +355,8 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           let hasChanges = false;
           const currentGroups = (prevData.itemGroups || []).map(g => ({...g}));
 
-          // 1. Calcular Preços
-          if (['licitacao', 'dispensa_licitacao', 'adesao_ata', 'aditivo_contratual'].includes(prevData.tipoOrcamento || '')) {
+          // 1. Calcular Preços convencionais
+          if (['licitacao', 'dispensa_licitacao', 'adesao_ata'].includes(prevData.tipoOrcamento || '')) {
               currentGroups.forEach(group => {
                   const itemPrices = prevData.precosEncontrados?.[group.id] || [];
                   const includedPrices = itemPrices.filter(p => prevData.precosIncluidos?.[p.id] ?? true);
@@ -381,7 +369,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               });
           }
 
-          // 2. Calcular Cotas
+          // 2. Calcular Cotas (Apenas se não for aditivo)
           if (prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') {
               const LIMITE_SRP_COTA = 80000;
               const TETO_VALOR_LOTE = 4800000;
@@ -509,14 +497,28 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                 const qtdOriginal = item.quantidadeTotal || 0;
                 const vUnitContrato = item.valorUnitarioContrato || 0;
                 const pctReajuste = (prev.haveraReajuste === 'sim' ? (prev.porcentagemReajuste || 0) : 0);
-                const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
+                
+                // TRAVA MATEMÁTICA: Arredonda o Unitário com Reajuste para evitar float residuals
+                const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
 
                 if (vUnitReajustado === 0) return item; 
                 let newQtd = 0; let newPct = 0; let newTotal = 0;
 
-                if (type === 'qtd') { newQtd = value; newTotal = newQtd * vUnitReajustado; newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0; }
-                else if (type === 'pct') { newPct = value; newQtd = (qtdOriginal * newPct) / 100; newTotal = newQtd * vUnitReajustado; }
-                else if (type === 'total') { newTotal = value; newQtd = newTotal / vUnitReajustado; newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0; }
+                if (type === 'qtd') { 
+                    newQtd = value; 
+                    newTotal = Math.round((newQtd * vUnitReajustado) * 100) / 100; 
+                    newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0; 
+                }
+                else if (type === 'pct') { 
+                    newPct = value; 
+                    newQtd = (qtdOriginal * newPct) / 100; 
+                    newTotal = Math.round((newQtd * vUnitReajustado) * 100) / 100; 
+                }
+                else if (type === 'total') { 
+                    newTotal = value; 
+                    newQtd = newTotal / vUnitReajustado; 
+                    newPct = qtdOriginal > 0 ? (newQtd / qtdOriginal) * 100 : 0; 
+                }
 
                 return { ...item, aditivoQuantidade: newQtd, aditivoPercentual: newPct, aditivoValorTotal: newTotal };
             })
@@ -734,7 +736,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       {data.tipoOrcamento !== 'gerenciador_ata' && (
           <>
             <Section title="Metodologia da Estimativa de Preço">
-                <RadioGroup name="metodologia" value={data.metodologia} options={[ {val:'menor',label:'Menor preço'}, {val:'media',label:'Média aritmética'}, {val:'mediana',label:'Mediana'} ]} onChange={handleChange} />
+                <RadioGroup name="metodologia" value={data.metodologia} options={[ {val:'media',label:'Média aritmética'}, {val:'menor',label:'Menor preço'}, {val:'mediana',label:'Mediana'} ]} onChange={handleChange} />
             </Section>
             
             {selectedFontes.length > 0 && (
@@ -963,17 +965,18 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               const qtdOriginal = Number(item.quantidadeTotal) || 0; 
                               const vUnitContrato = Number(item.valorUnitarioContrato) || 0; 
                               const pctReajuste = (data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0);
-                              const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100); 
                               
+                              // TRAVA DE PRECISÃO: Arredonda o valor reajustado unitário base do cálculo
+                              const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100; 
                               const qtdAditivo = Number(item.aditivoQuantidade) || 0; 
                               
-                              // Valor mensal travado em duas casas
-                              const vTotalAditivoMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
+                              // TRAVA DE PRECISÃO MENSAL: Multiplicação limpa sem resíduos float
+                              const vTotalAditivoMensal = Math.round((qtdAditivo * vUnitReajustado) * 100) / 100;
                               const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); 
                               
                               const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                              // Aditivo do período cravado em duas casas baseando-se NO VALOR MENSAL QUE APARECE
-                              const aditivoNoPeriodo = Math.round(vTotalAditivoMensal * qtdTempo * 100) / 100;
+                              // TRAVA DE PRECISÃO NO PERÍODO: Multiplicação limpa do mensal arredondado pelo prazo
+                              const aditivoNoPeriodo = Math.round((vTotalAditivoMensal * qtdTempo) * 100) / 100;
 
                               const isTaxaItem = item.tipoValor === 'percentual' || item.descricao.toLowerCase().includes('taxa');
                               const valUnitarioRender = isTaxaItem 
@@ -1012,15 +1015,23 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
               {(() => {
                   const totalMensal = sortedItems.reduce((acc, item) => {
-                      const vMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
+                      const vUnitContrato = Number(item.valorUnitarioContrato) || 0;
+                      const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
+                      const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
+                      const qtdAditivo = Number(item.aditivoQuantidade) || 0;
+                      const vMensal = Math.round((qtdAditivo * vUnitReajustado) * 100) / 100;
                       return acc + vMensal;
                   }, 0);
 
                   const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
                   const totalPeriodo = sortedItems.reduce((acc, item) => {
-                      const vMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
-                      const aditPeriodo = Math.round(vMensal * qtdTempo * 100) / 100;
-                      return acc + aditPeriodo;
+                      const vUnitContrato = Number(item.valorUnitarioContrato) || 0;
+                      const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
+                      const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
+                      const qtdAditivo = Number(item.aditivoQuantidade) || 0;
+                      const vMensal = Math.round((qtdAditivo * vUnitReajustado) * 100) / 100;
+                      const vPeriodo = Math.round((vMensal * qtdTempo) * 100) / 100;
+                      return acc + vPeriodo;
                   }, 0);
 
                   return (
@@ -1044,23 +1055,23 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       {/* 8. ASSINATURAS */}
       <Section title="Assinatura">
         <div className="grid md:grid-cols-2 gap-6">
-            <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade} onChange={handleChange} required className={inputClasses} /></Field>
-            <Field label="Data" required><input type="date" name="data" value={data.data} onChange={handleChange} required className={inputClasses} /></Field>
+            <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade || ''} onChange={handleChange} required className={inputClasses} /></Field>
+            <Field label="Data" required><input type="date" name="data" value={data.data || ''} onChange={handleChange} required className={inputClasses} /></Field>
         </div>
         <div className="grid md:grid-cols-2 gap-6 mt-6">
              <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 1 (Responsável)</p>
                 <Field label="Nome Completo do Servidor"><input type="text" name="assinante1Nome" value={data.assinante1Nome || ''} onChange={handleChange} className={inputClasses} placeholder="Nome Civil Completo" /></Field>
                 <Field label="Nome de Guerra"><input type="text" name="assinante1NomeGuerra" value={data.assinante1NomeGuerra || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: L. Rodrigues" /></Field>
-                <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
-                <Field label="Função"><input type="text" name="assinante1Funcao" value={data.assinante1Funcao} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo || ''} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
+                <Field label="Função"><input type="text" name="assinante1Funcao" value={data.assinante1Funcao || ''} onChange={handleChange} className={inputClasses} /></Field>
             </div>
             <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 2 (Opcional)</p>
                 <Field label="Nome Completo do Servidor"><input type="text" name="assinante2Nome" value={data.assinante2Nome || ''} onChange={handleChange} className={inputClasses} /></Field>
                 <Field label="Nome de Guerra"><input type="text" name="assinante2NomeGuerra" value={data.assinante2NomeGuerra || ''} onChange={handleChange} className={inputClasses} /></Field>
-                <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
-                <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo || ''} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
+                <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao || ''} onChange={handleChange} className={inputClasses} /></Field>
             </div>
         </div>
       </Section>

@@ -14,7 +14,7 @@ const SAFE_BOTTOM_MARGIN = 45;
 
 const nomesFontesCurto: Record<string, string> = {
     simas: 'SIMAS', nfe: 'Nota Fiscal', pncp: 'PNCP', siteEspecializado: 'Mídia Especializada',
-    contratacaoSimilar: 'Similar', directa: 'Pesquisa Direta', preco_ata_srp: 'Ata SRP'
+    contratacaoSimilar: 'Similar', direta: 'Pesquisa Direta', preco_ata_srp: 'Ata SRP'
 };
 
 export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => {
@@ -48,13 +48,13 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
-    const s1Body: any[] = data.itemGroups.map((g) => {
-        let desc = g.descricao;
+    const s1Body: any[] = (data.itemGroups || []).map((g) => {
+        let desc = g.descricao || '';
         if (isAta && (g as any).numeroAtaAditivo) desc += `\n(Ata Origem: ${(g as any).numeroAtaAditivo})`;
 
         return [
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
-            desc, g.codigoSimas || '-', g.unidade, g.quantidadeTotal
+            desc, g.codigoSimas || '-', g.unidade || '-', g.quantidadeTotal
         ];
     });
     autoTable(doc, {
@@ -66,17 +66,14 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
+    // Seção 2 a 5 originais preservadas contra alterações de estrutura
     drawHeader('2 - FONTES CONSULTADAS PARA A PESQUISA DE PREÇO', '(art. 2º, III, e art. 4º do Decreto Estadual nº 2.734/2022)');
-    const fMap = [
-        ['simas', 'SIMAS (banco referencial de preço).'], ['nfe', 'Base nacional de notas fiscais eletrônicas.'],
-        ['pncp', 'Portal Nacional de Compras Públicas (PNCP).'], ['siteEspecializado', 'Mídia especializada.'],
-        ['contratacaoSimilar', 'Contratações similares feitas pela administração pública.'], ['direta', 'Pesquisa direta com fornecedores.']
-    ];
+    const fMap = [['simas', 'SIMAS (banco referencial de preço).'], ['nfe', 'Base nacional de notas fiscais eletrônicas.'], ['pncp', 'Portal Nacional de Compras Públicas (PNCP).'], ['siteEspecializado', 'Mídia especializada.'], ['contratacaoSimilar', 'Contratações similares feitas pela administração pública.'], ['direta', 'Pesquisa direta com fornecedores.']];
     y += 4;
     fMap.forEach((f, i) => {
         const isR = i % 2 !== 0; const cx = MARGIN_LEFT + (isR ? USABLE_WIDTH / 2 : 0); const cy = y + Math.floor(i / 2) * 6;
         doc.rect(cx, cy - 3, 4, 4);
-        if (data.fontesPesquisa.includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 1, cy + 0.5); doc.setFont('helvetica', 'normal'); }
+        if ((data.fontesPesquisa || []).includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 1, cy + 0.5); doc.setFont('helvetica', 'normal'); }
         doc.setFontSize(9); doc.text(f[1], cx + 5, cy);
     });
     y += 22;
@@ -86,93 +83,31 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
-    const isDir = data.fontesPesquisa.includes('direta');
-    const boxDirSim = isDir ? '[ X ]' : '[   ]';
-    const boxDirNao = !isDir ? '[ X ]' : '[   ]';
-
-    const s4b: any[] = [[
-        { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
-        { content: `${boxDirSim} Sim\n${boxDirNao} Não`, styles: { halign: 'center' } },
-        { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
-    ]];
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+    const isDir = (data.fontesPesquisa || []).includes('direta');
+    const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }]];
+    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const met = data.metodologia || 'media';
-    autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: `${met === 'menor' ? '[ X ]' : '[   ]'} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
-            { content: `${met === 'media' ? '[ X ]' : '[   ]'} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
-            { content: `${met === 'mediana' ? '[ X ]' : '[   ]'} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }
-        ]]
-    });
+    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: `${met === 'menor' ? '[ X ]' : '[   ]'} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } }, { content: `${met === 'media' ? '[ X ]' : '[   ]'} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } }, { content: `${met === 'mediana' ? '[ X ]' : '[   ]'} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }]] });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
-    
-    const checkedSources = data.fontesPesquisa || [];
-    const processedItems = data.itemGroups.map(g => {
-        let pArray = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
-        const sourcesPresent = new Set(pArray.map(p => p.source));
-        checkedSources.forEach(src => {
-            if (!sourcesPresent.has(src)) pArray.push({ id: `dummy-${src}`, source: src, value: '' });
-        });
-        return { g, pArray };
+    const s6b: any[] = (data.itemGroups || []).map(g => {
+        const p = (data.precosEncontrados?.[g.id] || []).filter(x => data.precosIncluidos?.[x.id] !== false);
+        return [{ content: g.itemTR, styles: { halign: 'center' } }, p.length ? p.map(x => formatValue(x.value, g.tipoValor)).join(' | ') : '-'];
     });
-
-    const maxPrecos = Math.max(...processedItems.map(x => x.pArray.length), 1);
-    const s6b: any[] = [];
-    processedItems.forEach(({ g, pArray }) => {
-        const row: any[] = [{ content: g.itemTR, styles: { halign: 'center', valign: 'middle' } }];
-        if (pArray.length === 0) {
-            row.push({ content: 'Nenhum preço inserido.', colSpan: maxPrecos, styles: { halign: 'center', fontStyle: 'italic', valign: 'middle' } });
-        } else {
-            for (let i = 0; i < maxPrecos; i++) {
-                if (pArray[i]) {
-                    const sourceName = nomesFontesCurto[pArray[i].source] || pArray[i].source;
-                    const rawVal = pArray[i].value;
-                    if (!rawVal || rawVal.trim() === '') {
-                        row.push({ content: `-\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
-                    } else {
-                        const isPercent = rawVal.includes('%') || g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
-                        const numValue = Number(rawVal.replace(/[^\d,.-]/g, '').replace(',', '.')) || 0;
-                        const valRender = isPercent ? `${numValue.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(numValue, 'moeda');
-                        row.push({ content: `${valRender}\n(${sourceName})`, styles: { halign: 'center', valign: 'middle' } });
-                    }
-                } else {
-                    row.push({ content: '-', styles: { halign: 'center', valign: 'middle' } });
-                }
-            }
-        }
-        s6b.push(row);
-    });
-
-    autoTable(doc, { 
-        startY: y, head: [[{ content: 'Item', styles: { halign: 'center', valign: 'middle' } }, { content: 'Preços Encontrados', colSpan: maxPrecos, styles: { halign: 'center' } }]], 
-        body: s6b, theme: 'grid', headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
-        styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, 
-        alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
-        columnStyles: { 0: { cellWidth: 15 } }
-    });
+    autoTable(doc, { startY: y, head: [['Item', 'Preços Encontrados']], body: s6b, theme: 'grid', headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY;
 
     const desc = data.houveDescarte;
-    autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
-            { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } },
-            { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
-        ]]
-    });
+    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } }, { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } }, { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }]] });
     y = (doc as any).lastAutoTable.finalY + 12;
 
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    const tituloQuadro = isAta ? 'QUADRO COMPARATIVO - ADITIVO À ATA DE REGISTRO DE PREÇOS' : `QUADRO COMPARATIVO - ADITIVO CONTRATUAL - CONTRATO ${data.numeroContrato || 'NNNN'}/${data.anoContrato || 'AAAA'}`;
+    const tituloQuadro = isAta ? 'QUADRO COMPARATIVO - ADITIVO À ATA DE REGISTRO DE PREÇOS' : `QUADRO COMPARATIVO - ADITIVO CONTRATUAL`;
     doc.text(tituloQuadro, PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
 
     let colValorReferencia = isAta ? 'Valor Unitário da Ata' : 'Valor Unitário Contrato';
@@ -181,39 +116,32 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         else colValorReferencia = `Valor Unitário Contrato\n(s/ reajuste)`;
     }
 
-    const isTaxaItem = (g: OrcamentoItemGroup) => g.tipoValor === 'percentual' || g.descricao.toLowerCase().includes('taxa');
-
-    const qcb: any[] = [];
-    data.itemGroups.forEach(g => {
-        const valMercado = Number(g.estimativaUnitaria) || 0;
+    const qcb = (data.itemGroups || []).map(g => {
         const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
         const vUnitContrato = Number(g.valorUnitarioContrato) || 0;
-        const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
-
-        let descInfo = g.descricao;
+        const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
+        let descInfo = g.descricao || '';
         if (isAta && (g as any).numeroAtaAditivo) descInfo += `\n(Ata: ${(g as any).numeroAtaAditivo})`;
 
         const renderBaseVal = (v: number) => g.tipoValor === 'percentual' ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
-        const renderMercadoVal = (v: number) => isTaxaItem(g) ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
-
-        qcb.push([
+        return [
             { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
-            { content: valMercado !== 0 ? renderMercadoVal(valMercado) : '-', styles: { halign: 'center' } },
+            { content: g.estimativaUnitaria ? renderBaseVal(Number(g.estimativaUnitaria)) : '-', styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center', fontStyle: 'bold' } }
-        ]);
+        ];
     });
 
     autoTable(doc, {
         startY: y, head: [['Item', 'Descrição', 'Valor de Mercado', colValorReferencia, 'Preço Adotado']], body: qcb, theme: 'grid',
-        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' },
-        alternateRowStyles: { fillColor: ZEBRA_BLUE },
+        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
+    // Tabela Final Preço Estimado Aditivo
     addPage(40);
     doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
     const tituloAlteracao = isAta ? 'PREÇO ESTIMADO DA ALTERAÇÃO DA ATA' : 'PREÇO ESTIMADO DA ALTERAÇÃO CONTRATUAL';
@@ -227,26 +155,29 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const aditB: any[] = [];
     const colAditivoValorUnit = isAta ? 'Valor Unit. Ata' : (data.haveraReajuste === 'sim' && data.porcentagemReajuste ? 'Valor Unit. (c/ reajuste)' : 'Valor Unit. (s/ reajuste)');
 
-    data.itemGroups.forEach(g => {
+    (data.itemGroups || []).forEach(g => {
         const gAny = g as any;
         const itemTaxa = isTaxaItem(g);
         const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
-        const vUnitReajustado = (Number(g.valorUnitarioContrato) || 0) * (1 + pctReajuste / 100);
+        const vUnitContrato = Number(g.valorUnitarioContrato) || 0;
+        
+        // CORREÇÃO CIRÚRGICA: Arredonda o valor reajustado para limpar as micro-dízimas nativas do JS
+        const vUnitReajustado = Math.round((vUnitContrato * (1 + pctReajuste / 100)) * 100) / 100;
         
         if (itemTaxa) { temTaxaGlobal = true; taxaReferenciaGlobal = vUnitReajustado; }
 
         const pctAditivo = Number(gAny.aditivoPercentual) || 0;
         const qtdAditivo = Number(gAny.aditivoQuantidade) || 0;
 
-        // MATEMÁTICA TRAVADA: arredonda cada item antes de multiplicar
-        const vAditivoMensal = Math.round((Number(gAny.aditivoValorTotal || 0)) * 100) / 100;
+        // CALCULO TRAVADO DA LINHA: Multiplica o valor unitário já arredondado pela quantidade exata
+        const vAditivoMensal = Math.round((vUnitReajustado * qtdAditivo) * 100) / 100;
         const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-        const vAditivoPeriodo = Math.round(vAditivoMensal * qtdTempo * 100) / 100;
+        const vAditivoPeriodo = Math.round((vAditivoMensal * qtdTempo) * 100) / 100;
 
         somaMensalCentavos += Math.round(vAditivoMensal * 100);
         somaPeriodoCentavos += Math.round(vAditivoPeriodo * 100);
 
-        let descInfo = g.descricao;
+        let descInfo = g.descricao || '';
         if (isAta && gAny.numeroAtaAditivo) descInfo += `\n(Ata: ${gAny.numeroAtaAditivo})`;
 
         const valUnitRender = itemTaxa ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(vUnitReajustado, 'moeda');
@@ -259,45 +190,43 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
             { content: valUnitRender, styles: { halign: 'center' } },
             { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } },
             { content: valAditivoMensalRender, styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: novoVGlobalRender, styles: { halign: 'right', fontStyle: 'bold' } }
+            { content: itemTaxa ? '-' : formatValue(vAditivoPeriodo, 'moeda'), styles: { halign: 'right', fontStyle: 'bold' } }
         ]);
     });
 
     const somaMensalReais = somaMensalCentavos / 100;
     const somaPeriodoReais = somaPeriodoCentavos / 100;
 
+    const temPeriodoValido = (data.itemGroups || []).some(g => (g as any).periodoContratacao && String((g as any).periodoContratacao).trim() !== '');
+    const stringPeriodoGlobal = ((data.itemGroups || []).find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
     const renderTotalFinal = (valorMoeda: number) => temTaxaGlobal ? `${taxaReferenciaGlobal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(valorMoeda, 'moeda');
 
     if (data.aditivoTempo === 'sim') {
         const isMensal = data.aditivoTempoUnidade === 'meses';
         aditB.push([
-            { content: isMensal ? 'VALOR MENSAL' : 'VALOR ANUAL', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
-            { content: renderTotalFinal(somaMensalReais), styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
-        ]);
-        const qtdTempo = Number(data.aditivoTempoQuantidade) || 1;
-        aditB.push([
-            { content: 'PERÍODO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
-            { content: `${qtdTempo} ${data.aditivoTempoUnidade || 'meses'}`, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }
+            { content: isMensal ? 'VALOR MENSAL ADITIVADO' : 'VALOR ANUAL ADITIVADO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+            { content: renderTotalFinal(somaMensalReais), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } } 
         ]);
         aditB.push([
-            { content: 'TOTAL DO ADITIVO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: renderTotalFinal(somaPeriodoReais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
+            { content: `TOTAL DO ADITIVO PARA O PERÍODO (${stringPeriodoGlobal})`, colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
+            { content: renderTotalFinal(somaPeriodoReais), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } } 
         ]);
     } else {
         aditB.push([
-            { content: 'TOTAL DO ADITIVO', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: renderTotalFinal(somaMensalReais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
+            { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
+            { content: renderTotalFinal(somaMensalReais), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
         ]);
     }
     
     autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Valor Aditivo', 'Novo V. Global']], body: aditB, theme: 'grid',
+        startY: y, head: [['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Aditivo Mensal', 'Total no Período']], body: aditB, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
+    // Assinaturas Híbridas
     addPage(50);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
