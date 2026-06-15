@@ -1041,14 +1041,20 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100); 
                               
                               const qtdAditivo = Number(item.aditivoQuantidade) || 0; 
-                              const vTotalAditivoMensal = Number(item.aditivoValorTotal) || (qtdAditivo * vUnitReajustado); 
+                              
+                              // Busca o valor digitado ou força a re-multiplicação
+                              let vTotalAditivoMensal = Number(item.aditivoValorTotal);
+                              if (!vTotalAditivoMensal && vTotalAditivoMensal !== 0) {
+                                  vTotalAditivoMensal = qtdAditivo * vUnitReajustado;
+                              }
+                              
                               const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); 
                               
-                              // Lógica solicitada: Aditivo Total Mensal multiplicado pelo Período indicado
+                              // Lógica solicitada: Aditivo Mensal x Prazo
                               const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
                               const aditivoNoPeriodo = vTotalAditivoMensal * qtdTempo;
 
-                              // Se for item de taxa (percentual), a exibição do unitário muda
+                              // Detecção de taxa para a interface
                               const isTaxaItem = item.tipoValor === 'percentual' || item.descricao.toLowerCase().includes('taxa');
                               const valUnitarioRender = isTaxaItem 
                                 ? `${vUnitContrato.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
@@ -1075,7 +1081,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                           <input type="text" value={vTotalAditivoMensal ? vTotalAditivoMensal.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder="R$" />
                                       </td>
                                       <td className="px-2 py-2 text-right font-bold text-gray-900 dark:text-gray-100">
-                                          {isTaxaItem ? '-' : aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                          {aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
                                       </td>
                                   </tr>
                               );
@@ -1084,29 +1090,40 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   </table>
               </div>
 
-              {/* Linhas de resumo solicitadas para exibição em tela de totais mensais e por período */}
-              <div className="mt-6 space-y-2 border-t pt-4 dark:border-gray-700 flex flex-col items-end">
-                  {data.aditivoTempo === 'sim' && (
-                      <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/10 dark:border-blue-800 px-6 py-2 rounded-lg text-sm font-bold text-blue-700 dark:text-blue-300 w-full md:w-80 flex justify-between">
-                          <span>Total Aditivo Mensal:</span>
-                          <span>
-                              {(sortedItems.reduce((acc, item) => acc + (Number(item.aditivoValorTotal) || 0), 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                          </span>
+              {/* Linhas de resumo protegidas matematicamente */}
+              {(() => {
+                  const totalMensal = sortedItems.reduce((acc, item) => {
+                      const vUnitContrato = Number(item.valorUnitarioContrato) || 0;
+                      const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
+                      const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
+                      const qtdAditivo = Number(item.aditivoQuantidade) || 0;
+                      
+                      let val = Number(item.aditivoValorTotal);
+                      if (!val && val !== 0) val = qtdAditivo * vUnitReajustado;
+                      
+                      return acc + val;
+                  }, 0);
+
+                  const mult = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
+                  const totalPeriodo = totalMensal * mult;
+
+                  return (
+                      <div className="mt-6 space-y-2 border-t pt-4 dark:border-gray-700 flex flex-col items-end">
+                          {data.aditivoTempo === 'sim' && (
+                              <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/10 dark:border-blue-800 px-6 py-2 rounded-lg text-sm font-bold text-blue-700 dark:text-blue-300 w-full md:w-80 flex justify-between">
+                                  <span>Total Aditivo Mensal:</span>
+                                  <span>{totalMensal.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span>
+                              </div>
+                          )}
+                          <div className="bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800 px-6 py-3 rounded-lg text-md font-bold text-cbmpa-red w-full md:w-auto min-w-[320px] flex justify-between shadow-sm">
+                              <span>{data.aditivoTempo === 'sim' ? `Total para o Período (${data.aditivoTempoQuantidade} ${data.aditivoTempoUnidade}):` : 'Total do Aditivo:'}</span>
+                              <span className="ml-4">{totalPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</span>
+                          </div>
                       </div>
-                  )}
-                  <div className="bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800 px-6 py-3 rounded-lg text-md font-bold text-cbmpa-red w-full md:w-auto min-w-[320px] flex justify-between shadow-sm">
-                      <span>{data.aditivoTempo === 'sim' ? `Total para o Período (${data.aditivoTempoQuantidade} ${data.aditivoTempoUnidade}):` : 'Total do Aditivo:'}</span>
-                      <span className="ml-4">
-                          {(sortedItems.reduce((acc, item) => {
-                              const mult = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                              return acc + ((Number(item.aditivoValorTotal) || 0) * mult);
-                          }, 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                      </span>
-                  </div>
-              </div>
+                  );
+              })()}
           </Section>
       )}
-
       {/* 8. ASSINATURAS */}
       <Section title="Assinatura">
         <div className="grid md:grid-cols-2 gap-6">
