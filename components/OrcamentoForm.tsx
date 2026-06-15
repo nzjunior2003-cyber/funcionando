@@ -1014,89 +1014,98 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       )}
 
  {/* ============================================================================ */}
-{/* 7. COMPARATIVO (ADITIVO) — COM LÓGICA DE PERÍODO E TOTAIS INTERMEDIÁRIOS */}
-{/* ============================================================================ */}
-{data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
-    <Section title="Cálculo do Valor do Aditivo" instruction="De quanto será o aditivo? Edite o Percentual, a Quantidade ou o Valor Total Mensal. O sistema calculará automaticamente o reflexo no período total informado.">
-        <div className="overflow-x-auto">
-            <table className="min-w-full text-xs text-left">
-                <thead className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
-                    <tr>
-                        <th className="px-2 py-2">ITEM</th>
-                        <th className="px-2 py-2">DESCRIÇÃO</th>
-                        <th className="px-2 py-2 text-center">QTD ORIGINAL</th>
-                        <th className="px-2 py-2 text-right">V. UNIT. CONTRATO</th>
-                        <th className="px-2 py-2 text-right">V. TOTAL BASE</th>
-                        <th className="px-2 py-2 text-center w-24">ADITIVO (%)</th>
-                        <th className="px-2 py-2 text-center w-24">ADITIVO (QTD)</th>
-                        <th className="px-2 py-2 text-right w-32">ADITIVO MENSAL (R$)</th>
-                        <th className="px-2 py-2 text-right">TOTAL ADITIVADO NO PERÍODO</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {sortedItems.map(item => {
-                        const qtdOriginal = Number(item.quantidadeTotal) || 0; 
-                        const vUnitContrato = Number(item.valorUnitarioContrato) || 0; 
-                        const pctReajuste = (data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0);
-                        const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100); 
-                        const vTotalBase = qtdOriginal * vUnitReajustado;
-                        
-                        const qtdAditivo = Number(item.aditivoQuantidade) || 0; 
-                        const vTotalAditivoMensal = Number(item.aditivoValorTotal) || (qtdAditivo * vUnitReajustado); 
-                        const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); 
-                        
-                        // Lógica solicitada: Aditivo Total Mensal multiplicado pelo Período indicado
-                        const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                        const aditivoNoPeriodo = vTotalAditivoMensal * qtdTempo;
+      {/* 7. COMPARATIVO (ADITIVO) — COM LÓGICA DE PERÍODO E TOTAIS INTERMEDIÁRIOS */}
+      {/* ============================================================================ */}
+      {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
+          <Section title="Cálculo do Valor do Aditivo" instruction="De quanto será o aditivo? Edite o Percentual, a Quantidade ou o Valor Total Mensal. O sistema calculará automaticamente o reflexo no período total informado.">
+              <div className="overflow-x-auto">
+                  <table className="min-w-full text-xs text-left">
+                      <thead className="bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200">
+                          <tr>
+                              <th className="px-2 py-2">ITEM</th>
+                              <th className="px-2 py-2">DESCRIÇÃO</th>
+                              <th className="px-2 py-2 text-center">QTD ORIGINAL</th>
+                              <th className="px-2 py-2 text-right">V. UNIT. CONTRATO</th>
+                              <th className="px-2 py-2 text-right">V. UNIT. C/ REAJUSTE</th>
+                              <th className="px-2 py-2 text-center w-24">ADITIVO (%)</th>
+                              <th className="px-2 py-2 text-center w-24">ADITIVO (QTD)</th>
+                              <th className="px-2 py-2 text-right w-32">ADITIVO MENSAL (R$)</th>
+                              <th className="px-2 py-2 text-right">TOTAL ADITIVADO NO PERÍODO</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {sortedItems.map(item => {
+                              const qtdOriginal = Number(item.quantidadeTotal) || 0; 
+                              const vUnitContrato = Number(item.valorUnitarioContrato) || 0; 
+                              const pctReajuste = (data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0);
+                              const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100); 
+                              
+                              const qtdAditivo = Number(item.aditivoQuantidade) || 0; 
+                              const vTotalAditivoMensal = Number(item.aditivoValorTotal) || (qtdAditivo * vUnitReajustado); 
+                              const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); 
+                              
+                              // Lógica solicitada: Aditivo Total Mensal multiplicado pelo Período indicado
+                              const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
+                              const aditivoNoPeriodo = vTotalAditivoMensal * qtdTempo;
 
-                        return (
-                            <tr key={item.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
-                                <td className="px-2 py-2 font-bold">{item.itemTR}</td>
-                                <td className="px-2 py-2 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td>
-                                <td className="px-2 py-2 text-center">{qtdOriginal}</td>
-                                <td className="px-2 py-2 text-right">{vUnitContrato.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
-                                <td className="px-2 py-2 text-right text-blue-600 font-semibold">{vTotalBase.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}</td>
-                                <td className="px-2 py-2 text-center">
-                                    <input type="text" value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white" placeholder="%" />
-                                </td>
-                                <td className="px-2 py-2 text-center">
-                                    <input type="text" value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold" placeholder="Qtd" />
-                                </td>
-                                <td className="px-2 py-2 text-right">
-                                    <input type="text" value={vTotalAditivoMensal ? vTotalAditivoMensal.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder="R$" />
-                                </td>
-                                <td className="px-2 py-2 text-right font-bold text-gray-900 dark:text-gray-100">
-                                    {aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                                </td>
-                            </tr>
-                        );
-                    })}
-                </tbody>
-            </table>
-        </div>
+                              // Se for item de taxa (percentual), a exibição do unitário muda
+                              const isTaxaItem = item.tipoValor === 'percentual' || item.descricao.toLowerCase().includes('taxa');
+                              const valUnitarioRender = isTaxaItem 
+                                ? `${vUnitContrato.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
+                                : vUnitContrato.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
+                                
+                              const valUnitReajustadoRender = isTaxaItem 
+                                ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
+                                : vUnitReajustado.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'});
 
-        {/* Linhas de resumo solicitadas para exibição em tela de totais mensais e por período */}
-        <div className="mt-6 space-y-2 border-t pt-4 dark:border-gray-700 flex flex-col items-end">
-            {data.aditivoTempo === 'sim' && (
-                <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/10 dark:border-blue-800 px-6 py-2 rounded-lg text-sm font-bold text-blue-700 dark:text-blue-300 w-full md:w-80 flex justify-between">
-                    <span>Total Aditivo Mensal:</span>
-                    <span>
-                        {(sortedItems.reduce((acc, item) => acc + (Number(item.aditivoValorTotal) || 0), 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                    </span>
-                </div>
-            )}
-            <div className="bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800 px-6 py-3 rounded-lg text-md font-bold text-cbmpa-red w-full md:w-80 flex justify-between shadow-sm">
-                <span>{data.aditivoTempo === 'sim' ? `Total para o Período (${data.aditivoTempoQuantidade} ${data.aditivoTempoUnidade}):` : 'Total do Aditivo:'}</span>
-                <span>
-                    {(sortedItems.reduce((acc, item) => {
-                        const mult = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                        return acc + ((Number(item.aditivoValorTotal) || 0) * mult);
-                    }, 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
-                </span>
-            </div>
-        </div>
-    </Section>
-)}
+                              return (
+                                  <tr key={item.id} className="border-b dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800">
+                                      <td className="px-2 py-2 font-bold">{item.itemTR}</td>
+                                      <td className="px-2 py-2 truncate max-w-[150px]" title={item.descricao}>{item.descricao}</td>
+                                      <td className="px-2 py-2 text-center">{qtdOriginal}</td>
+                                      <td className="px-2 py-2 text-right">{valUnitarioRender}</td>
+                                      <td className="px-2 py-2 text-right text-blue-600 font-semibold">{valUnitReajustadoRender}</td>
+                                      <td className="px-2 py-2 text-center">
+                                          <input type="text" value={pctAditivo ? pctAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'pct', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white" placeholder="%" />
+                                      </td>
+                                      <td className="px-2 py-2 text-center">
+                                          <input type="text" value={qtdAditivo ? qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'qtd', e.target.value)} className="w-full text-center border rounded p-1 dark:bg-gray-700 dark:text-white font-bold" placeholder="Qtd" />
+                                      </td>
+                                      <td className="px-2 py-2 text-right">
+                                          <input type="text" value={vTotalAditivoMensal ? vTotalAditivoMensal.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder="R$" />
+                                      </td>
+                                      <td className="px-2 py-2 text-right font-bold text-gray-900 dark:text-gray-100">
+                                          {isTaxaItem ? '-' : aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* Linhas de resumo solicitadas para exibição em tela de totais mensais e por período */}
+              <div className="mt-6 space-y-2 border-t pt-4 dark:border-gray-700 flex flex-col items-end">
+                  {data.aditivoTempo === 'sim' && (
+                      <div className="bg-blue-50 border border-blue-200 dark:bg-blue-900/10 dark:border-blue-800 px-6 py-2 rounded-lg text-sm font-bold text-blue-700 dark:text-blue-300 w-full md:w-80 flex justify-between">
+                          <span>Total Aditivo Mensal:</span>
+                          <span>
+                              {(sortedItems.reduce((acc, item) => acc + (Number(item.aditivoValorTotal) || 0), 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                          </span>
+                      </div>
+                  )}
+                  <div className="bg-red-50 border border-red-200 dark:bg-red-900/20 dark:border-red-800 px-6 py-3 rounded-lg text-md font-bold text-cbmpa-red w-full md:w-auto min-w-[320px] flex justify-between shadow-sm">
+                      <span>{data.aditivoTempo === 'sim' ? `Total para o Período (${data.aditivoTempoQuantidade} ${data.aditivoTempoUnidade}):` : 'Total do Aditivo:'}</span>
+                      <span className="ml-4">
+                          {(sortedItems.reduce((acc, item) => {
+                              const mult = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
+                              return acc + ((Number(item.aditivoValorTotal) || 0) * mult);
+                          }, 0)).toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                      </span>
+                  </div>
+              </div>
+          </Section>
+      )}
 
       {/* 8. ASSINATURAS */}
       <Section title="Assinatura">
