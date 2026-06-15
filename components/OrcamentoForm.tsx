@@ -61,14 +61,6 @@ const formatCurrencyInput = (value: number): string => {
   return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// NOVO: Formatador que respeita as casas decimais de taxa (%)
-const formatValueByType = (value: number, tipoValor: string = 'moeda'): string => {
-  if (tipoValor === 'percentual') {
-      return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  }
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-};
-
 const calculateEstimate = (prices: (string | undefined)[], methodology: 'menor' | 'media' | 'mediana' | string, tipoValor: 'moeda' | 'percentual' = 'moeda'): number => {
   const validPrices = prices.map(p => parseValue(p, tipoValor)).filter((p): p is number => p !== null && (tipoValor === 'percentual' || p > 0));
   if (validPrices.length === 0) return 0;
@@ -136,23 +128,22 @@ const ItemForm: React.FC<{
     isLoteItem?: boolean;
 }> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onPriceInclusionToggle, valorReferencia, isLoteItem }) => {
     
-    // ATUALIZADO: Agora usa formatValueByType para respeitar 4 casas se for taxa
-    const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatValueByType(group.estimativaUnitaria, group.tipoValor) : '');
-    const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatValueByType(group.valorUnitarioContrato, group.tipoValor) : '');
+    const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
+    const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
 
-    useEffect(() => { setLocalPrice(group.estimativaUnitaria ? formatValueByType(group.estimativaUnitaria, group.tipoValor) : ''); }, [group.estimativaUnitaria, group.tipoValor]);
-    useEffect(() => { setContractPrice(group.valorUnitarioContrato ? formatValueByType(group.valorUnitarioContrato, group.tipoValor) : ''); }, [group.valorUnitarioContrato, group.tipoValor]);
+    useEffect(() => { setLocalPrice(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : ''); }, [group.estimativaUnitaria]);
+    useEffect(() => { setContractPrice(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : ''); }, [group.valorUnitarioContrato]);
 
     const handlePriceBlur = () => {
         const numericVal = parseValue(localPrice, group.tipoValor) || 0;
         onGroupChange(group.id, 'estimativaUnitaria', numericVal);
-        setLocalPrice(formatValueByType(numericVal, group.tipoValor));
+        setLocalPrice(formatCurrencyInput(numericVal));
     };
 
     const handleContractPriceBlur = () => {
         const numericVal = parseValue(contractPrice, group.tipoValor) || 0;
         onGroupChange(group.id, 'valorUnitarioContrato', numericVal);
-        setContractPrice(formatValueByType(numericVal, group.tipoValor));
+        setContractPrice(formatCurrencyInput(numericVal));
     };
 
     const handleCotaToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -162,30 +153,6 @@ const ItemForm: React.FC<{
             if (!confirmJustificativa) return;
         }
         onGroupChange(group.id, 'aplicarCotaMeEpp', isChecked);
-    };
-
-    // NOVO: Lógica da Escala de Cor Verde para as menores taxas/valores
-    const getPriceStyle = (valStr: string) => {
-        const val = parseValue(valStr, group.tipoValor);
-        if (val === null) return {};
-        
-        const validPrices = precos.map(p => parseValue(p.value, group.tipoValor)).filter((v): v is number => v !== null);
-        if (validPrices.length < 2) return {};
-
-        const min = Math.min(...validPrices);
-        const media = validPrices.reduce((a, b) => a + b, 0) / validPrices.length;
-
-        // Se o valor estiver acima ou na média, não recebe cor
-        if (val >= media) return {}; 
-
-        // Se estiver abaixo, calculamos a intensidade (0 = perto da média, 1 = o menor valor)
-        const range = media - min;
-        const intensity = range === 0 ? 0 : (media - val) / range;
-
-        return { 
-            backgroundColor: `rgba(34, 197, 94, ${0.1 + (intensity * 0.4)})`, 
-            borderColor: `rgba(34, 197, 94, ${0.4 + (intensity * 0.6)})` 
-        };
     };
 
     const isAditivo = tipoOrcamento === 'aditivo_contratual';
@@ -208,7 +175,7 @@ const ItemForm: React.FC<{
                             <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(group.id)} className="h-5 w-5 rounded border-gray-300 text-cbmpa-blue-start focus:ring-cbmpa-blue-start cursor-pointer" title="Selecionar para agrupar"/>
                         )}
                         <span className="font-bold text-gray-700 dark:text-gray-300 text-lg">Item {group.itemTR}</span>
-                        {group.loteId && !isLoteItem && <span className="bg-cbmpa-blue-end text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">Lote: {group.loteId}</span>}
+                        {group.loteId && !isLoteItem && tipoOrcamento !== 'aditivo_contratual' && <span className="bg-cbmpa-blue-end text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">Lote: {group.loteId}</span>}
                     </div>
                     <button onClick={() => onRemove(group.id)} className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-md">
                         🗑️ <span className="hidden sm:inline">Remover</span>
@@ -275,22 +242,16 @@ const ItemForm: React.FC<{
 
                         {tipoOrcamento === 'gerenciador_ata' && (
                             <div className="col-span-2">
-                                {/* ATUALIZADO: Label Dinâmico e Regex permitindo negativos ([^\d,.-]) */}
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">
-                                    Valor Unitário Registrado ({group.tipoValor === 'percentual' ? '%' : 'R$'})
-                                </label>
-                                <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,.-]/g, ''))} onBlur={handlePriceBlur} className={inputClasses} placeholder="0,00" />
+                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado (R$)</label>
+                                <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handlePriceBlur} className={inputClasses} placeholder="0,00" />
                             </div>
                         )}
 
                         {isAditivo && (
                             <>
                                 <div className={subTipoAditivo === 'ata' ? "col-span-1" : "col-span-2"}>
-                                    {/* ATUALIZADO: Label Dinâmico e Regex permitindo negativos ([^\d,.-]) */}
-                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">
-                                        Valor Unit. Origem ({group.tipoValor === 'percentual' ? '%' : 'R$'})
-                                    </label>
-                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,.-]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
+                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem (R$)</label>
+                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
                                 </div>
                                 
                                 {subTipoAditivo === 'ata' && (
@@ -344,8 +305,7 @@ const ItemForm: React.FC<{
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
-                                    {/* ATUALIZADO: O input agora recebe o style={getPriceStyle(p.value)} */}
-                                    <input type="text" value={p.value} onChange={(e) => onPriceChange(group.id, p.id, e.target.value)} placeholder="0,00" style={getPriceStyle(p.value)} className="w-32 p-2 text-sm font-bold border border-gray-300 rounded text-right dark:bg-gray-900 dark:border-gray-600 focus:ring-2 focus:ring-cbmpa-red outline-none transition-colors"/>
+                                    <input type="text" value={p.value} onChange={(e) => onPriceChange(group.id, p.id, e.target.value)} placeholder="0,00" className="w-32 p-2 text-sm font-bold border border-gray-300 rounded text-right dark:bg-gray-900 dark:border-gray-600 focus:ring-2 focus:ring-cbmpa-red outline-none"/>
                                 </div>
                                 <label className="flex items-center gap-2 cursor-pointer bg-gray-50 dark:bg-gray-700/50 px-2 py-1.5 rounded">
                                     <input type="checkbox" checked={precosIncluidos[p.id] ?? true} onChange={(e) => onPriceInclusionToggle(p.id, e.target.checked)} className="h-4 w-4 text-cbmpa-blue-start rounded border-gray-300 cursor-pointer"/>
@@ -362,7 +322,7 @@ const ItemForm: React.FC<{
                         </span>
 
                         <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
-                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                         
                         {group.tipoValor !== 'percentual' && (
@@ -382,16 +342,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [loteName, setLoteName] = useState('');
-  const [editedLoteNames, setEditedLoteNames] = useState<Record<string, string>>({});
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });
-
-  useEffect(() => {
-      const loteNames: Record<string, string> = {};
-      (data.itemGroups || []).forEach(item => {
-          if (item.loteId) loteNames[item.loteId] = item.loteId;
-      });
-      setEditedLoteNames(prev => ({ ...loteNames, ...prev }));
-  }, [data.itemGroups]);
 
   const triggerProps = JSON.stringify({
       precos: data.precosEncontrados,
@@ -416,6 +367,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           let hasChanges = false;
           const currentGroups = (prevData.itemGroups || []).map(g => ({...g}));
 
+          // 1. Calcular Preços
           if (['licitacao', 'dispensa_licitacao', 'adesao_ata', 'aditivo_contratual'].includes(prevData.tipoOrcamento || '')) {
               currentGroups.forEach(group => {
                   const itemPrices = prevData.precosEncontrados?.[group.id] || [];
@@ -429,6 +381,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               });
           }
 
+          // 2. Calcular Cotas
           if (prevData.tipoOrcamento !== 'adesao_ata' && prevData.tipoOrcamento !== 'aditivo_contratual') {
               const LIMITE_SRP_COTA = 80000;
               const TETO_VALOR_LOTE = 4800000;
@@ -544,30 +497,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
       }));
   };
 
-  const handleLoteNameInputChange = (loteId: string, value: string) => {
-      setEditedLoteNames(prev => ({ ...prev, [loteId]: value }));
-  };
-
-  const commitLoteRename = (oldLoteId: string) => {
-      const newLoteId = (editedLoteNames[oldLoteId] || oldLoteId).trim();
-      if (!newLoteId || newLoteId === oldLoteId) {
-          setEditedLoteNames(prev => ({ ...prev, [oldLoteId]: oldLoteId }));
-          return;
-      }
-
-      setData(prev => ({
-          ...prev,
-          itemGroups: (prev.itemGroups || []).map(item => item.loteId === oldLoteId ? { ...item, loteId: newLoteId } : item)
-      }));
-
-      setEditedLoteNames(prev => {
-          const next = { ...prev };
-          delete next[oldLoteId];
-          next[newLoteId] = newLoteId;
-          return next;
-      });
-  };
-
   const handleAditivoCalculation = (id: string, type: 'pct' | 'qtd' | 'total', rawValue: string) => {
     const cleanValue = rawValue.replace(/[^\d,.-]/g, '').replace(/\./g, '').replace(',', '.');
     const value = parseFloat(cleanValue) || 0;
@@ -646,10 +575,6 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
 
   const selectedFontes = useMemo(() => allFontesOptions.filter(o => (data.fontesPesquisa || []).includes(o.val)), [data.fontesPesquisa]);
   const isOnlyDireta = (data.fontesPesquisa || []).length === 1 && (data.fontesPesquisa || []).includes('direta');
-
-  const currentPaeParts = data.pae ? data.pae.split('/') : [];
-  const currentYear = currentPaeParts[0] || '2025';
-  const currentNum = currentPaeParts[1] || '';
 
   const lotesMap = new Map<string, OrcamentoItemGroup[]>();
   const avulsos: OrcamentoItemGroup[] = [];
@@ -834,108 +759,110 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           )}
 
           <div className="space-y-6">
-              {Array.from(lotesMap.entries()).map(([loteId, itemsLote]) => {
-                  const valorTotalLote = itemsLote.reduce((acc, it) => acc + ((Number(it.quantidadeTotal) || 0) * (Number(it.estimativaUnitaria) || 0)), 0);
-                  const isAboveTeto = valorTotalLote > 4800000;
-                  const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
-                  const aplicarCota = itemsLote[0]?.aplicarCotaMeEpp !== false;
+              {data.tipoOrcamento === 'aditivo_contratual' ? (
+                  sortedItems.map(g => {
+                      const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
+                      return (
+                          <ItemForm 
+                              key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
+                              tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                              onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
+                              valorReferencia={valorRef}
+                          />
+                      )
+                  })
+              ) : (
+                  <>
+                      {Array.from(lotesMap.entries()).map(([loteId, itemsLote]) => {
+                          const valorTotalLote = itemsLote.reduce((acc, it) => acc + ((Number(it.quantidadeTotal) || 0) * (Number(it.estimativaUnitaria) || 0)), 0);
+                          const isAboveTeto = valorTotalLote > 4800000;
+                          const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
+                          const aplicarCota = itemsLote[0]?.aplicarCotaMeEpp !== false;
 
-                  let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste LOTE";
-                  if (isAboveTeto) cotaMessage = "Valor do Lote acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
-                  else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Lote até R$ 80.000,00)";
+                          let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste LOTE";
+                          if (isAboveTeto) cotaMessage = "Valor do Lote acima do limite (R$ 4,8M). 100% AMPLA Concorrência.";
+                          else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Lote até R$ 80.000,00)";
 
-                  let totalAmpla = 0; let totalCota = 0;
-                  itemsLote.forEach(it => {
-                      (it.cotas || []).forEach(c => {
-                          if (c.id === 'ampla' || c.tipo?.includes('AMPLA')) totalAmpla += (Number(c.quantidade) || 0);
-                          if (c.id === 'cota' || c.tipo?.includes('COTA')) totalCota += (Number(c.quantidade) || 0);
-                      });
-                  });
+                          let totalAmpla = 0; let totalCota = 0;
+                          itemsLote.forEach(it => {
+                              (it.cotas || []).forEach(c => {
+                                  if (c.id === 'ampla' || c.tipo?.includes('AMPLA')) totalAmpla += (Number(c.quantidade) || 0);
+                                  if (c.id === 'cota' || c.tipo?.includes('COTA')) totalCota += (Number(c.quantidade) || 0);
+                              });
+                          });
 
-                  return (
-                      <div key={`lote-${loteId}`} className="border-2 border-cbmpa-blue-start rounded-lg mb-6 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
-                          <div className="bg-cbmpa-blue-start text-white p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full sm:w-auto">
-                                  <span className="text-2xl">📦</span>
-                                  <div className="min-w-0">
-                                      <div className="text-xs uppercase tracking-wide opacity-80">Lote</div>
-                                      <input
-                                          type="text"
-                                          value={editedLoteNames[loteId] ?? loteId}
-                                          onChange={(e) => handleLoteNameInputChange(loteId, e.target.value)}
-                                          onBlur={() => commitLoteRename(loteId)}
-                                          onKeyDown={(e) => { if (e.key === 'Enter') { e.currentTarget.blur(); } }}
-                                          className="w-full bg-transparent border-b border-white/40 focus:border-white focus:outline-none text-lg font-bold text-white placeholder-white/70"
-                                          placeholder="Digite o nome do lote"
-                                      />
-                                  </div>
-                              </div>
-                              <div className="text-right">
-                                  <span className="text-sm opacity-80 block">Valor Total do Lote</span>
-                                  <span className="font-bold text-xl">{formatCurrencyInput(valorTotalLote)}</span>
-                              </div>
-                          </div>
-                          
-                          {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && data.tipoOrcamento !== 'aditivo_contratual' && (
-                              <div className={`p-4 border-b ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
-                                  <label className="flex items-center gap-2 cursor-pointer">
-                                      <input 
-                                          type="checkbox" 
-                                          checked={aplicarCota && !isAboveTeto} 
-                                          onChange={(e) => handleLoteCotaToggle(loteId, e.target.checked, valorTotalLote)}
-                                          disabled={isAboveTeto}
-                                          className="h-5 w-5 rounded border-gray-300 text-cbmpa-red cursor-pointer disabled:opacity-50"
-                                      />
-                                      <span className="font-semibold">{cotaMessage}</span>
-                                  </label>
-                                  
-                                  <div className="mt-3 bg-white dark:bg-gray-800 p-3 rounded border text-sm">
-                                      <span className="font-bold block mb-1">Distribuição Oficial do Lote:</span>
-                                      <div className="flex gap-4">
-                                          {!aplicarCota || isAboveTeto ? (
-                                              <span className="text-cbmpa-red font-bold">100% AMPLA CONCORRÊNCIA</span>
-                                          ) : isExclusivoME ? (
-                                              <span className="text-blue-600 font-bold">100% EXCLUSIVA ME/EPP</span>
-                                          ) : (
-                                              <>
-                                                  <span className="text-gray-600 dark:text-gray-300">AMPLA: <strong>{totalAmpla} itens</strong></span>
-                                                  <span className="text-blue-600 dark:text-blue-400">COTA ME/EPP: <strong>{totalCota} itens</strong></span>
-                                              </>
-                                          )}
+                          return (
+                              <div key={`lote-${loteId}`} className="border-2 border-cbmpa-blue-start rounded-lg mb-6 bg-white dark:bg-gray-800 shadow-md overflow-hidden">
+                                  <div className="bg-cbmpa-blue-start text-white p-4 flex justify-between items-center">
+                                      <h3 className="font-bold text-lg">📦 LOTE {loteId}</h3>
+                                      <div className="text-right">
+                                          <span className="text-sm opacity-80 block">Valor Total do Lote</span>
+                                          <span className="font-bold text-xl">{formatCurrencyInput(valorTotalLote)}</span>
                                       </div>
                                   </div>
+                                  
+                                  {data.tipoOrcamento !== 'gerenciador_ata' && data.tipoOrcamento !== 'adesao_ata' && (
+                                      <div className={`p-4 border-b ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                              <input 
+                                                  type="checkbox" 
+                                                  checked={aplicarCota && !isAboveTeto} 
+                                                  onChange={(e) => handleLoteCotaToggle(loteId, e.target.checked, valorTotalLote)}
+                                                  disabled={isAboveTeto}
+                                                  className="h-5 w-5 rounded border-gray-300 text-cbmpa-red cursor-pointer disabled:opacity-50"
+                                              />
+                                              <span className="font-semibold">{cotaMessage}</span>
+                                          </label>
+                                          
+                                          <div className="mt-3 bg-white dark:bg-gray-800 p-3 rounded border text-sm">
+                                              <span className="font-bold block mb-1">Distribuição Oficial do Lote:</span>
+                                              <div className="flex gap-4">
+                                                  {!aplicarCota || isAboveTeto ? (
+                                                      <span className="text-cbmpa-red font-bold">100% AMPLA CONCORRÊNCIA</span>
+                                                  ) : isExclusivoME ? (
+                                                      <span className="text-blue-600 font-bold">100% EXCLUSIVA ME/EPP</span>
+                                                  ) : (
+                                                      <>
+                                                          <span className="text-gray-600 dark:text-gray-300">AMPLA: <strong>{totalAmpla} itens</strong></span>
+                                                          <span className="text-blue-600 dark:text-blue-400">COTA ME/EPP: <strong>{totalCota} itens</strong></span>
+                                                      </>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      </div>
+                                  )}
+
+                                  <div className="p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
+                                      <h4 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-2">Itens que compõem este Lote</h4>
+                                      {itemsLote.map(g => {
+                                          const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
+                                          return (
+                                              <ItemForm 
+                                                  key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
+                                                  tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                                                  onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
+                                                  valorReferencia={valorRef} isLoteItem={true}
+                                              />
+                                          );
+                                      })}
+                                  </div>
                               </div>
-                          )}
+                          );
+                      })}
 
-                          <div className="p-4 space-y-4 bg-gray-50/50 dark:bg-gray-900/20">
-                              <h4 className="font-bold text-gray-500 uppercase text-xs tracking-wider mb-2">Itens que compõem este Lote</h4>
-                              {itemsLote.map(g => {
-                                  const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
-                                  return (
-                                      <ItemForm 
-                                          key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                                          tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
-                                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
-                                          valorReferencia={valorRef} isLoteItem={true}
-                                      />
-                                  );
-                              })}
-                          </div>
-                      </div>
-                  );
-              })}
-
-              {avulsos.map(g => {
-                  const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
-                  return (
-                      <ItemForm 
-                          key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
-                          tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
-                          onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
-                          valorReferencia={valorRef}
-                      />
-                  )
-              })}
+                      {avulsos.map(g => {
+                          const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
+                          return (
+                              <ItemForm 
+                                  key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
+                                  tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
+                                  onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
+                                  valorReferencia={valorRef}
+                              />
+                          )
+                      })}
+                  </>
+              )}
           </div>
 
           <button onClick={addGroup} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition shadow-md mt-6">
@@ -1013,9 +940,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           </Section>
       )}
 
- {/* ============================================================================ */}
-      {/* 7. COMPARATIVO (ADITIVO) — COM LÓGICA DE PERÍODO E TOTAIS INTERMEDIÁRIOS */}
-      {/* ============================================================================ */}
+      {/* 7. COMPARATIVO (ADITIVO) */}
       {data.tipoOrcamento === 'aditivo_contratual' && sortedItems.length > 0 && (
           <Section title="Cálculo do Valor do Aditivo" instruction="De quanto será o aditivo? Edite o Percentual, a Quantidade ou o Valor Total Mensal. O sistema calculará automaticamente o reflexo no período total informado.">
               <div className="overflow-x-auto">
@@ -1042,19 +967,14 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               
                               const qtdAditivo = Number(item.aditivoQuantidade) || 0; 
                               
-                              // Busca o valor digitado ou força a re-multiplicação
-                              let vTotalAditivoMensal = Number(item.aditivoValorTotal);
-                              if (!vTotalAditivoMensal && vTotalAditivoMensal !== 0) {
-                                  vTotalAditivoMensal = qtdAditivo * vUnitReajustado;
-                              }
-                              
+                              // Valor mensal travado em duas casas
+                              const vTotalAditivoMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
                               const pctAditivo = Number(item.aditivoPercentual) || (qtdOriginal > 0 ? (qtdAditivo / qtdOriginal) * 100 : 0); 
                               
-                              // Lógica solicitada: Aditivo Mensal x Prazo
                               const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                              const aditivoNoPeriodo = vTotalAditivoMensal * qtdTempo;
+                              // Aditivo do período cravado em duas casas baseando-se NO VALOR MENSAL QUE APARECE
+                              const aditivoNoPeriodo = Math.round(vTotalAditivoMensal * qtdTempo * 100) / 100;
 
-                              // Detecção de taxa para a interface
                               const isTaxaItem = item.tipoValor === 'percentual' || item.descricao.toLowerCase().includes('taxa');
                               const valUnitarioRender = isTaxaItem 
                                 ? `${vUnitContrato.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%`
@@ -1081,7 +1001,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                           <input type="text" value={vTotalAditivoMensal ? vTotalAditivoMensal.toLocaleString('pt-BR', {maximumFractionDigits: 2, minimumFractionDigits: 2}) : ''} onChange={(e) => handleAditivoCalculation(item.id, 'total', e.target.value)} className="w-full text-right border rounded p-1 dark:bg-gray-700 dark:text-white font-bold text-green-600" placeholder="R$" />
                                       </td>
                                       <td className="px-2 py-2 text-right font-bold text-gray-900 dark:text-gray-100">
-                                          {aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
+                                          {isTaxaItem ? '-' : aditivoNoPeriodo.toLocaleString('pt-BR', {style: 'currency', currency: 'BRL'})}
                                       </td>
                                   </tr>
                               );
@@ -1090,22 +1010,18 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   </table>
               </div>
 
-              {/* Linhas de resumo protegidas matematicamente */}
               {(() => {
                   const totalMensal = sortedItems.reduce((acc, item) => {
-                      const vUnitContrato = Number(item.valorUnitarioContrato) || 0;
-                      const pctReajuste = data.haveraReajuste === 'sim' ? (Number(data.porcentagemReajuste) || 0) : 0;
-                      const vUnitReajustado = vUnitContrato * (1 + pctReajuste / 100);
-                      const qtdAditivo = Number(item.aditivoQuantidade) || 0;
-                      
-                      let val = Number(item.aditivoValorTotal);
-                      if (!val && val !== 0) val = qtdAditivo * vUnitReajustado;
-                      
-                      return acc + val;
+                      const vMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
+                      return acc + vMensal;
                   }, 0);
 
-                  const mult = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
-                  const totalPeriodo = totalMensal * mult;
+                  const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
+                  const totalPeriodo = sortedItems.reduce((acc, item) => {
+                      const vMensal = Math.round((Number(item.aditivoValorTotal) || 0) * 100) / 100;
+                      const aditPeriodo = Math.round(vMensal * qtdTempo * 100) / 100;
+                      return acc + aditPeriodo;
+                  }, 0);
 
                   return (
                       <div className="mt-6 space-y-2 border-t pt-4 dark:border-gray-700 flex flex-col items-end">
@@ -1124,6 +1040,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               })()}
           </Section>
       )}
+
       {/* 8. ASSINATURAS */}
       <Section title="Assinatura">
         <div className="grid md:grid-cols-2 gap-6">
@@ -1133,15 +1050,15 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
         <div className="grid md:grid-cols-2 gap-6 mt-6">
              <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 1 (Responsável)</p>
-                <Field label="Nome Completo"><input type="text" name="assinante1Nome" value={data.assinante1Nome} onChange={handleChange} className={inputClasses} /></Field>
-                <Field label="Nome de Guerra"><input type="text" name="assinante1NomeGuerra" value={data.assinante1NomeGuerra} onChange={handleChange} className={inputClasses} placeholder="Ex: Nome de Guerra" /></Field>
+                <Field label="Nome Completo do Servidor"><input type="text" name="assinante1Nome" value={data.assinante1Nome || ''} onChange={handleChange} className={inputClasses} placeholder="Nome Civil Completo" /></Field>
+                <Field label="Nome de Guerra"><input type="text" name="assinante1NomeGuerra" value={data.assinante1NomeGuerra || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: L. Rodrigues" /></Field>
                 <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
                 <Field label="Função"><input type="text" name="assinante1Funcao" value={data.assinante1Funcao} onChange={handleChange} className={inputClasses} /></Field>
             </div>
             <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 2 (Opcional)</p>
-                <Field label="Nome Completo"><input type="text" name="assinante2Nome" value={data.assinante2Nome} onChange={handleChange} className={inputClasses} /></Field>
-                <Field label="Nome de Guerra"><input type="text" name="assinante2NomeGuerra" value={data.assinante2NomeGuerra} onChange={handleChange} className={inputClasses} placeholder="Ex: Nome de Guerra" /></Field>
+                <Field label="Nome Completo do Servidor"><input type="text" name="assinante2Nome" value={data.assinante2Nome || ''} onChange={handleChange} className={inputClasses} /></Field>
+                <Field label="Nome de Guerra"><input type="text" name="assinante2NomeGuerra" value={data.assinante2NomeGuerra || ''} onChange={handleChange} className={inputClasses} /></Field>
                 <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
                 <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao} onChange={handleChange} className={inputClasses} /></Field>
             </div>
