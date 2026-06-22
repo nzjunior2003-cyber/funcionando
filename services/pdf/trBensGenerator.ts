@@ -340,7 +340,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
     pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, true);
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
-    pushRow('6.5. HÁ ITENS COM PARTICIPAÇÃO EXCLUSIVA DE ME/EPP?', `${radio(data.participacaoME === 'sim')} Sim. Itens: ${data.participacaoMEItens || '-'}\n\n${radio(data.participacaoME === 'nao')} Não.`, true);
+
+    const itensParticipacaoExclusiva = data.participacaoMEItens || data.itensParticipacaoExclusiva || '';
+    const descParticipacaoExclusiva = data.itensParticipacaoExclusivaDesc || '';
+    const textoParticipacaoME = data.participacaoME === 'sim'
+        ? `Sim. Itens: ${itensParticipacaoExclusiva || '-'}${descParticipacaoExclusiva ? `\n\nDescrição: ${descParticipacaoExclusiva}` : ''}`
+        : data.participacaoME === 'nao'
+            ? 'Não.'
+            : 'Não informado.';
+    pushRow('6.5. HÁ ITENS COM PARTICIPAÇÃO EXCLUSIVA DE ME/EPP?', `${radio(data.participacaoME === 'sim')} ${textoParticipacaoME}\n\n${radio(data.participacaoME === 'nao')} Não.`, true);
 
     pushHeader('7. REQUISITOS DA CONTRATADA E SUBCONTRATAÇÃO\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
     pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
