@@ -10,7 +10,6 @@ import {
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
-
 // ============================================================================
 // DICIONÁRIOS DE TRADUÇÃO (TEXTOS INTEGRAIS DA LEI 14.133/21)
 // ============================================================================
@@ -341,14 +340,23 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, true);
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
-    const itensParticipacaoExclusiva = data.participacaoMEItens || data.itensParticipacaoExclusiva || '';
-    const descParticipacaoExclusiva = data.itensParticipacaoExclusivaDesc || '';
-    const textoParticipacaoME = data.participacaoME === 'sim'
-        ? `Sim. Itens: ${itensParticipacaoExclusiva || '-'}${descParticipacaoExclusiva ? `\n\nDescrição: ${descParticipacaoExclusiva}` : ''}`
-        : data.participacaoME === 'nao'
-            ? 'Não.'
-            : 'Não informado.';
-    pushRow('6.5. HÁ ITENS COM PARTICIPAÇÃO EXCLUSIVA DE ME/EPP?', `${radio(data.participacaoME === 'sim')} ${textoParticipacaoME}\n\n${radio(data.participacaoME === 'nao')} Não.`, true);
+    // =========================================================================
+    // CORREÇÃO CIRÚRGICA DO ITEM 6.5 (BLINDADO)
+    // =========================================================================
+    let textoParticipacaoME = '';
+    const itensME = data.participacaoMEItens || data.itensParticipacaoExclusiva || '-';
+    const descME = data.itensParticipacaoExclusivaDesc ? `\nDescrição: ${data.itensParticipacaoExclusivaDesc}` : '';
+
+    if (data.participacaoME === 'sim') {
+        textoParticipacaoME = `[X] Sim. Itens: ${itensME}${descME}\n\n[  ] Não.`;
+    } else if (data.participacaoME === 'nao') {
+        textoParticipacaoME = `[  ] Sim. Itens: -\n\n[X] Não.`;
+    } else {
+        textoParticipacaoME = `[  ] Sim. Itens: -\n\n[  ] Não.`;
+    }
+    
+    pushRow('6.5. HÁ ITENS COM PARTICIPAÇÃO EXCLUSIVA DE ME/EPP?', textoParticipacaoME, true);
+    // =========================================================================
 
     pushHeader('7. REQUISITOS DA CONTRATADA E SUBCONTRATAÇÃO\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
     pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
@@ -434,69 +442,69 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     doc.setDrawColor(120, 120, 120); 
     doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);
 
- doc.setFontSize(10);
+    doc.setFontSize(10);
 
-const drawNameWithBoldGuerra = (
-    nomeCompleto: string,
-    nomeGuerra: string,
-    cargo: string,
-    x: number,
-    y: number
-) => {
-    const fullName = (nomeCompleto || '').trim();
-    const guerra = (nomeGuerra || '').trim();
-    const cargoTexto = (cargo || '').trim();
+    const drawNameWithBoldGuerra = (
+        nomeCompleto: string,
+        nomeGuerra: string,
+        cargo: string,
+        x: number,
+        y: number
+    ) => {
+        const fullName = String(nomeCompleto || '').trim();
+        const guerra = String(nomeGuerra || '').trim();
+        const cargoTexto = String(cargo || '').trim();
 
-    if (!fullName) return;
+        if (!fullName) return;
 
-    const parts: { text: string; bold?: boolean }[] = [];
-    const lowerFull = fullName.toLowerCase();
-    const lowerGuerra = guerra.toLowerCase();
+        const parts: { text: string; bold?: boolean }[] = [];
+        const lowerFull = fullName.toLowerCase();
+        const lowerGuerra = guerra.toLowerCase();
 
-    if (guerra && lowerFull.includes(lowerGuerra)) {
-        const idx = lowerFull.indexOf(lowerGuerra);
-        const before = fullName.slice(0, idx).trimEnd();
-        const boldPart = fullName.slice(idx, idx + guerra.length).trim();
-        const after = fullName.slice(idx + guerra.length).trimStart();
+        if (guerra && lowerFull.includes(lowerGuerra)) {
+            const idx = lowerFull.indexOf(lowerGuerra);
+            const before = fullName.slice(0, idx).trimEnd();
+            const boldPart = fullName.slice(idx, idx + guerra.length).trim();
+            const after = fullName.slice(idx + guerra.length).trimStart();
 
-        if (before) parts.push({ text: before });
-        if (boldPart) parts.push({ text: ` ${boldPart} `, bold: true });
-        if (after) parts.push({ text: after });
-    } else {
-        parts.push({ text: fullName });
+            if (before) parts.push({ text: before });
+            if (boldPart) parts.push({ text: ` ${boldPart} `, bold: true });
+            if (after) parts.push({ text: after });
+        } else {
+            parts.push({ text: fullName });
+        }
+
+        if (cargoTexto) {
+            parts.push({ text: ` - ${cargoTexto}`, bold: true });
+        }
+
+        const widths = parts.map(p => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            return doc.getTextWidth(p.text);
+        });
+
+        const totalW = widths.reduce((sum, w) => sum + w, 0);
+        let startX = x - (totalW / 2);
+
+        parts.forEach((p, i) => {
+            doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
+            doc.text(p.text, startX, y);
+            startX += widths[i];
+        });
+    };
+
+    drawNameWithBoldGuerra(
+        data.nome || '',
+        data.nomeGuerra || '',
+        data.cargo || '',
+        sigX,
+        finalY + 5
+    );
+
+    if (data.funcao) {
+        doc.setFont('helvetica', 'normal');
+        doc.text(data.funcao, sigX, finalY + 10, { align: 'center' });
     }
-
-    if (cargoTexto) {
-        parts.push({ text: ` - ${cargoTexto}`, bold: true });
-    }
-
-    const widths = parts.map(p => {
-        doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-        return doc.getTextWidth(p.text);
-    });
-
-    const totalW = widths.reduce((sum, w) => sum + w, 0);
-    let startX = x - (totalW / 2);
-
-    parts.forEach((p, i) => {
-        doc.setFont('helvetica', p.bold ? 'bold' : 'normal');
-        doc.text(p.text, startX, y);
-        startX += widths[i];
-    });
-};
-
-drawNameWithBoldGuerra(
-    data.nome || '',
-    data.nomeGuerra || '',
-    data.cargo || '',
-    sigX,
-    finalY + 5
-);
-
-if (data.funcao) {
-    doc.setFont('helvetica', 'normal');
-    doc.text(data.funcao, sigX, finalY + 10, { align: 'center' });
-}
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
