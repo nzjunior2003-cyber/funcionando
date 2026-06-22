@@ -63,7 +63,6 @@ const translateOptions = (selected: string[] | undefined, map: Record<string, st
     if (!selected || selected.length === 0) return 'Conforme Edital.';
     return selected.map(opt => `${map[opt] || opt}`).join('\n\n');
 };
-// ============================================================================
 
 export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const L_MARGIN = 8;
@@ -341,15 +340,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('6.4. ACEITABILIDADE', data.criterioAceitabilidade || '-', true);
 
     // =========================================================================
-    // CORREÇÃO CIRÚRGICA DO ITEM 6.5 (BLINDADO)
+    // RESTAURAÇÃO E CORREÇÃO DO ITEM 6.5 (BLINDADO CONTRA UNDEFINED)
     // =========================================================================
     let textoParticipacaoME = '';
+    const partME = data.participacaoME || '';
     const itensME = data.participacaoMEItens || data.itensParticipacaoExclusiva || '-';
     const descME = data.itensParticipacaoExclusivaDesc ? `\nDescrição: ${data.itensParticipacaoExclusivaDesc}` : '';
 
-    if (data.participacaoME === 'sim') {
+    if (partME === 'sim') {
         textoParticipacaoME = `[X] Sim. Itens: ${itensME}${descME}\n\n[  ] Não.`;
-    } else if (data.participacaoME === 'nao') {
+    } else if (partME === 'nao') {
         textoParticipacaoME = `[  ] Sim. Itens: -\n\n[X] Não.`;
     } else {
         textoParticipacaoME = `[  ] Sim. Itens: -\n\n[  ] Não.`;
