@@ -301,10 +301,10 @@ const ItemForm: React.FC<{
                     
                     <div className="mt-4 flex flex-wrap justify-end items-center gap-4 pt-3 border-t border-gray-200 dark:border-gray-700">
                         <span className="text-xs font-medium text-gray-400 dark:text-gray-500 italic mr-auto">
-                            Valor real da matemática: {group.estimativaUnitaria}
+                            Valor real da matemática: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
                         </span>
                         <span className="text-sm font-bold text-gray-600 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-md shadow-sm border border-gray-300 dark:border-gray-600">
-                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${(group.estimativaUnitaria || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : (group.estimativaUnitaria || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            Unitário Arredondado: {group.tipoValor === 'percentual' ? `${estUnitariaArredondada.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%` : estUnitariaArredondada.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </span>
                         {group.tipoValor !== 'percentual' && (
                             <span className="text-sm font-bold text-cbmpa-red bg-red-50 dark:bg-red-900/20 px-4 py-2 rounded-md shadow-sm border border-red-100 dark:border-red-800">
@@ -356,7 +356,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           const currentGroups = (prevData.itemGroups || []).map(g => ({...g}));
 
           // 1. Calcular Preços convencionais
-          if (['licitacao', 'dispensa_licitacao', 'adesao_ata'].includes(prevData.tipoOrcamento || '')) {
+          if (['licitacao', 'dispensa_licitacao', 'adesao_ata', 'aditivo_contratual'].includes(prevData.tipoOrcamento || '')) {
               currentGroups.forEach(group => {
                   const itemPrices = prevData.precosEncontrados?.[group.id] || [];
                   const includedPrices = itemPrices.filter(p => prevData.precosIncluidos?.[p.id] ?? true);

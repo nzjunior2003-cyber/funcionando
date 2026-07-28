@@ -178,10 +178,12 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
         const renderBaseVal = (v: number) => g.tipoValor === 'percentual' ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
         const renderMercadoVal = (v: number) => isTaxaItem(g) ? `${v.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(v, 'moeda');
+        const mercadoValue = Number(g.estimativaUnitaria);
+        const mercadoDisplay = Number.isFinite(mercadoValue) ? renderMercadoVal(mercadoValue) : '-';
 
         return [
             { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
-            { content: g.estimativaUnitaria ? renderMercadoVal(Number(g.estimativaUnitaria)) : '-', styles: { halign: 'center' } },
+            { content: mercadoDisplay, styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center', fontStyle: 'bold' } }
         ];
@@ -207,6 +209,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     let temTaxaGlobal = false; 
     let taxaReferenciaGlobal = 0; 
     
+    const isAditivoTempo = data.aditivoTempo === 'sim';
     const aditB: any[] = [];
     const colAditivoValorUnit = isAta ? 'Valor Unit. Ata' : (data.haveraReajuste === 'sim' && data.porcentagemReajuste ? 'Valor Unit. (c/ reajuste)' : 'Valor Unit. (s/ reajuste)');
 
@@ -224,7 +227,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const qtdAditivo = Number(gAny.aditivoQuantidade) || 0;
 
         const vAditivoMensal = Math.round((vUnitReajustado * qtdAditivo) * 100) / 100;
-        const qtdTempo = data.aditivoTempo === 'sim' ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
+        const qtdTempo = isAditivoTempo ? (Number(data.aditivoTempoQuantidade) || 1) : 1;
         const vAditivoPeriodo = Math.round((vAditivoMensal * qtdTempo) * 100) / 100;
 
         somaMensalCentavos += Math.round(vAditivoMensal * 100);
@@ -235,16 +238,23 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
         const valUnitRender = itemTaxa ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(vUnitReajustado, 'moeda');
         const valAditivoMensalRender = formatValue(vAditivoMensal, 'moeda');
-        const novoVGlobalRender = itemTaxa ? `${vUnitReajustado.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(vAditivoMensal + (qtdAditivo * vUnitReajustado), 'moeda');
+        const totalAditivoRender = itemTaxa ? '-' : formatValue(isAditivoTempo ? vAditivoPeriodo : vAditivoMensal, 'moeda');
 
-        aditB.push([
+        const row = [
             { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
             { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 4})}%`, styles: { halign: 'center' } },
             { content: valUnitRender, styles: { halign: 'center' } },
-            { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } },
-            { content: valAditivoMensalRender, styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: itemTaxa ? '-' : formatValue(vAditivoPeriodo, 'moeda'), styles: { halign: 'right', fontStyle: 'bold' } }
-        ]);
+            { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } }
+        ];
+
+        if (isAditivoTempo) {
+            row.push({ content: valAditivoMensalRender, styles: { halign: 'right', fontStyle: 'bold' } });
+            row.push({ content: totalAditivoRender, styles: { halign: 'right', fontStyle: 'bold' } });
+        } else {
+            row.push({ content: totalAditivoRender, styles: { halign: 'right', fontStyle: 'bold' } });
+        }
+
+        aditB.push(row);
     });
 
     const somaMensalReais = somaMensalCentavos / 100;
@@ -254,7 +264,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const stringPeriodoGlobal = ((data.itemGroups || []).find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
     const renderTotalFinal = (valorMoeda: number) => temTaxaGlobal ? `${taxaReferenciaGlobal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(valorMoeda, 'moeda');
 
-    if (data.aditivoTempo === 'sim') {
+    if (isAditivoTempo) {
         const isMensal = data.aditivoTempoUnidade === 'meses';
         aditB.push([
             { content: isMensal ? 'VALOR MENSAL ADITIVADO' : 'VALOR ANUAL ADITIVADO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
@@ -267,12 +277,16 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     } else {
         aditB.push([
             { content: 'TOTAL DO ADITIVO', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } },
-            { content: renderTotalFinal(somaMensalReais), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
+            { content: renderTotalFinal(somaMensalReais), styles: { halign: 'right', fontStyle: 'bold', fillColor: BLUE, textColor: 255 } }
         ]);
     }
     
+    const aditivoHead = isAditivoTempo
+        ? ['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Aditivo Mensal', 'Total no Período']
+        : ['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Total do Aditivo'];
+
     autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'Aditivo (%)', colAditivoValorUnit, 'Qtd Aditivo', 'Aditivo Mensal', 'Total no Período']], body: aditB, theme: 'grid',
+        startY: y, head: [aditivoHead], body: aditB, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
