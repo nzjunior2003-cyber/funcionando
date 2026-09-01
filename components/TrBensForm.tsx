@@ -219,7 +219,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                 </div>
                 
                 {/* Campos Menores */}
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cód. SIMAS</label>
                     <input
                         type="text"
@@ -230,7 +230,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     />
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unidade</label>
                     <input
                         type="text"
@@ -241,7 +241,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     />
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="md:col-span-3">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantidade</label>
                     <input
                         type="number"
@@ -264,17 +264,6 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                             className="w-full py-2 pl-9 pr-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-right"
                         />
                     </div>
-                </div>
-
-                <div className="md:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Concorrência</label>
-                    <input
-                        type="text"
-                        value={item.concorrencia}
-                        onChange={e => handleItemChange(item.id, 'concorrencia', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
-                        placeholder="Ex: Ampla ou Exclusiva ME/EPP"
-                    />
                 </div>
             </div>
         </div>

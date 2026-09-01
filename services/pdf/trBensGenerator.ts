@@ -208,6 +208,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
     const hasLote = data.itens.some(item => item.loteId && item.loteId.trim() !== '');
 
+    const lotesTotal: Record<string, number> = {};
+    if (hasLote) {
+        data.itens.forEach(it => {
+            if (it.loteId) {
+                lotesTotal[it.loteId] = (lotesTotal[it.loteId] || 0) + ((it.quantidade || 0) * (it.valorUnitario || 0));
+            }
+        });
+    }
+
     const t1Head: any[] = [];
     t1Head.push([{ 
         content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', 
@@ -236,6 +245,9 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
         totalGlobal += subtotal;
 
+        const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
+        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
+
         const row: any[] = [];
         if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
         row.push(
@@ -246,7 +258,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
             { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
             { content: formatCurrency(subtotal), styles: { halign: 'right', valign: 'middle' } },
-            { content: item.concorrencia || '-', styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
+            { content: cotaStr, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
         );
         t1Body.push(row);
     });
