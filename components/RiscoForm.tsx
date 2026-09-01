@@ -2,34 +2,12 @@
 import React from 'react';
 import { RiscoData, RiskItem } from '../types';
 import { AiAssistant } from './AiAssistant';
+import { cargoOptions, inputClasses, Field, SectionSimple as Section } from './formCommon';
 
 interface RiscoFormProps {
   data: RiscoData;
   setData: React.Dispatch<React.SetStateAction<RiscoData>>;
 }
-
-const cargoOptions = [
-    'SD QBM', 'CB QBM', '3° SGT QBM', '2° SGT QBM', '1° SGT QBM', 'ST QBM',
-    '2° TEN QOBM', '2° TEN QOABM', '1° TEN QOBM', '1° TEN QOABM',
-    'CAP QOBM', 'CAP QOABM', 'MAJ QOBM', 'MAJ QOABM',
-    'TCEL QOBM', 'CEL QOBM', 'CEL QOCBM', 'CEL QOSBM'
-];
-
-const Section: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6 dark:bg-gray-700/50 dark:border-gray-600">
-        <h2 className="text-xl font-bold text-cbmpa-red mb-4 pb-2 border-b-2 border-cbmpa-red">{title}</h2>
-        {children}
-    </div>
-);
-
-const Field: React.FC<{ label: string, required?: boolean, children: React.ReactNode }> = ({ label, required, children }) => (
-    <div className="mb-4">
-        <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">
-            {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        {children}
-    </div>
-);
 
 export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -55,8 +33,6 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
     const removeRisk = (id: string) => {
         setData(prev => ({ ...prev, riscos: prev.riscos.filter(r => r.id !== id) }));
     };
-
-    const inputClasses = "w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
 
     return (
         <div className="space-y-6">

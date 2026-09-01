@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { OrcamentoData, OrcamentoItemGroup } from '../types';
 import { AiAssistant } from './AiAssistant';
+import { inputClasses, Field } from './formCommon';
 
 interface OrcamentoFormProps {
   data: OrcamentoData;
@@ -12,16 +13,6 @@ const Section: React.FC<{ title: string, children: React.ReactNode, instruction?
         <h2 className="text-xl font-bold text-cbmpa-red mb-4 pb-2 border-b-2 border-cbmpa-red">{title}</h2>
         {instruction && <p className="text-sm text-gray-600 dark:text-gray-400 mb-4 italic">{instruction}</p>}
         {children}
-    </div>
-);
-
-const Field: React.FC<{ label: string, required?: boolean, children: React.ReactNode, note?: string }> = ({ label, required, children, note }) => (
-    <div className="mb-4">
-        <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">
-            {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        {children}
-        {note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{note}</p>}
     </div>
 );
 
@@ -319,8 +310,6 @@ const ItemForm: React.FC<{
 };
 
 export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) => {
-  const inputClasses = "w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
-  
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [loteName, setLoteName] = useState('');
   const [novoFornecedor, setNovoFornecedor] = useState<{nome: string, justificativa: string}>({ nome: '', justificativa: '' });

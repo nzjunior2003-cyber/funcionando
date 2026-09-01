@@ -2,47 +2,21 @@
 import React from 'react';
 import { DfdData } from '../types';
 import { AiAssistant } from './AiAssistant';
+import { cargoOptions, inputClasses, Field, SectionSimple as Section } from './formCommon';
 
 interface DfdFormProps {
   data: DfdData;
   setData: React.Dispatch<React.SetStateAction<DfdData>>;
 }
 
-const cargoOptions = [
-    'SD QBM', 'CB QBM', '3° SGT QBM', '2° SGT QBM', '1° SGT QBM', 'ST QBM',
-    '2° TEN QOBM', '2° TEN QOABM', '1° TEN QOBM', '1° TEN QOABM',
-    'CAP QOBM', 'CAP QOABM', 'MAJ QOBM', 'MAJ QOABM',
-    'TCEL QOBM', 'CEL QOBM', 'CEL QOCBM', 'CEL QOSBM'
-];
-
-const Section: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6 mb-6 dark:bg-gray-700/50 dark:border-gray-600">
-        <h2 className="text-xl font-bold text-cbmpa-red mb-4 pb-2 border-b-2 border-cbmpa-red">{title}</h2>
-        {children}
-    </div>
-);
-
-const Field: React.FC<{ label: string, required?: boolean, children: React.ReactNode, note?: string }> = ({ label, required, children, note }) => (
-    <div className="mb-4">
-        <label className="block text-gray-700 dark:text-gray-300 font-semibold mb-2">
-            {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        {children}
-        {note && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">{note}</p>}
-    </div>
-);
-
-
 export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setData({ ...data, [e.target.name]: e.target.value });
   };
-  
+
   const handleRadioChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setData({ ...data, statusPCA: e.target.value as DfdData['statusPCA'] });
   };
-
-  const inputClasses = "w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-gray-200 dark:placeholder-gray-400";
 
   return (
     <div className="space-y-6">
