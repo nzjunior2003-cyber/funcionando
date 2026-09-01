@@ -148,6 +148,7 @@ const initialTrBensState: TrBensData = {
     justificativaProvaQualidade: '',
     amostra: '',
     amostraPrazo: '03 (três)',
+    amostraPrazoRetirada: '05 (cinco)',
     justificativaAmostra: '',
     garantiaBem: '',
     garantiaBemMeses: '',

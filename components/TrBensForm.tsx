@@ -373,9 +373,14 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
               <RadioGroup name="amostra" value={data.amostra} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} />
               {data.amostra === 'sim' && (
                 <div className="space-y-4 mt-2 p-3 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-inner">
-                  <Field label="Prazo em dias úteis" note="Ex: 03 (três) ou 05 (cinco)">
-                    <input type="text" name="amostraPrazo" value={data.amostraPrazo || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 03 (três)"/>
-                  </Field>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <Field label="Prazo para entrega da amostra (dias úteis)" note="Ex: 03 (três) ou 05 (cinco)">
+                        <input type="text" name="amostraPrazo" value={data.amostraPrazo || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 03 (três)"/>
+                    </Field>
+                    <Field label="Prazo para retirada da amostra (dias úteis)" note="Contado após a análise definitiva pelo setor responsável.">
+                        <input type="text" name="amostraPrazoRetirada" value={data.amostraPrazoRetirada || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: 05 (cinco)"/>
+                    </Field>
+                  </div>
                   <Field label="Justificativa Opcional (Complementar)">
                     <textarea name="justificativaAmostra" value={data.justificativaAmostra} onChange={handleChange} placeholder="Justificativa adicional..." className={`${inputClasses} h-20`}/>
                   </Field>

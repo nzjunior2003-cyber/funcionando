@@ -274,6 +274,7 @@ export interface TrBensData extends Signatory {
   justificativaProvaQualidade: string;
   amostra: string;
   amostraPrazo: string;
+  amostraPrazoRetirada: string;
   justificativaAmostra: string;
   garantiaBem: string;
   garantiaBemMeses: string;
