@@ -192,7 +192,7 @@ const ItemForm: React.FC<{
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">
                                 {tipoOrcamento === 'gerenciador_ata' ? 'Quantidade Solicitada' : 'Quantidade Original (Contrato)'}
                             </label>
-                            <input type="number" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
+                            <input type="number" min="0" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
                         </div>
 
                         {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
@@ -918,7 +918,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                       </Field>
                       {data.haveraReajuste === 'sim' && (
                           <div className="grid md:grid-cols-2 gap-4 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
-                              <Field label="Porcentagem de Reajuste (%)" required><input type="number" name="porcentagemReajuste" value={data.porcentagemReajuste || ''} onChange={(e) => setData({...data, porcentagemReajuste: parseFloat(e.target.value)})} className={inputClasses} placeholder="Ex: 5.0" /></Field>
+                              <Field label="Porcentagem de Reajuste (%)" required><input type="number" min="0" name="porcentagemReajuste" value={data.porcentagemReajuste || ''} onChange={(e) => setData({...data, porcentagemReajuste: parseFloat(e.target.value)})} className={inputClasses} placeholder="Ex: 5.0" /></Field>
                               <Field label="Índice" required>
                                   <select name="indiceReajuste" value={data.indiceReajuste || ''} onChange={handleChange} className={inputClasses}>
                                       <option value="">Selecione o Índice</option><option value="IPCA">IPCA</option><option value="IGP-M">IGP-M</option><option value="INPC">INPC</option><option value="IPC-Fipe">IPC-Fipe</option>

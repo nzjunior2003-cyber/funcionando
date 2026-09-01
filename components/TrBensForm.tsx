@@ -245,6 +245,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantidade</label>
                     <input
                         type="number"
+                        min="0"
                         value={item.quantidade}
                         onChange={e => handleItemChange(item.id, 'quantidade', parseFloat(e.target.value) || 0)}
                         className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
@@ -386,7 +387,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
               {data.garantiaBem === 'sim' && (
                 <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 mt-2 space-y-4 shadow-inner">
                     <Field label="Indicação dos Itens" note="Ex: 01, 02 e 05"><input type="text" name="garantiaItens" value={data.garantiaItens || ''} onChange={handleChange} placeholder="Quais itens terão garantia?" className={inputClasses}/></Field>
-                    <Field label="Prazo de Garantia (meses)"><input type="number" name="garantiaBemMeses" value={data.garantiaBemMeses} onChange={handleChange} placeholder="Ex: 12" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/></Field>
+                    <Field label="Prazo de Garantia (meses)"><input type="number" min="0" name="garantiaBemMeses" value={data.garantiaBemMeses} onChange={handleChange} placeholder="Ex: 12" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/></Field>
                 </div>
               )}
           </Field>
@@ -395,7 +396,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
               {data.assistenciaTecnica === 'sim' && (
                 <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 mt-2 space-y-4 shadow-inner">
                     <Field label="Indicação dos Itens"><input type="text" name="assistenciaTecnicaItens" value={data.assistenciaTecnicaItens || ''} onChange={handleChange} placeholder="Quais itens terão assistência?" className={inputClasses}/></Field>
-                    <Field label="Prazo (meses)"><input type="number" name="assistenciaTecnicaMeses" value={data.assistenciaTecnicaMeses || ''} onChange={handleChange} placeholder="Ex: 12" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/></Field>
+                    <Field label="Prazo (meses)"><input type="number" min="0" name="assistenciaTecnicaMeses" value={data.assistenciaTecnicaMeses || ''} onChange={handleChange} placeholder="Ex: 12" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/></Field>
                     <Field label="Tipo de Prestação">
                         <RadioGroup name="assistenciaTecnicaModo" value={data.assistenciaTecnicaModo || ''} options={[{val: 'credenciada', label: 'Por empresa credenciada contratada por ele.'}, {val: 'propria', label: 'Por meios próprios.'}]} onChange={handleChange} />
                     </Field>
@@ -771,7 +772,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                   <Field label="Período (meses)">
                       <div className="flex items-center">
                         <span className="mr-2 dark:text-gray-300">A cada</span>
-                        <input type="number" name="reajusteMeses" value={data.reajusteMeses} onChange={handleChange} className={inputClasses} placeholder="Ex: 12"/>
+                        <input type="number" min="0" name="reajusteMeses" value={data.reajusteMeses} onChange={handleChange} className={inputClasses} placeholder="Ex: 12"/>
                         <span className="ml-2 dark:text-gray-300">meses.</span>
                       </div>
                   </Field>
