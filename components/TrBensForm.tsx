@@ -123,7 +123,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
         return;
     }
     if (!loteInputValue.trim()) {
-        alert("Digite o nome ou número do lote.");
+        alert("Digite o nome ou número do grupo.");
         return;
     }
     setData(prev => ({
@@ -170,7 +170,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
     return (
         <div key={item.id} className={`relative flex flex-col p-4 rounded-xl border ${isSelected ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'} shadow-sm transition-all`}>
             
-            {/* Top Bar: Checkbox, Ícone e Lote */}
+            {/* Top Bar: Checkbox, Ícone e Grupo */}
             <div className="flex justify-between items-center pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-3">
                     <input
@@ -189,7 +189,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                         />
                         {item.loteId && (
                             <span className="ml-2 text-xs font-bold px-2 py-1 bg-blue-100 text-blue-800 rounded-md dark:bg-blue-900 dark:text-blue-200">
-                                Lote {item.loteId}
+                                Grupo {item.loteId}
                             </span>
                         )}
                     </div>
@@ -219,7 +219,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                 </div>
                 
                 {/* Campos Menores */}
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cód. SIMAS</label>
                     <input
                         type="text"
@@ -230,7 +230,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     />
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unidade</label>
                     <input
                         type="text"
@@ -241,7 +241,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     />
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                     <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantidade</label>
                     <input
                         type="number"
@@ -264,6 +264,17 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                             className="w-full py-2 pl-9 pr-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-right"
                         />
                     </div>
+                </div>
+
+                <div className="md:col-span-3">
+                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Concorrência</label>
+                    <input
+                        type="text"
+                        value={item.concorrencia}
+                        onChange={e => handleItemChange(item.id, 'concorrencia', e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
+                        placeholder="Ex: Ampla ou Exclusiva ME/EPP"
+                    />
                 </div>
             </div>
         </div>
@@ -293,21 +304,21 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                     type="text"
                     value={loteInputValue}
                     onChange={e => setLoteInputValue(e.target.value)}
-                    placeholder="Nome/Nº do Lote"
+                    placeholder="Nome/Nº do Grupo"
                     className="p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-blue-500 outline-none"
                 />
-                <button onClick={handleAgrupar} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Agrupar em Lote</button>
+                <button onClick={handleAgrupar} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Agrupar em Grupo</button>
                 <button onClick={handleDesagrupar} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Desagrupar</button>
             </div>
         )}
 
         {/* Lista de Cards (Substituindo a Tabela) */}
         <div className="space-y-6 mb-6">
-            {/* Renderizar Lotes */}
+            {/* Renderizar Grupos */}
             {Object.keys(groupedItens.lotes).sort().map(loteId => (
                 <div key={`lote-group-${loteId}`} className="bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                     <h3 className="font-bold text-lg text-cbmpa-red uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
-                        Lote: {loteId}
+                        Grupo: {loteId}
                     </h3>
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         {groupedItens.lotes[loteId].map(item => renderItemCard(item))}
@@ -315,12 +326,12 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                 </div>
             ))}
             
-            {/* Renderizar Itens sem Lote */}
+            {/* Renderizar Itens sem Grupo */}
             {groupedItens.ungrouped.length > 0 && (
                 <div className={`${Object.keys(groupedItens.lotes).length > 0 ? 'bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm' : ''}`}>
                     {Object.keys(groupedItens.lotes).length > 0 && (
                         <h3 className="font-bold text-lg text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
-                            Itens Sem Lote
+                            Itens Sem Grupo
                         </h3>
                     )}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
