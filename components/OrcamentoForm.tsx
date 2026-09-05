@@ -234,7 +234,7 @@ const ItemForm: React.FC<{
                                 <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado ({group.tipoValor === 'percentual' ? '%' : 'R$'})</label>
                                 <div className="relative">
                                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
-                                    <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handlePriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
+                                    <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(group.tipoValor === 'percentual' ? /[^\d,-]/g : /[^\d,]/g, ''))} onBlur={handlePriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
                                 </div>
                             </div>
                         )}
@@ -245,7 +245,7 @@ const ItemForm: React.FC<{
                                     <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem ({group.tipoValor === 'percentual' ? '%' : 'R$'})</label>
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
-                                        <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
+                                        <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(group.tipoValor === 'percentual' ? /[^\d,-]/g : /[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
                                     </div>
                                 </div>
                                 {subTipoAditivo === 'ata' && (
@@ -924,7 +924,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                       </Field>
                       {data.haveraReajuste === 'sim' && (
                           <div className="grid md:grid-cols-2 gap-4 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
-                              <Field label="Porcentagem de Reajuste (%)" required><input type="number" min="0" name="porcentagemReajuste" value={data.porcentagemReajuste || ''} onChange={(e) => setData({...data, porcentagemReajuste: parseFloat(e.target.value)})} className={inputClasses} placeholder="Ex: 5.0" /></Field>
+                              <Field label="Porcentagem de Reajuste (%)" note="Use valor negativo para desconto." required><input type="number" name="porcentagemReajuste" value={data.porcentagemReajuste || ''} onChange={(e) => setData({...data, porcentagemReajuste: parseFloat(e.target.value)})} className={inputClasses} placeholder="Ex: 5.0 ou -5.0" /></Field>
                               <Field label="Índice" required>
                                   <select name="indiceReajuste" value={data.indiceReajuste || ''} onChange={handleChange} className={inputClasses}>
                                       <option value="">Selecione o Índice</option><option value="IPCA">IPCA</option><option value="IGP-M">IGP-M</option><option value="INPC">INPC</option><option value="IPC-Fipe">IPC-Fipe</option>
