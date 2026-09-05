@@ -1,19 +1,21 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RiscoData } from '../../types';
-import { 
-    drawDocumentHeader, 
-    drawFormattedSignature, 
-    formatDate, 
-    COLOR_HEADER_BG, 
+import {
+    drawDocumentHeader,
+    drawFormattedSignature,
+    formatDate,
+    COLOR_HEADER_BG,
     ITEM_GRAY_BG,
     checkPageBreak,
-    drawInstitutionalFooter // <-- Importação do rodapé adicionada aqui!
+    drawInstitutionalFooter, // <-- Importação do rodapé adicionada aqui!
+    createJustifiedCellHooks
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from './pdfConstants';
 
 export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
     let finalY = drawDocumentHeader(doc, 'ANÁLISE DE RISCO', `PAE Nº ${data.pae || '...'}`);
+    const { willDrawCell: justifyWillDrawCell, didDrawCell } = createJustifiedCellHooks(doc);
 
     if (data.riscos && data.riscos.length > 0) {
         data.riscos.forEach((risco, index) => {
@@ -22,17 +24,20 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
                 startY: finalY,
                 margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT },
                 styles: { fontSize: 10, cellPadding: 3 },
+                rowPageBreak: 'avoid',
+                willDrawCell: justifyWillDrawCell,
+                didDrawCell,
                 body: [
                     [{ content: `RISCO ${index + 1}`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: COLOR_HEADER_BG, textColor: 255, halign: 'center' } }],
-                    [{ content: 'Descrição:', styles: { fontStyle: 'bold', cellWidth: 40 } }, risco.descricao || ''],
+                    [{ content: 'Descrição:', styles: { fontStyle: 'bold', cellWidth: 40 } }, { content: risco.descricao || '', styles: { halign: 'justify' } }],
                     [{ content: 'Probabilidade:', styles: { fontStyle: 'bold' } }, (risco.probabilidade || '').toUpperCase()],
                     [{ content: 'Impacto:', styles: { fontStyle: 'bold' } }, (risco.impacto || '').toUpperCase()],
-                    [{ content: 'Dano Potencial:', styles: { fontStyle: 'bold' } }, risco.dano || ''],
+                    [{ content: 'Dano Potencial:', styles: { fontStyle: 'bold' } }, { content: risco.dano || '', styles: { halign: 'justify' } }],
                     [{ content: 'AÇÃO PREVENTIVA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: ITEM_GRAY_BG, halign: 'center' } }],
-                    [{ content: 'Ação:', styles: { fontStyle: 'bold' } }, risco.prevDesc || ''],
+                    [{ content: 'Ação:', styles: { fontStyle: 'bold' } }, { content: risco.prevDesc || '', styles: { halign: 'justify' } }],
                     [{ content: 'Responsável:', styles: { fontStyle: 'bold' } }, risco.prevResp || ''],
                     [{ content: 'AÇÃO DE CONTINGÊNCIA', colSpan: 2, styles: { fontStyle: 'bold', fillColor: ITEM_GRAY_BG, halign: 'center' } }],
-                    [{ content: 'Ação:', styles: { fontStyle: 'bold' } }, risco.contDesc || ''],
+                    [{ content: 'Ação:', styles: { fontStyle: 'bold' } }, { content: risco.contDesc || '', styles: { halign: 'justify' } }],
                     [{ content: 'Responsável:', styles: { fontStyle: 'bold' } }, risco.contResp || ''],
                 ]
             });

@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, drawFormattedSignature } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, drawFormattedSignature, createJustifiedCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -46,6 +46,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
         doc.setTextColor(0);
         y += h;
+    };
+
+    const { willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell } = createJustifiedCellHooks(doc);
+    const combinedDidDrawCell = (hookData: any) => {
+        checkboxHook(hookData);
+        justifyDrawCell(hookData);
     };
 
     const checkboxHook = (hookData: any) => {
@@ -110,7 +116,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
         s1Body.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
-            { content: descTexto, styles: { halign: 'left', valign: 'middle' } },
+            { content: descTexto, styles: { halign: 'justify', valign: 'middle' } },
             { content: g.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: g.unidade, styles: { halign: 'center', valign: 'middle' } },
             { content: (g.quantidadeTotal || 0).toString(), styles: { halign: 'center', valign: 'middle' } }
@@ -124,7 +130,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 15 }, 2: { cellWidth: 25 }, 3: { cellWidth: 15 }, 4: { cellWidth: 15 } },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -147,7 +156,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     // Sec 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+    autoTable(doc, { startY: y, body: [[{ content: data.justificativaAusenciaFonte?.trim() || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sec 4
@@ -156,13 +165,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
         { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [isDir, !isDir], styles: { halign: 'left' } },
-        { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
+        { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }
     ]];
     if (isDir && data.fornecedoresDiretos?.length) {
         data.fornecedoresDiretos.forEach((f, i) => {
             s4b.push([
                 i === 0 ? { content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `Justificativa: ${f.justificativa}` }
+                { content: f.nome, styles: { halign: 'center' } }, { content: `Justificativa: ${f.justificativa}`, styles: { halign: 'justify' } }
             ]);
         });
         data.fornecedoresDiretos.forEach((f, i) => {
@@ -179,7 +188,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
-        didDrawCell: checkboxHook
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: combinedDidDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -251,12 +262,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const descarteBody: any[] = [[
         { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
         { content: `      Sim.\n      Não.`, hasCheckboxes: true, checkboxStates: [desc === 'sim', desc === 'nao'], styles: { cellWidth: 30, halign: 'left' } },
-        { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
+        { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}`, styles: { halign: 'justify' } }
     ]];
     autoTable(doc, {
         startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         body: descarteBody,
-        didDrawCell: checkboxHook
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: combinedDidDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
@@ -316,7 +329,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     : (cQtd === maxQtd ? 'AMPLA' : 'ME/EPP');
                 fb.push([
                     seqItem.toString(),
-                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
                     label,
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -329,7 +342,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             totalGlobalPeriodoCentavos += Math.round(totalGlobalLinha * 100);
             fb.push([
                 seqItem.toString(),
-                { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
+                { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
                 'AMPLA',
                 formatValue(est, g.tipoValor),
                 qtdTotal,
@@ -398,7 +411,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
                 fb.push([
                     seqItem.toString(),
-                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
                     'AMPLA',
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -436,7 +449,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
                 fb.push([
                     seqItem.toString(),
-                    { content: descExibicao, styles: { halign: 'left', valign: 'middle' } },
+                    { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
                     'ME/EPP',
                     formatValue(est, g.tipoValor),
                     cQtd,
@@ -512,7 +525,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         columnStyles: { 0: { cellWidth: 15 } },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 

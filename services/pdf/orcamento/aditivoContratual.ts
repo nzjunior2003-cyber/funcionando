@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -20,6 +20,7 @@ const nomesFontesCurto: Record<string, string> = {
 export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => {
     let y = MARGIN_TOP;
     setDefaultFont(doc);
+    const { willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell } = createJustifiedCellHooks(doc);
 
     const isAta = data.subTipoAditivo === 'ata';
     
@@ -57,7 +58,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
         return [
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
-            desc, g.codigoSimas || '-', g.unidade || '-', g.quantidadeTotal
+            { content: desc, styles: { halign: 'justify' } }, g.codigoSimas || '-', g.unidade || '-', g.quantidadeTotal
         ];
     });
     autoTable(doc, {
@@ -65,7 +66,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center' },
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1, halign: 'center', valign: 'middle' },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 15 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        columnStyles: { 0: { cellWidth: 15 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -81,13 +85,13 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y += 22;
 
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+    autoTable(doc, { startY: y, body: [[{ content: data.justificativaAusenciaFonte?.trim() || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = (data.fontesPesquisa || []).includes('direta');
-    const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }]];
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } } });
+    const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }]];
+    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
@@ -155,7 +159,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY;
 
     const desc = data.houveDescarte;
-    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } }, { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } }, { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }]] });
+    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } }, { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } }, { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}`, styles: { halign: 'justify' } }]], rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 12;
 
     addPage(40);
@@ -182,7 +186,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const mercadoDisplay = Number.isFinite(mercadoValue) ? renderMercadoVal(mercadoValue) : '-';
 
         return [
-            { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
+            { content: g.itemTR, styles: { halign: 'center' } }, { content: descInfo, styles: { halign: 'justify' } },
             { content: mercadoDisplay, styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center' } },
             { content: renderBaseVal(vUnitReajustado), styles: { halign: 'center', fontStyle: 'bold' } }
@@ -193,8 +197,11 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         startY: y, head: [['Item', 'Descrição', 'Valor de Mercado', colValorReferencia, 'Preço Adotado']], body: qcb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25 } },
-        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        columnStyles: { 0: { cellWidth: 12 }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25 } },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
@@ -241,7 +248,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         const totalAditivoRender = itemTaxa ? '-' : formatValue(isAditivoTempo ? vAditivoPeriodo : vAditivoMensal, 'moeda');
 
         const row = [
-            { content: g.itemTR, styles: { halign: 'center' } }, descInfo,
+            { content: g.itemTR, styles: { halign: 'center' } }, { content: descInfo, styles: { halign: 'justify' } },
             { content: `${pctAditivo.toLocaleString('pt-BR', {minimumFractionDigits: 0, maximumFractionDigits: 4})}%`, styles: { halign: 'center' } },
             { content: valUnitRender, styles: { halign: 'center' } },
             { content: qtdAditivo.toLocaleString('pt-BR', {maximumFractionDigits: 4}), styles: { halign: 'center' } }
@@ -289,7 +296,10 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         startY: y, head: [aditivoHead], body: aditB, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        columnStyles: { 0: { cellWidth: 12 }, 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        columnStyles: { 0: { cellWidth: 12 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 

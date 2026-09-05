@@ -101,6 +101,96 @@ export const drawJustifiedText = (
     return cursorY;
 };
 
+/**
+ * Hooks de jspdf-autotable (willDrawCell + didDrawCell) que fazem qualquer
+ * célula marcada com `styles: { halign: 'justify' }` ser desenhada
+ * parágrafo a parágrafo, sanitizada, e sem esticar a última linha de cada
+ * parágrafo — mesmo motor usado no ETP, reaproveitável em qualquer gerador.
+ *
+ * IMPORTANTE: o hook que zera `cell.text` tem que ser willDrawCell, não
+ * didParseCell. autoTable calcula a altura da linha a partir de
+ * `cell.text.length` logo depois de didParseCell — se a gente zerar o
+ * texto ali, a linha fica curta demais e o texto (desenhado depois, em
+ * didDrawCell, com base no texto sanitizado de verdade) vaza para fora da
+ * célula. willDrawCell roda depois que a altura já foi calculada com o
+ * texto original, então zerar ali é seguro.
+ *
+ * Uso: espalhar os hooks retornados nas opções do autoTable(). Se o gerador
+ * já tiver seus próprios willDrawCell/didDrawCell (ex: para desenhar
+ * checkboxes customizados), chame os dois dentro de uma função combinada —
+ * eles nunca disputam a mesma célula, pois este hook só age em células com
+ * halign 'justify'.
+ */
+export const createJustifiedCellHooks = (doc: jsPDF) => {
+    const willDrawCell = (hookData: any) => {
+        if (hookData.section !== 'body') return;
+        const cell = hookData.cell;
+        if (cell.styles.halign === 'justify' && cell.raw) {
+            const rawText = typeof cell.raw === 'object' && cell.raw !== null ? (cell.raw as any).content : cell.raw;
+            if (typeof rawText === 'string') {
+                (cell as any).customJustifyText = sanitizeText(rawText);
+                cell.text = [];
+            }
+        }
+    };
+
+    const didDrawCell = (hookData: any) => {
+        if (hookData.section !== 'body') return;
+        const cell = hookData.cell;
+        const text = (cell as any).customJustifyText;
+        if (!text) return;
+
+        const styles = cell.styles as any;
+        const fontSizeMm = (styles.fontSize * 25.4) / 72;
+        const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15);
+        const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.top ?? 1.2;
+        const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.left ?? 1.2;
+        const padRight = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.right ?? 1.2;
+        const textX = cell.x + padLeft;
+        const maxWidth = cell.width - padLeft - padRight;
+
+        doc.setFont(styles.font, styles.fontStyle);
+        doc.setFontSize(styles.fontSize);
+        if (Array.isArray(styles.textColor)) {
+            doc.setTextColor(styles.textColor[0], styles.textColor[1], styles.textColor[2]);
+        } else {
+            doc.setTextColor(styles.textColor ?? 0);
+        }
+
+        const paragraphs = text.split('\n');
+        const allLines: { text: string, isLastOfParagraph: boolean }[] = [];
+        paragraphs.forEach((p: string) => {
+            const pLines = doc.splitTextToSize(p, maxWidth);
+            if (pLines && pLines.length > 0) {
+                pLines.forEach((l: string, idx: number) => {
+                    allLines.push({ text: l, isLastOfParagraph: idx === pLines.length - 1 });
+                });
+            } else {
+                allLines.push({ text: '', isLastOfParagraph: true });
+            }
+        });
+
+        const totalTextHeight = allLines.length * lineHeight;
+        let startY = cell.y + padTop;
+        if (styles.valign === 'middle') {
+            startY = cell.y + (cell.height - totalTextHeight) / 2;
+        }
+
+        allLines.forEach((lineInfo, idx) => {
+            const lineY = startY + (idx * lineHeight);
+            const textY = lineY + (fontSizeMm / 2) + 0.3;
+            if (!lineInfo.text) return;
+            if (lineInfo.isLastOfParagraph) {
+                doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
+            } else {
+                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth, baseline: 'middle' } as any);
+            }
+        });
+    };
+
+    return { willDrawCell, didDrawCell };
+};
+
 // --- Controle de Quebra de Página ---
 
 export const checkPageBreak = (doc: jsPDF, y: number, neededHeight: number = 0): number => {
