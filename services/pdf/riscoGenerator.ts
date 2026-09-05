@@ -54,8 +54,8 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
          finalY += 20;
     }
 
+    finalY = checkPageBreak(doc, finalY, 50);
     doc.text(`${data.cidade || 'Belém'}, ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY + 10, { align: 'center' });
-    finalY = checkPageBreak(doc, finalY, 40);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + 30);
 
     // Lógica do Rodapé: Institucional SOMENTE na última página

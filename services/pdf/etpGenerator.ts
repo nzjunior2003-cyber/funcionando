@@ -530,10 +530,12 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     });
 
-    const lastY = (doc as any).lastAutoTable.finalY + 15;
+    // Reserva de uma só vez o espaço de data + assinatura, para as duas nunca
+    // ficarem separadas por uma quebra de página no meio.
+    let lastY = checkPageBreak(doc, (doc as any).lastAutoTable.finalY + 15, 40);
     doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, lastY, { align: 'right' });
-    
+
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, lastY + 20);
 
     const totalPages = (doc as any).internal.getNumberOfPages();

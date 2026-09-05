@@ -79,15 +79,15 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     yPos += 2;
     yPos = drawCheckbox(doc, MARGIN_LEFT + 2, yPos, 'ainda não há Plano de Contratações Anual aprovado para este exercício.', data.statusPCA === 'inexistente');
 
-    // 6. Data e Local Centralizado
+    // 6. Data e Local Centralizado + 7. Bloco de Assinatura
+    // Reserva de uma só vez o espaço de data + assinatura, para as duas nunca
+    // ficarem separadas por uma quebra de página no meio.
     yPos += 20;
-    yPos = checkPageBreak(doc, yPos, 10);
+    yPos = checkPageBreak(doc, yPos, 40);
     const dateLine = `${data.cidade || 'Cidade'} (PA), ${formatDate(data.data)}.`;
     doc.text(dateLine, PAGE_WIDTH / 2, yPos, { align: 'center' });
-    
-    // 7. Bloco de Assinatura
+
     yPos += 20;
-    yPos = checkPageBreak(doc, yPos, 30);
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao || 'matrícula', PAGE_WIDTH / 2, yPos);
 
     // 8. Lógica do Rodapé: Institucional SOMENTE na última página

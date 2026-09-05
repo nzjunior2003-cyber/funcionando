@@ -532,7 +532,10 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    addPage(40);
+    // Reserva de uma só vez o espaço de data + assinatura(s), para elas nunca
+    // ficarem separadas por uma quebra de página no meio.
+    const sigBlockHeight = 35 + 15 + (data.assinante2Nome ? 45 + 15 : 0);
+    addPage(sigBlockHeight);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
     y += 35;
@@ -545,7 +548,6 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     if (data.assinante2Nome) {
         y += 45;
-        addPage(30);
         drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, centerX, y);
     }
 

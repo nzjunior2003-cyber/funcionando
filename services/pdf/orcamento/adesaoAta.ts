@@ -315,18 +315,19 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    addPage(50);
+    // Reserva de uma só vez o espaço de data + assinatura(s), para elas nunca
+    // ficarem separadas por uma quebra de página no meio.
+    addPage(30 + 15 + (data.assinante2Nome ? 15 + 25 : 0));
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
-    
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
+
     const sigX = PAGE_WIDTH / 2;
-    
+
     y += 30;
     drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
-    
+
     if (data.assinante2Nome) {
         y += 15;
-        addPage(40);
         y += 25;
         drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }

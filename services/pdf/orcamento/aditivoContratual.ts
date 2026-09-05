@@ -304,7 +304,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY + 10;
 
     // Assinaturas Híbridas
-    addPage(50);
+    // Reserva de uma só vez o espaço de data + assinatura(s), para elas nunca
+    // ficarem separadas por uma quebra de página no meio.
+    addPage(30 + 15 + (data.assinante2Nome ? 15 + 25 : 0));
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
     
@@ -334,7 +336,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const dataAny = data as any;
     drawSignatureLocal(data.assinante1Nome, dataAny.assinante1NomeGuerra || '', data.assinante1Cargo, data.assinante1Funcao, sigX, y);
     if (data.assinante2Nome) {
-        y += 15; addPage(40); y += 25;
+        y += 15; y += 25;
         drawSignatureLocal(data.assinante2Nome, dataAny.assinante2NomeGuerra || '', data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
 
