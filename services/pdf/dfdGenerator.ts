@@ -1,13 +1,14 @@
 import jsPDF from 'jspdf';
 import { DfdData } from '../../types';
-import { 
-    drawInstitutionalHeader, 
-    drawInstitutionalFooter, 
-    checkPageBreak, 
-    drawFormattedSignature, 
-    formatDate, 
+import {
+    drawInstitutionalHeader,
+    drawInstitutionalFooter,
+    checkPageBreak,
+    drawFormattedSignature,
+    formatDate,
     setDefaultFont,
-    drawCheckbox
+    drawCheckbox,
+    drawJustifiedText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, TEXT_WIDTH, MARGIN_LEFT, MARGIN_RIGHT } from './pdfConstants';
 
@@ -56,25 +57,17 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     
     // Parágrafo 1: Problema
     const p1 = `Solicito que seja providenciada a solução para ${data.problema || '... (expor o problema a ser solucionado)'}.`;
-    let lines = doc.splitTextToSize(p1, TEXT_WIDTH);
-    yPos = checkPageBreak(doc, yPos, lines.length * 7);
-    doc.text(lines, MARGIN_LEFT, yPos, { align: 'justify', maxWidth: TEXT_WIDTH });
-    yPos += (lines.length * 7);
+    yPos = drawJustifiedText(doc, p1, MARGIN_LEFT, yPos, TEXT_WIDTH);
 
     // Parágrafo 2: Quantitativo
     const p2 = `Estimo que o quantitativo necessário é de ${data.quantitativo || '... (indicar a quantidade x periodicidade)'}.`;
-    lines = doc.splitTextToSize(p2, TEXT_WIDTH);
-    yPos = checkPageBreak(doc, yPos, lines.length * 7);
-    doc.text(lines, MARGIN_LEFT, yPos, { align: 'justify', maxWidth: TEXT_WIDTH });
-    yPos += (lines.length * 7);
+    yPos = drawJustifiedText(doc, p2, MARGIN_LEFT, yPos, TEXT_WIDTH);
 
     // Parágrafo 3: Prazo e Justificativa
     const formattedPrazo = data.prazo ? new Date(data.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : '...';
     const p3 = `Informo que a aquisição deve ser feita até ${formattedPrazo} (indicar prazo para o término do processo de compra), considerando que ${data.justificativaPrazo || '... (justificar o prazo indicado)'}.`;
-    lines = doc.splitTextToSize(p3, TEXT_WIDTH);
-    yPos = checkPageBreak(doc, yPos, lines.length * 7);
-    doc.text(lines, MARGIN_LEFT, yPos, { align: 'justify', maxWidth: TEXT_WIDTH });
-    yPos += (lines.length * 10);
+    yPos = drawJustifiedText(doc, p3, MARGIN_LEFT, yPos, TEXT_WIDTH);
+    yPos += 6;
 
     // 5. Seção PCA com Checkboxes (Nativos, sem tabela)
     doc.text('Por fim, ressalto que:', MARGIN_LEFT, yPos);

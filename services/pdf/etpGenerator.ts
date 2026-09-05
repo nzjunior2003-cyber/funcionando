@@ -8,7 +8,8 @@ import {
     formatDate, 
     formatCurrency,
     setDefaultFont,
-    checkPageBreak
+    checkPageBreak,
+    sanitizeText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -429,7 +430,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                 if (!hasCheckbox && cell.styles.halign === 'justify' && cell.raw) {
                     const rawText = typeof cell.raw === 'object' && cell.raw !== null ? (cell.raw as any).content : cell.raw;
                     if (typeof rawText === 'string') {
-                        (cell as any).customJustifyText = rawText;
+                        (cell as any).customJustifyText = sanitizeText(rawText);
                         cell.text = []; // Apaga o texto para não ser desenhado pelo sistema padrão
                     }
                 }

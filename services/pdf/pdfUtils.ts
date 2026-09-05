@@ -49,6 +49,58 @@ export const formatDate = (dateString: string | undefined): string => {
     }
 };
 
+// --- Sanitização de Texto Colado ---
+
+/**
+ * Remove artefatos comuns de texto colado de outras fontes (Word, sites, PDFs)
+ * que quebram a quebra de linha do jsPDF: espaços não separáveis (NBSP),
+ * caracteres de largura zero, hífen suave, e espaços/tabs duplicados.
+ * Preserva quebras de parágrafo (\n).
+ */
+export const sanitizeText = (text: string | undefined | null): string => {
+    if (!text) return '';
+    return text
+        .replace(/\r\n?/g, '\n')
+        .replace(/[   ]/g, ' ')
+        .replace(/[​‌‍﻿]/g, '')
+        .replace(/­/g, '')
+        .replace(/[ \t]+/g, ' ')
+        .split('\n')
+        .map(line => line.trim())
+        .join('\n');
+};
+
+/**
+ * Desenha texto justificado parágrafo a parágrafo, sem esticar a última linha
+ * de cada parágrafo (o "esticamento" nativo do jsPDF deixa frases curtas com
+ * espaçamento gigante entre palavras). Sanitiza o texto antes de desenhar.
+ */
+export const drawJustifiedText = (
+    doc: jsPDF,
+    text: string | undefined | null,
+    x: number,
+    y: number,
+    maxWidth: number,
+    lineHeight: number = 7
+): number => {
+    const clean = sanitizeText(text);
+    let cursorY = y;
+    clean.split('\n').forEach(paragraph => {
+        const lines = doc.splitTextToSize(paragraph, maxWidth);
+        cursorY = checkPageBreak(doc, cursorY, lines.length * lineHeight);
+        lines.forEach((line: string, idx: number) => {
+            const isLast = idx === lines.length - 1;
+            if (isLast) {
+                doc.text(line, x, cursorY);
+            } else {
+                doc.text([line, ""], x, cursorY, { align: 'justify', maxWidth } as any);
+            }
+            cursorY += lineHeight;
+        });
+    });
+    return cursorY;
+};
+
 // --- Controle de Quebra de Página ---
 
 export const checkPageBreak = (doc: jsPDF, y: number, neededHeight: number = 0): number => {

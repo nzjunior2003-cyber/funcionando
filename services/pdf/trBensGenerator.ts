@@ -1,12 +1,13 @@
 import jsPDF from 'jspdf';
 import autoTable, { RowInput } from 'jspdf-autotable';
 import { TrBensData } from '../../types';
-import { 
-    formatDate, 
+import {
+    formatDate,
     formatCurrency,
     setDefaultFont,
     drawInstitutionalHeader,
-    drawInstitutionalFooter
+    drawInstitutionalFooter,
+    sanitizeText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -252,7 +253,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
         row.push(
             { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
-            { content: item.descricao || '', styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
+            { content: sanitizeText(item.descricao), styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
             { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
             { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
@@ -301,14 +302,14 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         isZebra = !isZebra;
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
-            { content: a, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
+            { content: sanitizeText(a), styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
         ]);
     };
 
     const pushFullRow = (content: string, justificado: boolean = false) => {
         const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
-        t2Body.push([{ content: content, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
+        t2Body.push([{ content: sanitizeText(content), colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
     };
 
     pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
