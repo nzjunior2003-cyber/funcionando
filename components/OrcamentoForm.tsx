@@ -231,16 +231,22 @@ const ItemForm: React.FC<{
 
                         {tipoOrcamento === 'gerenciador_ata' && (
                             <div className="col-span-2">
-                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado (R$)</label>
-                                <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handlePriceBlur} className={inputClasses} placeholder="0,00" />
+                                <label className="block text-sm font-medium mb-1 dark:text-gray-300 text-green-700 dark:text-green-400">Valor Unitário Registrado ({group.tipoValor === 'percentual' ? '%' : 'R$'})</label>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
+                                    <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handlePriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
+                                </div>
                             </div>
                         )}
 
                         {tipoOrcamento === 'aditivo_contratual' && (
                             <>
                                 <div className={subTipoAditivo === 'ata' ? "col-span-1" : "col-span-2"}>
-                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem (R$)</label>
-                                    <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={inputClasses} placeholder="0,00" />
+                                    <label className="block text-sm font-medium mb-1 text-blue-600 dark:text-blue-400">Valor Unit. Origem ({group.tipoValor === 'percentual' ? '%' : 'R$'})</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold">{group.tipoValor === 'percentual' ? '%' : 'R$'}</span>
+                                        <input type="text" value={contractPrice} onChange={(e) => setContractPrice(e.target.value.replace(/[^\d,]/g, ''))} onBlur={handleContractPriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
+                                    </div>
                                 </div>
                                 {subTipoAditivo === 'ata' && (
                                     <div className="col-span-1 animate-fade-in-down">
