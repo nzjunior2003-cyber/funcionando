@@ -895,23 +895,39 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
           <Section title="Dados do Reajuste">
               <div className="space-y-6">
                   <div className="border-b pb-4 dark:border-gray-600">
-                      <Field label="Tempo?">
-                          <div className="flex gap-6">
+                      <Field label="Objeto do Aditivo" note="Define se o fator tempo entra no cálculo do orçamento: em serviço, o valor pode ser multiplicado por um período; em fornecimento contínuo de material de consumo, não há multiplicação por tempo.">
+                          <div className="flex flex-wrap gap-6">
                               <label className="flex items-center gap-2 cursor-pointer">
-                                  <input type="radio" name="aditivoTempo" value="sim" checked={data.aditivoTempo === 'sim'} onChange={handleChange} className="h-4 w-4"/>
-                                  <span className="dark:text-gray-300">Sim</span>
+                                  <input type="radio" name="objetoAditivo" value="servico" checked={data.objetoAditivo === 'servico'} onChange={handleChange} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Serviço</span>
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
-                                  <input type="radio" name="aditivoTempo" value="nao" checked={data.aditivoTempo === 'nao'} onChange={handleChange} className="h-4 w-4"/>
-                                  <span className="dark:text-gray-300">Não</span>
+                                  <input type="radio" name="objetoAditivo" value="fornecimento_continuo" checked={data.objetoAditivo === 'fornecimento_continuo'} onChange={(e) => setData(prev => ({ ...prev, objetoAditivo: 'fornecimento_continuo', aditivoTempo: 'nao' }))} className="h-4 w-4"/>
+                                  <span className="dark:text-gray-300">Fornecimento Contínuo de Material de Consumo</span>
                               </label>
                           </div>
                       </Field>
-                      {data.aditivoTempo === 'sim' && (
-                          <div className="flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
-                              <span className="dark:text-gray-300">Prazo:</span>
-                              <input type="text" name="aditivoTempoQuantidade" value={data.aditivoTempoQuantidade || ''} onChange={handleChange} className={`${inputClasses} w-32`} placeholder="Qtd" />
-                              <select name="aditivoTempoUnidade" value={data.aditivoTempoUnidade || 'meses'} onChange={handleChange} className={inputClasses}><option value="meses">meses</option><option value="anos">ano(s)</option></select>
+                      {data.objetoAditivo !== 'fornecimento_continuo' && (
+                          <div className="mt-4">
+                              <Field label="Tempo?">
+                                  <div className="flex gap-6">
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                          <input type="radio" name="aditivoTempo" value="sim" checked={data.aditivoTempo === 'sim'} onChange={handleChange} className="h-4 w-4"/>
+                                          <span className="dark:text-gray-300">Sim</span>
+                                      </label>
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                          <input type="radio" name="aditivoTempo" value="nao" checked={data.aditivoTempo === 'nao'} onChange={handleChange} className="h-4 w-4"/>
+                                          <span className="dark:text-gray-300">Não</span>
+                                      </label>
+                                  </div>
+                              </Field>
+                              {data.aditivoTempo === 'sim' && (
+                                  <div className="flex items-center gap-2 mt-2 bg-gray-50 dark:bg-gray-700/30 p-3 rounded">
+                                      <span className="dark:text-gray-300">Prazo:</span>
+                                      <input type="text" name="aditivoTempoQuantidade" value={data.aditivoTempoQuantidade || ''} onChange={handleChange} className={`${inputClasses} w-32`} placeholder="Qtd" />
+                                      <select name="aditivoTempoUnidade" value={data.aditivoTempoUnidade || 'meses'} onChange={handleChange} className={inputClasses}><option value="meses">meses</option><option value="anos">ano(s)</option></select>
+                                  </div>
+                              )}
                           </div>
                       )}
                   </div>

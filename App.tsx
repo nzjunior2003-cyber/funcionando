@@ -119,6 +119,7 @@ const initialOrcamentoState: OrcamentoData = {
     precosIncluidos: {},
     houveDescarte: 'nao',
     justificativaDescarte: '',
+    objetoAditivo: '',
     aditivoTempo: '',
     aditivoTempoQuantidade: '',
     aditivoTempoUnidade: 'meses',

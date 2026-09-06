@@ -233,6 +233,7 @@ export interface OrcamentoData {
   subTipoAditivo?: 'contrato' | 'ata'; // NOVO: Para separar aditivo de contrato x ata
   numeroContrato?: string;
   anoContrato?: string;
+  objetoAditivo?: 'servico' | 'fornecimento_continuo' | ''; // Define se o fator tempo entra no cálculo do orçamento
   aditivoTempo?: 'sim' | 'nao' | '';
   aditivoTempoQuantidade?: string; // Alterado para string para permitir input livre
   aditivoTempoUnidade?: 'meses' | 'anos';
