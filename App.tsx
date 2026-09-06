@@ -594,7 +594,7 @@ function App() {
       />
 
       <div className="max-w-6xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
-        <header className="bg-white text-red-700 p-4 sm:p-6 flex items-center gap-4 shadow-md border-b-4 border-red-700">
+        <header className="bg-white text-red-700 p-4 sm:p-6 flex items-center justify-center gap-4 shadow-md border-b-4 border-red-700">
           <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-14 w-14 sm:h-16 sm:w-16 object-contain flex-shrink-0" />
           <div className="text-left">
             <h1 className="text-lg sm:text-xl font-extrabold tracking-wide">Corpo de Bombeiros Militar do Pará</h1>
