@@ -330,6 +330,22 @@ const Toast: React.FC<{
 };
 
 function App() {
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') return true;
+      if (saved === 'light') return false;
+    } catch (e) { /* localStorage indisponível */ }
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? true;
+  });
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+    try {
+      localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    } catch (e) { /* localStorage indisponível */ }
+  }, [isDarkMode]);
+
   const [docType, setDocType] = useState<DocumentType>(DocumentType.NONE);
   const [dfdData, setDfdData, undoDfd, canUndoDfd, resetDfdData] = useFormWithHistory<DfdData>(initialDfdState);
   const [etpData, setEtpData, undoEtp, canUndoEtp, resetEtpData] = useFormWithHistory<EtpData>(initialEtpState);
@@ -600,12 +616,24 @@ function App() {
       />
 
       <div className="max-w-6xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
-        <header className="bg-white text-red-700 p-4 sm:p-6 flex items-center justify-center gap-4 shadow-md border-b-4 border-red-700">
+        <header className="bg-white text-red-700 p-4 sm:p-6 flex items-center justify-center gap-4 shadow-md border-b-4 border-red-700 relative">
           <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-14 w-14 sm:h-16 sm:w-16 object-contain flex-shrink-0" />
           <div className="text-left">
             <h1 className="text-lg sm:text-xl font-extrabold tracking-wide">Corpo de Bombeiros Militar do Pará</h1>
             <p className="text-xs sm:text-sm font-medium text-red-600">Coordenadoria Estadual de Proteção e Defesa Civil</p>
           </div>
+          <button
+            onClick={() => setIsDarkMode(prev => !prev)}
+            title={isDarkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+            aria-label={isDarkMode ? 'Mudar para modo claro' : 'Mudar para modo escuro'}
+            className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1.5 rounded-full text-red-300 hover:text-red-600 hover:bg-red-50 transition-colors opacity-60 hover:opacity-100"
+          >
+            {isDarkMode ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z" /></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" /></svg>
+            )}
+          </button>
         </header>
 
         <main className="p-4 sm:p-8 bg-gray-50 dark:bg-slate-900">
