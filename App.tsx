@@ -8,6 +8,7 @@ import { OrcamentoForm } from './components/OrcamentoForm';
 import { TrBensForm } from './components/TrBensForm';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { GoogleGenAI, Type } from "@google/genai";
+import { logoCBMPABase64 } from './assets/logoBase64';
 
 const today = new Date().toISOString().split('T')[0];
 
@@ -267,6 +268,15 @@ const documentOptions = [
 
 const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = ({ onSelect }) => (
     <div className="text-center">
+        <div className="flex flex-col items-center mb-8">
+            <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-20 w-20 object-contain mb-3" />
+            <h1 className="text-xl md:text-2xl font-extrabold text-gray-800 dark:text-gray-100 tracking-tight">
+                Corpo de Bombeiros Militar do Pará
+            </h1>
+            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                Coordenadoria Estadual de Proteção e Defesa Civil
+            </p>
+        </div>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Selecione o Tipo de Documento</h2>
         <p className="text-gray-600 dark:text-gray-300 mb-8">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
