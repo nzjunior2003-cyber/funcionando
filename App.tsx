@@ -268,14 +268,9 @@ const documentOptions = [
 
 const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = ({ onSelect }) => (
     <div className="text-center">
-        <div className="flex flex-col items-center mb-8">
-            <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-20 w-20 object-contain mb-3" />
-            <h1 className="text-xl md:text-2xl font-extrabold text-gray-800 dark:text-gray-100 tracking-tight">
-                Corpo de Bombeiros Militar do Pará
-            </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                Coordenadoria Estadual de Proteção e Defesa Civil
-            </p>
+        <div className="mb-8">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">Gerador de Documentos RLC</h1>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wider mt-1">Sistema de Elaboração de Documentos de Contratação</p>
         </div>
         <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Selecione o Tipo de Documento</h2>
         <p className="text-gray-600 dark:text-gray-300 mb-8">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
@@ -599,9 +594,12 @@ function App() {
       />
 
       <div className="max-w-6xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
-        <header className="bg-gradient-to-r from-red-700 to-red-900 text-white p-6 sm:p-8 text-center relative shadow-md">
-          <h1 className="text-2xl sm:text-3xl font-extrabold mb-2 tracking-wide text-shadow">🔥 GERADOR DE DOCUMENTOS CBMPA 🔥</h1>
-          <p className="text-sm sm:text-base opacity-90 font-medium tracking-wider">Sistema de Elaboração de Documentos de Contratação</p>
+        <header className="bg-white text-red-700 p-4 sm:p-6 flex items-center gap-4 shadow-md border-b-4 border-red-700">
+          <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-14 w-14 sm:h-16 sm:w-16 object-contain flex-shrink-0" />
+          <div className="text-left">
+            <h1 className="text-lg sm:text-xl font-extrabold tracking-wide">Corpo de Bombeiros Militar do Pará</h1>
+            <p className="text-xs sm:text-sm font-medium text-red-600">Coordenadoria Estadual de Proteção e Defesa Civil</p>
+          </div>
         </header>
 
         <main className="p-4 sm:p-8 bg-gray-50 dark:bg-slate-900">
