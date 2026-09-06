@@ -73,11 +73,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             states.forEach((isChecked: boolean, i: number) => {
                 const rectY = startY + (i * lineHeight);
                 doc.setLineWidth(0.2);
-                doc.rect(startX, rectY, 3, 3);
+                doc.setDrawColor(0);
                 if (isChecked) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.text('X', startX + 0.6, rectY + 2.3);
-                    doc.setFont('helvetica', 'normal');
+                    doc.setFillColor(0, 0, 0);
+                    doc.rect(startX, rectY, 3, 3, 'FD');
+                } else {
+                    doc.rect(startX, rectY, 3, 3, 'S');
                 }
             });
         }
@@ -148,8 +149,13 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     fMap.forEach((f, i) => {
         const isR = i % 2 !== 0; const cx = MARGIN_LEFT + (isR ? USABLE_WIDTH / 2 : 0); const cy = y + Math.floor(i / 2) * 6;
         doc.setLineWidth(0.2);
-        doc.rect(cx, cy - 3, 3, 3);
-        if (data.fontesPesquisa.includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 0.6, cy - 0.7); doc.setFont('helvetica', 'normal'); }
+        doc.setDrawColor(0);
+        if (data.fontesPesquisa.includes(f[0])) {
+            doc.setFillColor(0, 0, 0);
+            doc.rect(cx, cy - 3, 3, 3, 'FD');
+        } else {
+            doc.rect(cx, cy - 3, 3, 3, 'S');
+        }
         doc.setFontSize(9); doc.text(f[1], cx + 5, cy);
     });
     y += 22;

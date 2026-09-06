@@ -191,6 +191,108 @@ export const createJustifiedCellHooks = (doc: jsPDF) => {
     return { willDrawCell, didDrawCell };
 };
 
+/**
+ * Hooks de jspdf-autotable (willDrawCell + didDrawCell) que transformam
+ * marcadores de texto "[X]" / "[  ]" dentro do conteúdo de uma célula em
+ * caixas de seleção desenhadas de verdade — preenchidas de preto quando
+ * marcadas, com contorno quando não —, mesmo estilo já usado no TR de Bens
+ * e no ETP. Ao contrário de createJustifiedCellHooks, este hook NÃO assume
+ * o controle total do desenho do texto: ele só troca o marcador por um
+ * espaço em branco (pra abrir lugar pro desenho da caixa) e deixa o motor
+ * padrão do autoTable desenhar o texto normalmente.
+ */
+export const createCheckboxCellHooks = (doc: jsPDF) => {
+    const willDrawCell = (hookData: any) => {
+        if (hookData.section !== 'body') return;
+        const cell = hookData.cell;
+        if (!cell.text || !Array.isArray(cell.text)) return;
+
+        const modifiedText = [...cell.text];
+        const boxes: { lineIndex: number; checked: boolean; textBefore: string }[] = [];
+
+        for (let i = 0; i < modifiedText.length; i++) {
+            let line = modifiedText[i];
+            let searchIdx = 0;
+            while (true) {
+                const openIdx = line.indexOf('[', searchIdx);
+                if (openIdx === -1) break;
+                const closeIdx = line.indexOf(']', openIdx);
+                if (closeIdx === -1) break;
+
+                const inside = line.substring(openIdx + 1, closeIdx);
+                if (inside.trim() === 'X' || inside.trim() === '') {
+                    const checked = inside.includes('X');
+                    const textBefore = line.substring(0, openIdx);
+                    boxes.push({ lineIndex: i, checked, textBefore });
+                    line = line.substring(0, openIdx) + '   ' + line.substring(closeIdx + 1);
+                    searchIdx = openIdx + 3;
+                } else {
+                    searchIdx = closeIdx + 1;
+                }
+            }
+            modifiedText[i] = line;
+        }
+
+        if (boxes.length > 0) {
+            cell.text = modifiedText;
+            (cell as any)._checkboxLines = modifiedText;
+            (cell as any)._checkboxes = boxes;
+        }
+    };
+
+    const didDrawCell = (hookData: any) => {
+        if (hookData.section !== 'body') return;
+        const cell = hookData.cell;
+        const boxes = (cell as any)._checkboxes;
+        if (!boxes || boxes.length === 0) return;
+
+        const styles = cell.styles as any;
+        const fontSizeMm = (styles.fontSize * 25.4) / 72;
+        const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15);
+        const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.top ?? 1.2;
+        const padLeft = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.left ?? 1.2;
+        const textX = cell.x + padLeft;
+        const lines: string[] = (cell as any)._checkboxLines || [];
+
+        const textHeight = lines.length * lineHeight;
+        let startY = cell.y + padTop;
+        if (styles.valign === 'middle') {
+            startY = cell.y + (cell.height - textHeight) / 2;
+        }
+
+        doc.setFont(styles.font, styles.fontStyle);
+        doc.setFontSize(styles.fontSize);
+
+        boxes.forEach(cb => {
+            const lineY = startY + (cb.lineIndex * lineHeight);
+            const boxSize = 2.1;
+
+            let lineStartX = textX;
+            if (styles.halign === 'center') {
+                const fullLineWidth = doc.getTextWidth(lines[cb.lineIndex] || '');
+                lineStartX = cell.x + (cell.width - fullLineWidth) / 2;
+            } else if (styles.halign === 'right') {
+                const fullLineWidth = doc.getTextWidth(lines[cb.lineIndex] || '');
+                lineStartX = cell.x + cell.width - padLeft - fullLineWidth;
+            }
+
+            const boxX = lineStartX + doc.getTextWidth(cb.textBefore);
+            const boxY = lineY + ((fontSizeMm - boxSize) / 2);
+
+            doc.setDrawColor(0);
+            doc.setLineWidth(0.15);
+            if (cb.checked) {
+                doc.setFillColor(0, 0, 0);
+                doc.rect(boxX, boxY, boxSize, boxSize, 'FD');
+            } else {
+                doc.rect(boxX, boxY, boxSize, boxSize, 'S');
+            }
+        });
+    };
+
+    return { willDrawCell, didDrawCell };
+};
+
 // --- Controle de Quebra de Página ---
 
 export const checkPageBreak = (doc: jsPDF, y: number, neededHeight: number = 0): number => {
@@ -206,12 +308,15 @@ export const checkPageBreak = (doc: jsPDF, y: number, neededHeight: number = 0):
 export const drawCheckbox = (doc: jsPDF, x: number, y: number, label: string, checked: boolean): number => {
     const size = 4;
     doc.setLineWidth(0.2);
-    doc.rect(x, y - size + 0.5, size, size); // Desenha o quadrado
+    doc.setDrawColor(0);
     if (checked) {
-        doc.line(x, y - size + 0.5, x + size, y + 0.5); // X parte 1
-        doc.line(x + size, y - size + 0.5, x, y + 0.5); // X parte 2
+        doc.setFillColor(0, 0, 0);
+        doc.rect(x, y - size + 0.5, size, size, 'FD');
+    } else {
+        doc.rect(x, y - size + 0.5, size, size, 'S');
     }
-    
+
+
     doc.setFont('helvetica', 'normal');
     const lines = doc.splitTextToSize(label, TEXT_WIDTH - 10);
     doc.text(lines, x + size + 2, y);

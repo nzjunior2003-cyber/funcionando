@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -21,6 +21,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     let y = MARGIN_TOP;
     setDefaultFont(doc);
     const { willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell } = createJustifiedCellHooks(doc);
+    const { willDrawCell: checkboxWillDrawCell, didDrawCell: checkboxDidDrawCell } = createCheckboxCellHooks(doc);
+    const combinedWillDrawCell = (hookData: any) => { checkboxWillDrawCell(hookData); justifyWillDrawCell(hookData); };
+    const combinedCheckboxJustifyDidDrawCell = (hookData: any) => { checkboxDidDrawCell(hookData); justifyDrawCell(hookData); };
 
     const isAta = data.subTipoAditivo === 'ata';
     
@@ -78,8 +81,13 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y += 4;
     fMap.forEach((f, i) => {
         const isR = i % 2 !== 0; const cx = MARGIN_LEFT + (isR ? USABLE_WIDTH / 2 : 0); const cy = y + Math.floor(i / 2) * 6;
-        doc.rect(cx, cy - 3, 4, 4);
-        if ((data.fontesPesquisa || []).includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 1, cy + 0.5); doc.setFont('helvetica', 'normal'); }
+        doc.setDrawColor(0);
+        if ((data.fontesPesquisa || []).includes(f[0])) {
+            doc.setFillColor(0, 0, 0);
+            doc.rect(cx, cy - 3, 4, 4, 'FD');
+        } else {
+            doc.rect(cx, cy - 3, 4, 4, 'S');
+        }
         doc.setFontSize(9); doc.text(f[1], cx + 5, cy);
     });
     y += 22;
@@ -91,12 +99,12 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = (data.fontesPesquisa || []).includes('direta');
     const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }]];
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
+    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, rowPageBreak: 'avoid', willDrawCell: combinedWillDrawCell, didDrawCell: combinedCheckboxJustifyDidDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
     const met = data.metodologia || 'media';
-    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: `${met === 'menor' ? '[ X ]' : '[   ]'} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } }, { content: `${met === 'media' ? '[ X ]' : '[   ]'} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } }, { content: `${met === 'mediana' ? '[ X ]' : '[   ]'} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }]] });
+    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: `${met === 'menor' ? '[ X ]' : '[   ]'} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } }, { content: `${met === 'media' ? '[ X ]' : '[   ]'} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } }, { content: `${met === 'mediana' ? '[ X ]' : '[   ]'} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }]], willDrawCell: checkboxWillDrawCell, didDrawCell: checkboxDidDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
@@ -159,7 +167,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY;
 
     const desc = data.houveDescarte;
-    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } }, { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } }, { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}`, styles: { halign: 'justify' } }]], rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
+    autoTable(doc, { startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, body: [[{ content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } }, { content: `${desc === 'sim' ? '[ X ]' : '[   ]'} Sim.\n${desc === 'nao' ? '[ X ]' : '[   ]'} Não.`, styles: { cellWidth: 30, halign: 'center' } }, { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}`, styles: { halign: 'justify' } }]], rowPageBreak: 'avoid', willDrawCell: combinedWillDrawCell, didDrawCell: combinedCheckboxJustifyDidDrawCell });
     y = (doc as any).lastAutoTable.finalY + 12;
 
     addPage(40);

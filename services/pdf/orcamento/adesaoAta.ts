@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -49,6 +49,9 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     let y = MARGIN_TOP;
     setDefaultFont(doc);
     const { willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell } = createJustifiedCellHooks(doc);
+    const { willDrawCell: checkboxWillDrawCell, didDrawCell: checkboxDidDrawCell } = createCheckboxCellHooks(doc);
+    const combinedWillDrawCell = (hookData: any) => { checkboxWillDrawCell(hookData); justifyWillDrawCell(hookData); };
+    const combinedCheckboxJustifyDidDrawCell = (hookData: any) => { checkboxDidDrawCell(hookData); justifyDrawCell(hookData); };
 
     // Atualizado para respeitar a SAFE_BOTTOM_MARGIN
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
@@ -104,8 +107,13 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     y += 4;
     fMap.forEach((f, i) => {
         const isR = i % 2 !== 0; const cx = MARGIN_LEFT + (isR ? USABLE_WIDTH / 2 : 0); const cy = y + Math.floor(i / 2) * 6;
-        doc.rect(cx, cy - 3, 4, 4);
-        if (data.fontesPesquisa.includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 1, cy + 0.5); doc.setFont('helvetica', 'normal'); }
+        doc.setDrawColor(0);
+        if (data.fontesPesquisa.includes(f[0])) {
+            doc.setFillColor(0, 0, 0);
+            doc.rect(cx, cy - 3, 4, 4, 'FD');
+        } else {
+            doc.rect(cx, cy - 3, 4, 4, 'S');
+        }
         doc.setFontSize(9); doc.text(f[1], cx + 5, cy);
     });
     y += 22;
@@ -140,7 +148,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
             ]);
         });
     }
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
+    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: combinedWillDrawCell, didDrawCell: combinedCheckboxJustifyDidDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
@@ -155,7 +163,9 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
             { content: `${bMenor} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
             { content: `${bMedia} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
             { content: `${bMediana} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }
-        ]]
+        ]],
+        willDrawCell: checkboxWillDrawCell,
+        didDrawCell: checkboxDidDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 8;
 
@@ -209,8 +219,8 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
             { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}`, styles: { halign: 'justify' } }
         ]],
         rowPageBreak: 'avoid',
-        willDrawCell: justifyWillDrawCell,
-        didDrawCell: justifyDrawCell
+        willDrawCell: combinedWillDrawCell,
+        didDrawCell: combinedCheckboxJustifyDidDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 12;
 
