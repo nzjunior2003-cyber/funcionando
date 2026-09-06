@@ -268,31 +268,31 @@ const documentOptions = [
 
 const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = ({ onSelect }) => (
     <div className="text-center">
-        <div className="mb-2">
-            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Departamento Geral de Administração</p>
-            <p className="text-[10px] sm:text-xs text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Diretoria de Apoio Logístico</p>
-        </div>
         <div className="mb-3">
-            <h1 className="text-xl sm:text-2xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">Gerador de Documentos RLC</h1>
-            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium tracking-wider mt-0.5">Sistema de Elaboração de Documentos de Contratação</p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Departamento Geral de Administração</p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Diretoria de Apoio Logístico</p>
         </div>
-        <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-1">Selecione o Tipo de Documento</h2>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-300 mb-3">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+        <div className="mb-5">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">Gerador de Documentos RLC</h1>
+            <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wider mt-1">Sistema de Elaboração de Documentos de Contratação</p>
+        </div>
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Selecione o Tipo de Documento</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-5">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {documentOptions.map(doc => (
                 <button
                     key={doc.type}
                     onClick={() => onSelect(doc.type)}
-                    className={`flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border-2 ${doc.borderColor} rounded-xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group text-left`}
+                    className={`flex items-center gap-3 p-4 bg-white dark:bg-slate-800 border-2 ${doc.borderColor} rounded-xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group text-left`}
                 >
-                    <div className={`absolute -top-4 -right-4 w-14 h-14 rounded-full opacity-20 transition-transform group-hover:scale-150 ${doc.iconBg}`}></div>
+                    <div className={`absolute -top-5 -right-5 w-16 h-16 rounded-full opacity-20 transition-transform group-hover:scale-150 ${doc.iconBg}`}></div>
 
-                    <div className={`p-1.5 rounded-lg text-white shadow-md flex-shrink-0 ${doc.iconBg}`}>
-                        {React.cloneElement(doc.icon, { className: 'w-5 h-5' })}
+                    <div className={`p-2 rounded-lg text-white shadow-md flex-shrink-0 ${doc.iconBg}`}>
+                        {React.cloneElement(doc.icon, { className: 'w-6 h-6' })}
                     </div>
                     <div className="min-w-0">
-                        <span className={`block font-bold text-sm leading-tight ${doc.textColor} dark:text-gray-100`}>{doc.title}</span>
-                        <span className="block text-[11px] text-gray-500 dark:text-gray-400 font-medium leading-tight truncate">{doc.description}</span>
+                        <span className={`block font-bold text-base leading-tight ${doc.textColor} dark:text-gray-100`}>{doc.title}</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400 font-medium leading-tight truncate">{doc.description}</span>
                     </div>
                 </button>
             ))}
@@ -595,7 +595,7 @@ function App() {
   };
 
   return (
-    <div className="bg-gradient-to-r from-blue-900 to-indigo-900 dark:from-slate-950 dark:to-slate-900 min-h-screen p-2 sm:p-4 font-sans text-gray-900 dark:text-gray-100">
+    <div className="bg-gradient-to-r from-blue-900 to-indigo-900 dark:from-slate-950 dark:to-slate-900 min-h-screen flex items-center justify-center p-4 sm:p-6 font-sans text-gray-900 dark:text-gray-100">
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {isLoading && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[9999]">
@@ -615,12 +615,12 @@ function App() {
         onChange={handleFileImport} 
       />
 
-      <div className="max-w-6xl mx-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
-        <header className="bg-white text-red-700 p-2 sm:p-3 flex items-center justify-center gap-3 shadow-md border-b-4 border-red-700 relative">
-          <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-10 w-10 sm:h-12 sm:w-12 object-contain flex-shrink-0" />
+      <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
+        <header className="bg-white text-red-700 p-3 sm:p-4 flex items-center justify-center gap-3 shadow-md border-b-4 border-red-700 relative">
+          <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-12 w-12 sm:h-14 sm:w-14 object-contain flex-shrink-0" />
           <div className="text-left">
-            <h1 className="text-sm sm:text-base font-extrabold tracking-wide">Corpo de Bombeiros Militar do Pará</h1>
-            <p className="text-[10px] sm:text-xs font-medium text-red-600">Coordenadoria Estadual de Proteção e Defesa Civil</p>
+            <h1 className="text-base sm:text-lg font-extrabold tracking-wide">Corpo de Bombeiros Militar do Pará</h1>
+            <p className="text-xs sm:text-sm font-medium text-red-600">Coordenadoria Estadual de Proteção e Defesa Civil</p>
           </div>
           <button
             onClick={() => setIsDarkMode(prev => !prev)}
@@ -636,15 +636,15 @@ function App() {
           </button>
         </header>
 
-        <main className="p-3 sm:p-5 bg-gray-50 dark:bg-slate-900">
+        <main className="p-4 sm:p-7 bg-gray-50 dark:bg-slate-900">
           {docType === DocumentType.NONE ? (
              <>
                 <DocumentSelector onSelect={setDocType} />
-                <div className="mt-4 text-center border-t-2 pt-4 border-gray-200 dark:border-slate-700">
-                    <p className="text-gray-600 dark:text-gray-300 font-medium mb-2 text-sm">Já tem um trabalho salvo?</p>
+                <div className="mt-6 text-center border-t-2 pt-5 border-gray-200 dark:border-slate-700">
+                    <p className="text-gray-600 dark:text-gray-300 font-medium mb-3 text-base">Já tem um trabalho salvo?</p>
                     <button
                         onClick={triggerImport}
-                        className="bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-2 px-6 rounded-xl transition transform hover:scale-105 hover:shadow-lg flex items-center gap-2 mx-auto text-sm"
+                        className="bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold py-2.5 px-7 rounded-xl transition transform hover:scale-105 hover:shadow-lg flex items-center gap-2 mx-auto"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         Importar Arquivo (.json)
