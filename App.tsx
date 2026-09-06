@@ -268,26 +268,32 @@ const documentOptions = [
 
 const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = ({ onSelect }) => (
     <div className="text-center">
-        <div className="mb-8">
+        <div className="mb-4">
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Departamento Geral de Administração</p>
+            <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Diretoria de Apoio Logístico</p>
+        </div>
+        <div className="mb-6">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">Gerador de Documentos RLC</h1>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wider mt-1">Sistema de Elaboração de Documentos de Contratação</p>
         </div>
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Selecione o Tipo de Documento</h2>
-        <p className="text-gray-600 dark:text-gray-300 mb-8">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Selecione o Tipo de Documento</h2>
+        <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">Clique em uma das opções abaixo para começar a preencher o formulário correspondente.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {documentOptions.map(doc => (
-                <button 
-                    key={doc.type} 
+                <button
+                    key={doc.type}
                     onClick={() => onSelect(doc.type)}
-                    className={`flex flex-col items-start p-6 bg-white dark:bg-slate-800 border-2 ${doc.borderColor} rounded-xl shadow-lg hover:shadow-2xl transform hover:-translate-y-2 transition-all duration-300 min-h-[180px] relative overflow-hidden group text-left`}
+                    className={`flex items-center gap-3 p-3 bg-white dark:bg-slate-800 border-2 ${doc.borderColor} rounded-xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 relative overflow-hidden group text-left`}
                 >
-                    <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full opacity-20 transition-transform group-hover:scale-150 ${doc.iconBg}`}></div>
+                    <div className={`absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-20 transition-transform group-hover:scale-150 ${doc.iconBg}`}></div>
 
-                    <div className={`p-3 rounded-lg text-white mb-4 shadow-md ${doc.iconBg}`}>
-                        {doc.icon}
+                    <div className={`p-2 rounded-lg text-white shadow-md flex-shrink-0 ${doc.iconBg}`}>
+                        {React.cloneElement(doc.icon, { className: 'w-6 h-6' })}
                     </div>
-                    <span className={`font-bold text-xl mb-1 ${doc.textColor} dark:text-gray-100`}>{doc.title}</span>
-                    <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">{doc.description}</span>
+                    <div className="min-w-0">
+                        <span className={`block font-bold text-base leading-tight ${doc.textColor} dark:text-gray-100`}>{doc.title}</span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400 font-medium leading-tight truncate">{doc.description}</span>
+                    </div>
                 </button>
             ))}
         </div>
