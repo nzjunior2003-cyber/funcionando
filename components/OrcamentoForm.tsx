@@ -727,19 +727,11 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
         </Section>
       )}
 
-      {/* 3. METODOLOGIA E ASSISTENTE DE IA */}
+      {/* 3. METODOLOGIA */}
       {data.tipoOrcamento !== 'gerenciador_ata' && (
-          <>
-            <Section title="Metodologia da Estimativa de Preço">
-                <RadioGroup name="metodologia" value={data.metodologia} options={[ {val:'media',label:'Média aritmética'}, {val:'menor',label:'Menor preço'}, {val:'mediana',label:'Mediana'} ]} onChange={handleChange} />
-            </Section>
-            
-            {selectedFontes.length > 0 && (
-                <Section title="Pesquisa Automatizada de Preços (IA) - Opcional" instruction="Você pode preencher os preços manualmente dentro de cada item abaixo, ou usar o assistente de IA para buscar preços em massa baseados nas fontes que você selecionou.">
-                    <AiAssistant data={data} setData={setData} addPrice={addPrice} availableSources={selectedFontes} />
-                </Section>
-            )}
-          </>
+          <Section title="Metodologia da Estimativa de Preço">
+              <RadioGroup name="metodologia" value={data.metodologia} options={[ {val:'media',label:'Média aritmética'}, {val:'menor',label:'Menor preço'}, {val:'mediana',label:'Mediana'} ]} onChange={handleChange} />
+          </Section>
       )}
 
       {/* 4. ITENS DA CONTRATAÇÃO */}
