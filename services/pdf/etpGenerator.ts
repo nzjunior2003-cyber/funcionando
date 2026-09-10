@@ -523,8 +523,12 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
                                 // A MÁGICA AQUI: Trava a última linha na esquerda para nunca esticar
                                 doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
                             } else {
-                                // As outras justicam normalmente para encostar na margem dos 3mm
-                                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
+                                // As outras justicam normalmente para encostar na margem dos 3mm.
+                                // Nunca deixa a largura passada ao jsPDF ficar menor que a largura
+                                // real da linha — evita que ele quebre essa linha de novo por conta
+                                // própria quando ela está bem no limite da largura da coluna.
+                                const safeMaxWidth = Math.max(maxWidth, doc.getTextWidth(lineInfo.text) + 0.1);
+                                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: safeMaxWidth, baseline: 'middle' } as any);
                             }
                         }
                     });

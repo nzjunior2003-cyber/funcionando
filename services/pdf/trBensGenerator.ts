@@ -194,7 +194,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                     if (isLastLine || isShortLine) {
                         doc.text(lineText, textX, textY, { align: 'left', baseline: 'middle' } as any);
                     } else {
-                        doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: maxWidth, baseline: 'middle' } as any);
+                        // Garante que a largura passada ao jsPDF nunca seja menor que a
+                        // largura real da linha — se ficarem quase iguais (linha bem no
+                        // limite da coluna), o jsPDF pode quebrar essa linha de novo por
+                        // conta própria dentro desta mesma chamada, usando uma altura de
+                        // linha diferente da nossa e sobrepondo a linha seguinte.
+                        const safeMaxWidth = Math.max(maxWidth, lineWidth + 0.1);
+                        doc.text([lineText, ""], textX, textY, { align: 'justify', maxWidth: safeMaxWidth, baseline: 'middle' } as any);
                     }
                 } else {
                     let finalX = textX;

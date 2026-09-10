@@ -93,7 +93,12 @@ export const drawJustifiedText = (
             if (isLast) {
                 doc.text(line, x, cursorY);
             } else {
-                doc.text([line, ""], x, cursorY, { align: 'justify', maxWidth } as any);
+                // Nunca deixa a largura passada ao jsPDF ficar menor que a largura real
+                // da linha — evita que ele quebre essa linha de novo por conta própria
+                // (com uma altura de linha diferente da nossa) quando a linha está bem
+                // no limite da largura da coluna.
+                const safeMaxWidth = Math.max(maxWidth, doc.getTextWidth(line) + 0.1);
+                doc.text([line, ""], x, cursorY, { align: 'justify', maxWidth: safeMaxWidth } as any);
             }
             cursorY += lineHeight;
         });
@@ -183,7 +188,11 @@ export const createJustifiedCellHooks = (doc: jsPDF) => {
             if (lineInfo.isLastOfParagraph) {
                 doc.text(lineInfo.text, textX, textY, { align: 'left', baseline: 'middle' } as any);
             } else {
-                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth, baseline: 'middle' } as any);
+                // Nunca deixa a largura passada ao jsPDF ficar menor que a largura real
+                // da linha — evita que ele quebre essa linha de novo por conta própria
+                // quando ela está bem no limite da largura da coluna.
+                const safeMaxWidth = Math.max(maxWidth, doc.getTextWidth(lineInfo.text) + 0.1);
+                doc.text([lineInfo.text, ""], textX, textY, { align: 'justify', maxWidth: safeMaxWidth, baseline: 'middle' } as any);
             }
         });
     };
