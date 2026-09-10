@@ -387,6 +387,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         columnStyles: {
             0: { cellWidth: 40 }
         },
+        rowPageBreak: 'avoid',
         willDrawCell: (hookData) => {
             if (hookData.section === 'body') {
                 const cell = hookData.cell;

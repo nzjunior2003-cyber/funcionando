@@ -283,6 +283,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }
         },
         margin: { left: L_MARGIN, right: R_MARGIN },
+        rowPageBreak: 'avoid',
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
@@ -422,6 +423,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             1: { cellWidth: 'auto' }
         },
         margin: { left: L_MARGIN, right: R_MARGIN, bottom: MARGIN_BOTTOM },
+        rowPageBreak: 'avoid',
         willDrawCell: advancedWillDrawCell,
         didDrawCell: advancedDidDrawCell
     });
