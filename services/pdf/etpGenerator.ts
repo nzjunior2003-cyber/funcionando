@@ -119,7 +119,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: `${radio(data.natureza === 'continuada')} Continuada.\n${radio(data.natureza === 'nao-continuada')} Não continuada.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
-        { content: '3.3 - HÁ MONOPÓLIO?', styles: questionStyle(getNextLabelColor()) },
+        { content: 'HÁ MONOPÓLIO?', styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.monopolio === 'sim')} Sim, apenas um único fornecedor é capaz de atender a demanda.\n${radio(data.monopolio === 'nao')} Não, há mais de um fornecedor capaz de atender a demanda.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     
@@ -131,22 +131,22 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         `${radio(data.vigencia === 'outro')} Outro: ${data.vigenciaOutroNum || ''} ${data.vigenciaOutroTipo || ''}`
     ].join('\n');
     body.push([
-        { content: '3.4 - QUAL A VIGÊNCIA?', styles: questionStyle(getNextLabelColor()) },
+        { content: '3.3 - QUAL A VIGÊNCIA?', styles: questionStyle(getNextLabelColor()) },
         { content: vigenciaTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
-        { content: '3.5 - PODERÁ HAVER PRORROGAÇÃO?', styles: questionStyle(getNextLabelColor()) },
+        { content: '3.4 - PODERÁ HAVER PRORROGAÇÃO?', styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.prorrogacao === 'sim')} Sim.\n${radio(data.prorrogacao === 'nao')} Não.\n${radio(data.prorrogacao === 'na')} Não se aplica (prazo indeterminado).`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
     body.push([
-        { content: '3.6 - HÁ TRANSIÇÃO COM CONTRATO ANTERIOR?', styles: questionStyle(getNextLabelColor()) },
+        { content: '3.5 - HÁ TRANSIÇÃO COM CONTRATO ANTERIOR?', styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.transicao === 'sim')} Sim. Contrato nº: ${data.transicaoContrato || '...'} Prazo final: ${data.transicaoPrazo || '...'}\n${radio(data.transicao === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
-    // 3.7 Padrão Mínimo de Qualidade
+    // 3.6 Padrão Mínimo de Qualidade
     const qualItems = data.padraoQualidade || [];
     body.push([
-        { content: '3.7 - PADRÃO MÍNIMO DE QUALIDADE', rowSpan: qualItems.length + 1, styles: questionStyle(getNextLabelColor()) },
+        { content: '3.6 - PADRÃO MÍNIMO DE QUALIDADE', rowSpan: qualItems.length + 1, styles: questionStyle(getNextLabelColor()) },
         { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
         { content: 'Descrição detalhada', colSpan: 4, styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } }
     ]);
@@ -159,7 +159,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         });
     }
 
-    // 3.8 Sustentabilidade
+    // 3.7 Sustentabilidade
     const s = data.sustentabilidade || [];
     const sustTxt = [
         `${checkbox(hasItem(s, 'reciclado') || hasItem(s, 'atóxico') || hasItem(s, 'biodegradável'))} Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável.`,
@@ -170,8 +170,14 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         `${checkbox(hasItem(s, 'outro'))} Outro. Especificar: ${data.sustentabilidadeOutro || ''}`
     ].join('\n');
     body.push([
-        { content: '3.8 - QUAIS CRITÉRIOS DE SUSTENTABILIDADE?', styles: questionStyle(getNextLabelColor()) },
+        { content: '3.7 - QUAIS CRITÉRIOS DE SUSTENTABILIDADE?', styles: questionStyle(getNextLabelColor()) },
         { content: sustTxt, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
+    ]);
+
+    // 3.8 Necessidade de Treinamento
+    body.push([
+        { content: '3.8 - HÁ NECESSIDADE DE TREINAMENTO?', styles: questionStyle(getNextLabelColor()) },
+        { content: `${radio(data.treinamento === 'sim')} Sim.\n${radio(data.treinamento === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
 
     // --- SEÇÃO 4: SOLUÇÃO ---
@@ -332,10 +338,6 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: '11.1 - HÁ PROVIDÊNCIAS PENDENTES PARA O SUCESSO DA CONTRATAÇÃO?', styles: questionStyle(getNextLabelColor()) },
         { content: `${radio(data.pendencias === 'sim')} Sim. Especificar: ${data.pendenciasEspecificar || ''}\n${radio(data.pendencias === 'nao')} Não.`, colSpan: 5, styles: { halign: 'left', valign: 'middle' } }
     ]);
-    body.push([
-        { content: '11.2 - QUAIS SÃO OS SETORES RESPONSÁVEIS PELAS PROVIDÊNCIAS PENDENTES?', styles: questionStyle(getNextLabelColor()) },
-        { content: data.pendenciasResponsaveis || '', colSpan: 5, styles: { halign: 'justify', valign: 'middle' } }
-    ]);
 
     // --- SEÇÃO 12: IMPACTOS AMBIENTAIS ---
     body.push([{ content: '12 – IMPACTOS AMBIENTAIS E MEDIDAS DE MITIGAÇÃO\n(art. 18, §1º, XII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
@@ -348,8 +350,8 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         { content: `Medidas de mitigação:\n${data.medidasMitigacao || ''}`, colSpan: 4, styles: { fillColor: colorBlueMitigation, halign: 'justify', fontSize: 9 } }
     ]);
 
-    // --- SEÇÃO 13: DECLARAÇÃO DE VIABILIDADE ---
-    body.push([{ content: '13 – DECLARAÇÃO DE VIABILIDADE DA CONTRATAÇÃO\n(art. 18, §1º, XIII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
+    // --- SEÇÃO 13: CONCLUSÃO ---
+    body.push([{ content: '13 – CONCLUSÃO\n(art. 18, §1º, XIII, da Lei Federal nº 14.133/21)', colSpan: 6, styles: sectionHeaderStyle }]);
     body.push([
         { 
             content: '13.1 - A CONTRATAÇÃO POSSUI VIABILIDADE TÉCNICA, SOCIOECONÔMICA E AMBIENTAL?', 

@@ -147,20 +147,20 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
             </div>
         </Field>
         <Field label="3.2 - Qual a natureza?" required><RadioGroup name="natureza" value={data.natureza} options={[{val: 'continuada', label: 'Continuada'}, {val: 'nao-continuada', label: 'Não-continuada'}]} onChange={handleChange} /></Field>
-        <Field label="3.3. Há monopólio?" required><RadioGroup name="monopolio" value={data.monopolio} options={[{val: 'sim', label: 'Sim, apenas um único fornecedor é capaz de atender a demanda.'}, {val: 'nao', label: 'Não, há mais de um fornecedor capaz de atender a demanda.'}]} onChange={handleChange} /></Field>
-        <Field label="3.4. Qual a vigência do contrato?" required>
+        <Field label="Há monopólio?" required><RadioGroup name="monopolio" value={data.monopolio} options={[{val: 'sim', label: 'Sim, apenas um único fornecedor é capaz de atender a demanda.'}, {val: 'nao', label: 'Não, há mais de um fornecedor capaz de atender a demanda.'}]} onChange={handleChange} /></Field>
+        <Field label="3.3. Qual a vigência do contrato?" required>
             <RadioGroup name="vigencia" value={data.vigencia} options={[{val: '30 dias (pronta entrega).', label: '30 dias (pronta entrega).'}, {val: '180 dias.', label: '180 dias.'}, {val: '12 meses.', label: '12 meses.'}, {val: 'Indeterminado.', label: 'Indeterminado.'}, {val: 'outro', label: 'Outro:'}]} onChange={handleChange} />
             {data.vigencia === 'outro' && <div className="flex items-center gap-2 mt-2 p-2 border rounded-md bg-white dark:bg-gray-800 dark:border-gray-600"><input type="number" min="0" name="vigenciaOutroNum" value={data.vigenciaOutroNum} onChange={handleChange} className={`${inputClasses} w-1/3`} placeholder="Nº"/><select name="vigenciaOutroTipo" value={data.vigenciaOutroTipo} onChange={handleChange} className={`${inputClasses} w-2/3`}><option value="dias">dias</option><option value="meses">meses</option><option value="anos">anos</option></select></div>}
         </Field>
-        <Field label="3.5. Poderá haver prorrogação?" required><RadioGroup name="prorrogacao" value={data.prorrogacao} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}, {val: 'na', label: 'Não se aplica'}]} onChange={handleChange} /></Field>
-        <Field label="3.6. Transição Contratual" required><RadioGroup name="transicao" value={data.transicao} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} /></Field>
+        <Field label="3.4. Poderá haver prorrogação?" required><RadioGroup name="prorrogacao" value={data.prorrogacao} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}, {val: 'na', label: 'Não se aplica'}]} onChange={handleChange} /></Field>
+        <Field label="3.5. Transição Contratual" required><RadioGroup name="transicao" value={data.transicao} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} /></Field>
         {data.transicao === 'sim' && <div className='grid md:grid-cols-2 gap-4 mt-2'><input name="transicaoContrato" value={data.transicaoContrato} onChange={handleChange} placeholder="Nº do Contrato" className={inputClasses}/><input name="transicaoPrazo" value={data.transicaoPrazo} onChange={handleChange} placeholder="Prazo" className={inputClasses}/></div>}
         <div className="mt-4">
-            <h3 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">3.7. Padrão Mínimo de Qualidade</h3>
+            <h3 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">3.6. Padrão Mínimo de Qualidade</h3>
             {data.padraoQualidade.map((item, index) => (<div key={item.id} className="p-4 border rounded-md mb-2 bg-white dark:bg-gray-800 dark:border-gray-600"><div className="flex justify-between items-center mb-2"><h4 className="font-semibold dark:text-gray-200">Item de Qualidade {index + 1}</h4><button onClick={() => removeQualidadeItem(item.id)} className="text-red-500 hover:text-red-700 font-bold">Remover</button></div><textarea value={item.descricao} onChange={(e) => handleQualidadeChange(item.id, e.target.value)} className={`${inputClasses} h-20`} placeholder="Descrição detalhada"/></div>))}
             <button onClick={addQualidadeItem} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition mt-2">➕ Adicionar Item de Qualidade</button>
         </div>
-        <Field label="3.8. Quais critérios de sustentabilidade?">
+        <Field label="3.7. Quais critérios de sustentabilidade?">
             <div className="flex flex-col gap-y-2">
                 {['Utilização de bens constituídos, no todo ou em parte, por material reciclado, atóxico e biodegradável, conforme as normas técnicas aplicáveis.', 'Não utilização de bens e produtos com substâncias perigosas em concentração acima da recomendada na diretiva RoHS (RestrictionofCertainHazardousSubstances) e outras diretivas similares, tais como mercúrio (Hg), chumbo (Pb), cromo hexavalente [Cr(VI)], cádmio (Cd), bifenil-polibromados (PBB’s) e éteres difenil-polibromados (PBDE’s).', 'Atendimento aos requisitos ambientais para a obtenção de certificação pelos órgãos competentes como produtos sustentáveis e/ou de menor impacto ambiental em relação aos seus similares.', 'Maior ciclo de vida e menor custo de manutenção do bem.', 'Utilização, preferencial, de embalagem adequada, com o menor volume possível, que utilize materiais recicláveis, de forma a garantir a máxima proteção durante o transporte e o armazenamento.', 'Não foram adotados critérios de sustentabilidade, conforme fundamentação técnica e mercadológica em anexo.', 'Outro.'].map(opt => (
                     <Checkbox key={opt} name="sustentabilidade" value={opt} checked={data.sustentabilidade.includes(opt)} onChange={handleCheckboxChange}>{opt}</Checkbox>
@@ -168,9 +168,9 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
                 {data.sustentabilidade.includes('Outro.') && <input type="text" name="sustentabilidadeOutro" value={data.sustentabilidadeOutro} onChange={handleChange} placeholder="Especificar" className={`${inputClasses} mt-2 ml-6`}/>}
             </div>
         </Field>
+        <Field label="3.8. Há necessidade de treinamento?"><RadioGroup name="treinamento" value={data.treinamento} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} /></Field>
         <Field label="3.9. Há prioridade para aquisição ou contratação, conforme Lei nº 12.035/2010?"><RadioGroup name="prioridadeLeiTipo" value={data.prioridadeLeiTipo} options={[{val: 'reciclados', label: 'Sim, para produtos reciclados e recicláveis.'}, {val: 'sustentaveis', label: 'Sim, para bens, serviços e obras que considerem critérios compatíveis com padrões de consumo social e ambientalmente sustentáveis.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} /></Field>
         {data.prioridadeLeiTipo === 'nao' && <Field label="Justificativa"><textarea name="prioridadeLeiJustificativa" value={data.prioridadeLeiJustificativa} onChange={handleChange} className={`${inputClasses} h-20`}/></Field>}
-        <Field label="3.10. Há necessidade de treinamento?"><RadioGroup name="treinamento" value={data.treinamento} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} /></Field>
       </Section>
 
       <Section title="4 – DESCRIÇÃO DA SOLUÇÃO" instruction="Indicar o conjunto de todos os elementos (bens, serviços e outros) necessários para, de forma integrada, gerar os resultados que atendam à necessidade que gerou a contratação, bem como informar necessidades relacionadas à manutenção, assistência técnica e garantia, quando for o caso.">
@@ -294,7 +294,6 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
       <Section title="11 – PENDÊNCIAS RELATIVAS À CONTRATAÇÃO" instruction="Caso a contratação dependa de outras ações ou programas, deve-se apresentar cronograma de providências a serem adotadas antes e durante o contrato para assegurar o êxito de seu resultado, como capacitação de servidores, adequação do espaço físico etc.">
           <Field label="11.1 - Há providências pendentes para o sucesso da contratação?"><RadioGroup name="pendencias" value={data.pendencias} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} /></Field>
           {data.pendencias === 'sim' && <Field label="Especificar:"><textarea name="pendenciasEspecificar" value={data.pendenciasEspecificar} onChange={handleChange} className={`${inputClasses} h-20`}/></Field>}
-          <Field label="11.2 - Quais são os setores responsáveis pelas providências pendentes?"><textarea name="pendenciasResponsaveis" value={data.pendenciasResponsaveis} onChange={handleChange} className={`${inputClasses} h-20`}/></Field>
       </Section>
 
       <Section title="12 – IMPACTOS AMBIENTAIS E MEDIDAS DE MITIGAÇÃO" instruction="Se a execução do contrato gerar impactos ambientais, eles devem ser indicados no quadro vermelho. Nessa hipótese, também devem ser especificadas, no quadro azul, as medidas que eliminem ou reduzam esses impactos.">
@@ -305,7 +304,7 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
           </div>}
       </Section>
       
-      <Section title="13 – DECLARAÇÃO DE VIABILIDADE">
+      <Section title="13 – CONCLUSÃO">
           <Field label="13.1 - A contratação possui viabilidade técnica, socioeconômica e ambiental?"><RadioGroup name="viabilidade" value={data.viabilidade} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} /></Field>
       </Section>
 
