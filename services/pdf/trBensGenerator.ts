@@ -361,7 +361,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('6.5. HÁ ITENS COM PARTICIPAÇÃO EXCLUSIVA DE ME/EPP?', textoParticipacaoME, true);
     // =========================================================================
 
-    pushHeader('7. REQUISITOS DA CONTRATADA E SUBCONTRATAÇÃO\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
+    pushHeader('7. REQUISITOS DA CONTRATADA\n(arts. 67 a 70 da Lei Federal nº 14.133/21)');
     pushRow('7.1. HABILITAÇÃO JURÍDICA', translateOptions(data.habilitacaoJuridica, mapJuridica));
     pushRow('7.2. FISCAL / SOCIAL', translateOptions(data.habilitacaoFiscal, mapFiscal));
     pushRow('7.3. QUALIFICAÇÃO ECONÔMICA', translateOptions(data.qualificacaoEconomica, mapEconomica));
@@ -379,14 +379,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('7.8. CONSÓRCIO', `${radio(data.participacaoConsorcio === 'sim')} Sim (${data.participacaoConsorcioPercentual || '0'}% acréscimo).\n\n${radio(data.participacaoConsorcio === 'nao')} Não. Motivo: ${data.participacaoConsorcioJustificativa || '-'}`, true);
     pushRow('7.9. SUBCONTRATAÇÃO?', `${radio(data.subcontratacao === 'sim')} Sim. Opção: ${data.subcontratacaoOpcao || '-'}\nDetalhes: ${data.subcontratacaoDetalhes || '-'}\n\n${radio(data.subcontratacao === 'nao')} Não.`, true);
 
-    pushHeader('8. FORMA DE ENTREGA DO BEM E DIRETRIZES\n(art. 40, § 1°, II, da Lei Federal nº 14.133/21)');
+    pushHeader('8. FORMA DE ENTREGA DO BEM\n(art. 40, § 1°, II, da Lei Federal nº 14.133/21)');
     pushRow('8.1. FORMA', data.formaEntregaTipo === 'unica' ? 'Integral de uma só vez.' : `Parcelada em ${data.entregaParcelasX || '-'} parcelas. A 1ª em até ${data.entregaParcelasY || '-'} dias da nota de empenho, e as demais mediante aviso com ${data.entregaParcelasZ || '-'} dias de antecedência.`, true);
     pushRow('8.2. LOCAL E HORA', data.localEntrega || '-', true);
-    if (data.prazoValidadePereciveis) pushRow('8.3. VALIDADE (PERECÍVEIS)', `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.`, true);
+    pushRow('8.3. PRAZO MÁXIMO DE VALIDADE', data.prazoValidadePereciveis ? `O prazo de validade não poderá ser inferior a ${data.prazoValidadePereciveis} dias da entrega.` : 'Não se aplica (bem não perecível).', true);
 
     pushHeader('9. PRAZO, FORMA DE PAGAMENTO E GARANTIA DO CONTRATO\n(art. 92 da Lei Federal nº 14.133/21)');
-    pushRow('9.1. PRAZO DO CONTRATO', `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.\nPossibilidade de Prorrogação: ${data.possibilidadeProrrogacao === 'sim' ? 'Sim' : 'Não'}.`);
-    
+    pushRow('9.1. PRAZO DO CONTRATO', `${data.prazoContrato === '30' ? '30 dias (Pronta Entrega)' : '12 meses'}.`);
+    pushRow('9.2. HAVERÁ POSSIBILIDADE DE PRORROGAÇÃO?', data.possibilidadeProrrogacao === 'sim' ? 'Sim, nas hipóteses do art. 111 da Lei Federal nº 14.133/21.' : 'Não.');
+
     const pgOpts = data.pagamentoOpcoes || [];
     let pgText = '';
     if(pgOpts.includes('ordem_bancaria')) pgText += '• O pagamento será realizado por ordem bancária creditada em conta corrente.\n';
@@ -394,12 +395,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
     if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${data.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
     if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${data.pagamentoRegularidade || 'Conforme Edital'}\n`;
-    pushRow('9.2. PAGAMENTO', pgText || 'Conforme Edital.', true);
-    
-    pushRow('9.3. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, true);
-    pushRow('9.4. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
+    pushRow('9.3. PAGAMENTO', pgText || 'Conforme Edital.', true);
+
+    pushRow('9.4. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, true);
+    pushRow('9.5. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
 
     pushHeader('10. PREVISÃO ORÇAMENTÁRIA\n(art. 18, § 1°, VI, da Lei Federal nº 14.133/21)');
+    pushFullRow('10.1. DADOS ORÇAMENTÁRIOS DA CONTRATAÇÃO');
     pushRow('FUNCIONAL', data.dadosOrcamentariosFuncional || '-');
     pushRow('ELEMENTO E FONTE', `Elemento: ${data.dadosOrcamentariosElemento || '-'}   |   Fonte: ${data.dadosOrcamentariosFonte || '-'}`);
 

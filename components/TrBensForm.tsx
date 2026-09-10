@@ -786,6 +786,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
       </Section>
 
       <Section title="10. PREVISÃO ORÇAMENTÁRIA">
+          <h3 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">10.1. Dados Orçamentários da Contratação</h3>
           <div className="grid md:grid-cols-3 gap-4">
                 <Field label="Funcional Programática"><input type="text" name="dadosOrcamentariosFuncional" value={data.dadosOrcamentariosFuncional} onChange={handleChange} className={inputClasses} placeholder="xxx" /></Field>
                 <Field label="Elemento de Despesa"><input type="text" name="dadosOrcamentariosElemento" value={data.dadosOrcamentariosElemento} onChange={handleChange} className={inputClasses} placeholder="xxx" /></Field>
