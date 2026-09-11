@@ -446,6 +446,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                 )}
                 <Checkbox name="formaContratacao" value="pregao" checked={data.formaContratacao.includes('pregao')} onChange={handleCheckboxChange}>Pregão eletrônico.</Checkbox>
                 <Checkbox name="formaContratacao" value="pregao_rp" checked={data.formaContratacao.includes('pregao_rp')} onChange={handleCheckboxChange}>Pregão eletrônico para Registro de Preços.</Checkbox>
+                <Checkbox name="formaContratacao" value="adesao_ata" checked={data.formaContratacao.includes('adesao_ata')} onChange={handleCheckboxChange}>Adesão à Ata de Registro de Preços.</Checkbox>
             </div>
         </Field>
         <Field label="6.2 Critério de Julgamento">

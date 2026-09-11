@@ -343,7 +343,8 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         `${radio(fC.includes('dispensa_valor'))} Dispensa por Valor (Art. 75, II)`,
         `${radio(fC.includes('dispensa_art75'))} Dispensa (Art. 75, Inciso ${data.dispensaInciso || '...'})`,
         `${radio(fC.includes('pregao'))} Pregão eletrônico`,
-        `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`
+        `${radio(fC.includes('pregao_rp'))} Pregão para Registro de Preços`,
+        `${radio(fC.includes('adesao_ata'))} Adesão à Ata de Registro de Preços`
     ].join('\n\n'));
     pushRow('6.2. CRITÉRIO DE JULGAMENTO', `${radio(data.criterioJulgamento === 'menor_preco')} Menor preço.\n\n${radio(data.criterioJulgamento === 'maior_desconto')} Maior desconto.`);
     pushRow('6.3. O ORÇAMENTO É SIGILOSO?', `${radio(data.orcamentoSigiloso === 'sim')} Sim. Justificativa: ${data.justificativaOrcamentoSigiloso || '-'}\n\n${radio(data.orcamentoSigiloso === 'nao')} Não.`, true);
