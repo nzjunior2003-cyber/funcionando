@@ -56,29 +56,43 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     const checkboxHook = (hookData: any) => {
         if (hookData.cell.raw && hookData.cell.raw.hasCheckboxes) {
-            const states = hookData.cell.raw.checkboxStates;
-            let startX = hookData.cell.x + 3;
+            const cell = hookData.cell;
+            const states = cell.raw.checkboxStates;
+            const styles = cell.styles;
+            const boxSize = 2.1;
+            let startX = cell.x + 3;
 
-            if (hookData.cell.styles.halign === 'center') {
-                const firstLine = hookData.cell.text[0] || '';
-                doc.setFont('helvetica', hookData.cell.styles.fontStyle);
-                doc.setFontSize(hookData.cell.styles.fontSize);
+            if (styles.halign === 'center') {
+                const firstLine = (cell.text && cell.text[0]) || '';
+                doc.setFont('helvetica', styles.fontStyle);
+                doc.setFontSize(styles.fontSize);
                 const textWidth = doc.getTextWidth(firstLine);
-                startX = hookData.cell.x + (hookData.cell.width / 2) - (textWidth / 2) - 4;
+                startX = cell.x + (cell.width / 2) - (textWidth / 2) - 4;
             }
 
-            const startY = hookData.cell.y + hookData.cell.padding('top') + 1.2;
-            const lineHeight = hookData.cell.styles.fontSize * 0.352777 * 1.15;
+            // Mesma conta de altura de linha usada no resto do motor de PDF,
+            // e respeita valign:'middle' (célula alta ao lado de um texto
+            // longo) em vez de sempre colar as caixas no topo da célula —
+            // sem isso, as caixas ficavam bem mais acima de "Sim"/"Não".
+            const fontSizeMm = (styles.fontSize * 25.4) / 72;
+            const lineHeight = fontSizeMm * (styles.lineHeightFactor || 1.15);
+            const padTop = typeof styles.cellPadding === 'number' ? styles.cellPadding : styles.cellPadding?.top ?? 1.2;
+            const totalTextHeight = states.length * lineHeight;
+            let startY = cell.y + padTop;
+            if (styles.valign === 'middle') {
+                startY = cell.y + (cell.height - totalTextHeight) / 2;
+            }
 
             states.forEach((isChecked: boolean, i: number) => {
-                const rectY = startY + (i * lineHeight);
-                doc.setLineWidth(0.2);
+                const lineY = startY + (i * lineHeight);
+                const rectY = lineY + ((fontSizeMm - boxSize) / 2);
+                doc.setLineWidth(0.15);
                 doc.setDrawColor(0);
                 if (isChecked) {
                     doc.setFillColor(0, 0, 0);
-                    doc.rect(startX, rectY, 3, 3, 'FD');
+                    doc.rect(startX, rectY, boxSize, boxSize, 'FD');
                 } else {
-                    doc.rect(startX, rectY, 3, 3, 'S');
+                    doc.rect(startX, rectY, boxSize, boxSize, 'S');
                 }
             });
         }
