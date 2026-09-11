@@ -10,7 +10,7 @@ const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
 const ZEBRA_BLUE: [number, number, number] = [244, 249, 255];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
-const SAFE_BOTTOM_MARGIN = 45;
+const SAFE_BOTTOM_MARGIN = 32; // Rodapé institucional ocupa ~30mm (logo começa em PAGE_HEIGHT - 30)
 
 export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) => {
     let y = MARGIN_TOP;
