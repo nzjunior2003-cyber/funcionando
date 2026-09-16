@@ -439,16 +439,31 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // ASSINATURAS E RODAPÉ
     // ============================================================================
     let finalY = (doc as any).lastAutoTable.finalY + 15;
-    if (finalY > PAGE_HEIGHT - 65) {
-        doc.addPage();
-        finalY = MARGIN_TOP + 10;
+
+    // Tenta o espaçamento "ideal" de sempre entre a data e a assinatura;
+    // se não couber mas um espaçamento mais compacto (ainda legível)
+    // couber, usa o compacto em vez de jogar tudo pra uma página nova
+    // e desperdiçar o espaço que sobrou na página atual.
+    const idealGap = 30, compactGap = 15;
+    const sigFootprint = 10; // altura ocupada abaixo da linha de assinatura (nome + função)
+    const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - finalY;
+
+    let gap = idealGap;
+    if (remaining < idealGap + sigFootprint) {
+        if (remaining >= compactGap + sigFootprint) {
+            gap = compactGap;
+        } else {
+            doc.addPage();
+            finalY = MARGIN_TOP + 10;
+            gap = idealGap;
+        }
     }
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, finalY, { align: 'right' });
-    
-    finalY += 30;
+
+    finalY += gap;
     
     const sigWidth = 80;
     const sigX = PAGE_WIDTH / 2;

@@ -8,7 +8,6 @@ import {
     formatDate, 
     formatCurrency,
     setDefaultFont,
-    checkPageBreak,
     sanitizeText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
@@ -537,13 +536,26 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     });
 
-    // Reserva de uma só vez o espaço de data + assinatura, para as duas nunca
-    // ficarem separadas por uma quebra de página no meio.
-    let lastY = checkPageBreak(doc, (doc as any).lastAutoTable.finalY + 15, 40);
+    // Tenta o espaçamento "ideal" de sempre entre data e assinatura; se não
+    // couber mas um espaçamento mais compacto (ainda legível) couber, usa o
+    // compacto em vez de jogar tudo pra uma página nova — data e assinatura
+    // nunca ficam separadas, mas o espaço que sobra não é desperdiçado.
+    let lastY = (doc as any).lastAutoTable.finalY + 15;
+    const idealGap = 20, compactGap = 10, sigFootprint = 10;
+    const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - lastY;
+    let gap = idealGap;
+    if (remaining < idealGap + sigFootprint) {
+        if (remaining >= compactGap + sigFootprint) {
+            gap = compactGap;
+        } else {
+            doc.addPage();
+            lastY = MARGIN_TOP;
+        }
+    }
     doc.setFontSize(10);
     doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - R_MARGIN, lastY, { align: 'right' });
 
-    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, lastY + 20);
+    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, lastY + gap);
 
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {

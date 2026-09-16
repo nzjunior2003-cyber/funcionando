@@ -3,14 +3,13 @@ import { DfdData } from '../../types';
 import {
     drawInstitutionalHeader,
     drawInstitutionalFooter,
-    checkPageBreak,
     drawFormattedSignature,
     formatDate,
     setDefaultFont,
     drawCheckbox,
     drawJustifiedText
 } from './pdfUtils';
-import { PAGE_WIDTH, PAGE_HEIGHT, TEXT_WIDTH, MARGIN_LEFT, MARGIN_RIGHT } from './pdfConstants';
+import { PAGE_WIDTH, PAGE_HEIGHT, TEXT_WIDTH, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 /**
  * Retorna o artigo correto (À/Ao) baseado no nome da unidade.
@@ -80,14 +79,26 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     yPos = drawCheckbox(doc, MARGIN_LEFT + 2, yPos, 'ainda não há Plano de Contratações Anual aprovado para este exercício.', data.statusPCA === 'inexistente');
 
     // 6. Data e Local Centralizado + 7. Bloco de Assinatura
-    // Reserva de uma só vez o espaço de data + assinatura, para as duas nunca
-    // ficarem separadas por uma quebra de página no meio.
+    // Tenta o espaçamento "ideal" de sempre entre data e assinatura; se não
+    // couber mas um espaçamento mais compacto (ainda legível) couber, usa o
+    // compacto em vez de jogar tudo pra uma página nova — data e assinatura
+    // nunca ficam separadas, mas o espaço que sobra não é desperdiçado.
     yPos += 20;
-    yPos = checkPageBreak(doc, yPos, 40);
+    const idealGap = 20, compactGap = 10, sigFootprint = 10;
+    const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - yPos;
+    let gap = idealGap;
+    if (remaining < idealGap + sigFootprint) {
+        if (remaining >= compactGap + sigFootprint) {
+            gap = compactGap;
+        } else {
+            doc.addPage();
+            yPos = MARGIN_TOP;
+        }
+    }
     const dateLine = `${data.cidade || 'Cidade'} (PA), ${formatDate(data.data)}.`;
     doc.text(dateLine, PAGE_WIDTH / 2, yPos, { align: 'center' });
 
-    yPos += 20;
+    yPos += gap;
     drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao || 'matrícula', PAGE_WIDTH / 2, yPos);
 
     // 8. Lógica do Rodapé: Institucional SOMENTE na última página

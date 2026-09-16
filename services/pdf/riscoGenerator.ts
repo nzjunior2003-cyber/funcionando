@@ -7,11 +7,10 @@ import {
     formatDate,
     COLOR_HEADER_BG,
     ITEM_GRAY_BG,
-    checkPageBreak,
     drawInstitutionalFooter, // <-- Importação do rodapé adicionada aqui!
     createJustifiedCellHooks
 } from './pdfUtils';
-import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from './pdfConstants';
+import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
     let finalY = drawDocumentHeader(doc, 'ANÁLISE DE RISCO', `PAE Nº ${data.pae || '...'}`);
@@ -54,9 +53,23 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
          finalY += 20;
     }
 
-    finalY = checkPageBreak(doc, finalY, 50);
-    doc.text(`${data.cidade || 'Belém'}, ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY + 10, { align: 'center' });
-    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + 30);
+    // Tenta o espaçamento "ideal" de sempre entre data e assinatura; se não
+    // couber mas um espaçamento mais compacto (ainda legível) couber, usa o
+    // compacto em vez de jogar tudo pra uma página nova — data e assinatura
+    // nunca ficam separadas, mas o espaço que sobra não é desperdiçado.
+    const preDateGap = 10, idealGap = 20, compactGap = 10, sigFootprint = 10;
+    const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - finalY;
+    let gap = idealGap;
+    if (remaining < preDateGap + idealGap + sigFootprint) {
+        if (remaining >= preDateGap + compactGap + sigFootprint) {
+            gap = compactGap;
+        } else {
+            doc.addPage();
+            finalY = MARGIN_TOP;
+        }
+    }
+    doc.text(`${data.cidade || 'Belém'}, ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY + preDateGap, { align: 'center' });
+    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + preDateGap + gap);
 
     // Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();
