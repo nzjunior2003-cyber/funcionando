@@ -312,15 +312,37 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y = (doc as any).lastAutoTable.finalY + 10;
 
     // Assinaturas Híbridas
-    // Reserva de uma só vez o espaço de data + assinatura(s), para elas nunca
-    // ficarem separadas por uma quebra de página no meio.
-    addPage(30 + 15 + (data.assinante2Nome ? 15 + 25 : 0));
+    // Mantém o espaçamento "ideal" de sempre quando cabe; se não couber na
+    // página atual, tenta um espaçamento mais compacto (ainda legível)
+    // antes de desistir e pular pra uma página nova — assim a folga que
+    // sobra no fim da página anterior não é jogada fora à toa, e a
+    // data e a(s) assinatura(s) continuam sempre juntas.
+    const hasSig2 = !!data.assinante2Nome;
+    const idealGapAfterDate = 30, compactGapAfterDate = 15;
+    const idealGapEntreAssinantes = 40, compactGapEntreAssinantes = 20;
+    const sigLineHeight = 15;
+    const idealHeight = idealGapAfterDate + sigLineHeight + (hasSig2 ? idealGapEntreAssinantes + sigLineHeight : 0);
+    const compactHeight = compactGapAfterDate + sigLineHeight + (hasSig2 ? compactGapEntreAssinantes + sigLineHeight : 0);
+    const remaining = (PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) - y;
+
+    let gapAfterDate = idealGapAfterDate;
+    let gapEntreAssinantes = idealGapEntreAssinantes;
+    if (remaining < idealHeight) {
+        if (remaining >= compactHeight) {
+            gapAfterDate = compactGapAfterDate;
+            gapEntreAssinantes = compactGapEntreAssinantes;
+        } else {
+            doc.addPage();
+            y = MARGIN_TOP;
+        }
+    }
+
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
-    
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
+
     const sigX = PAGE_WIDTH / 2;
-    y += 30;
-    
+    y += gapAfterDate;
+
     const drawSignatureLocal = (nomeCompleto: string, nomeGuerra: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
         if (!nomeCompleto) return;
         doc.setLineWidth(0.1); doc.setDrawColor(120); doc.line(xPos - 40, yPos, xPos + 40, yPos);
@@ -344,7 +366,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const dataAny = data as any;
     drawSignatureLocal(data.assinante1Nome, dataAny.assinante1NomeGuerra || '', data.assinante1Cargo, data.assinante1Funcao, sigX, y);
     if (data.assinante2Nome) {
-        y += 15; y += 25;
+        y += gapEntreAssinantes;
         drawSignatureLocal(data.assinante2Nome, dataAny.assinante2NomeGuerra || '', data.assinante2Cargo, data.assinante2Funcao, sigX, y);
     }
 
