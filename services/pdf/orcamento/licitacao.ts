@@ -566,7 +566,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     // data e a(s) assinatura(s) continuam sempre juntas.
     const hasSig2 = !!data.assinante2Nome;
     const idealGapAfterDate = 35, compactGapAfterDate = 15;
-    const idealGapEntreAssinantes = 45, compactGapEntreAssinantes = 25;
+    const idealGapEntreAssinantes = 45, compactGapEntreAssinantes = 20;
     const sigLineHeight = 15;
     const idealHeight = idealGapAfterDate + sigLineHeight + (hasSig2 ? idealGapEntreAssinantes + sigLineHeight : 0);
     const compactHeight = compactGapAfterDate + sigLineHeight + (hasSig2 ? compactGapEntreAssinantes + sigLineHeight : 0);
