@@ -134,18 +134,22 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     ]];
     if (isDir && data.fornecedoresDiretos?.length) {
         data.fornecedoresDiretos.forEach((f, i) => {
-            s4b.push([
-                i === 0 ? { content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `Justificativa: ${f.justificativa}`, styles: { halign: 'justify' } }
-            ]);
+            const row: any[] = [
+                { content: f.nome, styles: { halign: 'center' } },
+                { content: `Justificativa: ${f.justificativa?.trim() || 'Não informada.'}`, styles: { halign: 'justify' } }
+            ];
+            if (i === 0) row.unshift({ content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length });
+            s4b.push(row);
         });
         data.fornecedoresDiretos.forEach((f, i) => {
             const boxReqSim = f.requisitos === 'sim' ? '[ X ]' : '[   ]';
             const boxReqNao = f.requisitos === 'nao' ? '[ X ]' : '[   ]';
-            s4b.push([
-                i === 0 ? { content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `${boxReqSim} Sim\n${boxReqNao} Não`, styles: { halign: 'center' } }
-            ]);
+            const row: any[] = [
+                { content: f.nome, styles: { halign: 'center' } },
+                { content: `${boxReqSim} Sim\n${boxReqNao} Não`, styles: { halign: 'center' } }
+            ];
+            if (i === 0) row.unshift({ content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length });
+            s4b.push(row);
         });
     }
     autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: combinedWillDrawCell, didDrawCell: combinedCheckboxJustifyDidDrawCell });

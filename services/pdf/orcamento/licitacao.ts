@@ -188,18 +188,25 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }
     ]];
     if (isDir && data.fornecedoresDiretos?.length) {
+        // Com rowSpan, a coluna mesclada só entra na primeira linha do grupo —
+        // nas linhas seguintes ela não deve ter célula nenhuma (nem vazia),
+        // senão o autoTable desloca as colunas seguintes (o nome acaba indo
+        // parar na coluna da justificativa, e a justificativa real some).
         data.fornecedoresDiretos.forEach((f, i) => {
-            s4b.push([
-                i === 0 ? { content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `Justificativa: ${f.justificativa}`, styles: { halign: 'justify' } }
-            ]);
+            const row: any[] = [
+                { content: f.nome, styles: { halign: 'center' } },
+                { content: `Justificativa: ${f.justificativa?.trim() || 'Não informada.'}`, styles: { halign: 'justify' } }
+            ];
+            if (i === 0) row.unshift({ content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length });
+            s4b.push(row);
         });
         data.fornecedoresDiretos.forEach((f, i) => {
-            s4b.push([
-                i === 0 ? { content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length } : '',
+            const row: any[] = [
                 { content: f.nome, styles: { halign: 'center' } },
                 { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [f.requisitos === 'sim', f.requisitos === 'nao'], styles: { halign: 'left' } }
-            ]);
+            ];
+            if (i === 0) row.unshift({ content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length });
+            s4b.push(row);
         });
     }
     autoTable(doc, {
