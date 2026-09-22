@@ -262,6 +262,7 @@ export interface TrBensItem extends EtpItem {
   codigoSimas: string;
   concorrencia: string;
   loteId?: string;
+  aplicarCotaMeEpp?: boolean; // Controla se a reserva de cota ME/EPP (art. 48, Lei 14.133/21) é aplicada a este item/grupo.
 }
 
 export interface TrBensData extends Signatory {

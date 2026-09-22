@@ -72,10 +72,39 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
     }));
   };
 
-  const handleItemChange = (id: string, field: keyof TrBensItem, value: string | number) => {
+  const handleItemChange = (id: string, field: keyof TrBensItem, value: string | number | boolean) => {
     setData(prev => ({
         ...prev,
         itens: prev.itens.map(item => item.id === id ? { ...item, [field]: value } : item)
+    }));
+  };
+
+  // Liga/desliga a reserva de cota ME/EPP de UM item avulso (sem grupo).
+  // Antes de desmarcar num item de até R$ 80.000,00 — onde a Lei manda ser
+  // exclusivo pra ME/EPP — pede uma confirmação, porque isso é uma exceção
+  // que precisa estar justificada no processo administrativo (fora desta
+  // ferramenta, num despacho do demandante, por exemplo).
+  const handleCotaToggle = (item: TrBensItem, checked: boolean) => {
+    const valorItem = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0);
+    if (!checked && valorItem <= 80000 && valorItem > 0) {
+        const confirmJustificativa = window.confirm("ATENÇÃO: A Lei prevê exclusividade ME/EPP para itens até R$ 80.000,00.\n\nHá justificativa no processo para não atendimento desta previsão legal?");
+        if (!confirmJustificativa) return;
+    }
+    handleItemChange(item.id, 'aplicarCotaMeEpp', checked);
+  };
+
+  // Mesma ideia acima, mas pra um GRUPO inteiro de itens: como a regra é
+  // calculada em cima do valor total do grupo, ligar/desligar precisa
+  // aplicar o mesmo valor a TODOS os itens daquele loteId de uma vez —
+  // não faria sentido um item do grupo aplicar a regra e outro não.
+  const handleLoteCotaToggle = (loteId: string, checked: boolean, valorLote: number) => {
+    if (!checked && valorLote <= 80000 && valorLote > 0) {
+        const confirmJustificativa = window.confirm("ATENÇÃO: A Lei prevê exclusividade ME/EPP para Grupos até R$ 80.000,00.\n\nHá justificativa no processo para não atendimento desta previsão legal?");
+        if (!confirmJustificativa) return;
+    }
+    setData(prev => ({
+        ...prev,
+        itens: prev.itens.map(item => item.loteId === loteId ? { ...item, aplicarCotaMeEpp: checked } : item)
     }));
   };
 
@@ -97,7 +126,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
   };
 
   const addItem = () => {
-    const newItem: TrBensItem = { id: Date.now().toString(), grupo: '', item: (data.itens.length + 1).toString(), descricao: '', codigoSimas: '', unidade: '', quantidade: 0, valorUnitario: 0, concorrencia: '' };
+    const newItem: TrBensItem = { id: Date.now().toString(), grupo: '', item: (data.itens.length + 1).toString(), descricao: '', codigoSimas: '', unidade: '', quantidade: 0, valorUnitario: 0, concorrencia: '', aplicarCotaMeEpp: true };
     setData(prev => ({ ...prev, itens: [...prev.itens, newItem] }));
   };
 
@@ -265,6 +294,33 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                         />
                     </div>
                 </div>
+
+                {/* Checkbox de cota ME/EPP — só aparece pra item AVULSO (sem grupo).
+                    Itens dentro de um grupo usam o checkbox único do cabeçalho do
+                    grupo, porque a regra é calculada em cima do valor do grupo todo. */}
+                {!item.loteId && (() => {
+                    const valorItem = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0);
+                    const isAboveTeto = valorItem > 4800000;
+                    const isExclusivoME = valorItem <= 80000 && valorItem > 0;
+                    let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste item";
+                    if (isAboveTeto) cotaMessage = "Valor acima do limite (R$ 4,8M). 100% Ampla Concorrência.";
+                    else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Até R$ 80.000,00)";
+
+                    return (
+                        <div className={`md:col-span-12 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={item.aplicarCotaMeEpp !== false && !isAboveTeto}
+                                    onChange={e => handleCotaToggle(item, e.target.checked)}
+                                    disabled={isAboveTeto}
+                                    className="h-4 w-4 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red cursor-pointer disabled:opacity-50"
+                                />
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{cotaMessage}</span>
+                            </label>
+                        </div>
+                    );
+                })()}
             </div>
         </div>
     );
@@ -304,16 +360,45 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
         {/* Lista de Cards (Substituindo a Tabela) */}
         <div className="space-y-6 mb-6">
             {/* Renderizar Grupos */}
-            {Object.keys(groupedItens.lotes).sort().map(loteId => (
-                <div key={`lote-group-${loteId}`} className="bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <h3 className="font-bold text-lg text-cbmpa-red uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
-                        Grupo: {loteId}
-                    </h3>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {groupedItens.lotes[loteId].map(item => renderItemCard(item))}
+            {Object.keys(groupedItens.lotes).sort().map(loteId => {
+                const itensLote = groupedItens.lotes[loteId];
+                const valorTotalLote = itensLote.reduce((acc, it) => acc + ((Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0)), 0);
+                const isAboveTeto = valorTotalLote > 4800000;
+                const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
+                const aplicarCota = itensLote[0]?.aplicarCotaMeEpp !== false;
+
+                let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste GRUPO";
+                if (isAboveTeto) cotaMessage = "Valor do Grupo acima do limite (R$ 4,8M). 100% Ampla Concorrência.";
+                else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Grupo até R$ 80.000,00)";
+
+                return (
+                    <div key={`lote-group-${loteId}`} className="bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <h3 className="font-bold text-lg text-cbmpa-red uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
+                            Grupo: {loteId}
+                        </h3>
+
+                        {/* Checkbox único pro grupo inteiro: a regra do art. 48 é calculada
+                            em cima do valor somado de todos os itens do grupo, então ligar/
+                            desligar aqui aplica o mesmo valor a todo mundo do grupo de uma vez. */}
+                        <div className={`mb-4 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={aplicarCota && !isAboveTeto}
+                                    onChange={e => handleLoteCotaToggle(loteId, e.target.checked, valorTotalLote)}
+                                    disabled={isAboveTeto}
+                                    className="h-4 w-4 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red cursor-pointer disabled:opacity-50"
+                                />
+                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{cotaMessage}</span>
+                            </label>
+                        </div>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            {itensLote.map(item => renderItemCard(item))}
+                        </div>
                     </div>
-                </div>
-            ))}
+                );
+            })}
             
             {/* Renderizar Itens sem Grupo */}
             {groupedItens.ungrouped.length > 0 && (

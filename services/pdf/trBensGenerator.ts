@@ -240,6 +240,13 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             (acc, it) => acc + (Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0), 0
         );
 
+        // O demandante pode decidir, com justificativa própria no processo,
+        // não aplicar a reserva de cota ME/EPP mesmo quando a Lei preveria —
+        // isso vem do checkbox do formulário. Segue o mesmo critério do
+        // Orçamento Estimado: olha o valor do PRIMEIRO item do grupo, já que
+        // o checkbox liga/desliga o campo em todos os itens do grupo juntos.
+        const aplicarCotaMeEpp = itens[0]?.aplicarCotaMeEpp !== false;
+
         // Por padrão, sem nenhuma regra especial, 100% do item vai pra Ampla.
         // O Map guarda o resultado de cada item — vamos sobrescrever essas
         // entradas abaixo, conforme a faixa de valor em que o grupo se encaixa.
@@ -248,7 +255,11 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
         let modo: 'ampla' | 'exclusiva' | 'dividida' = 'ampla';
 
-        if (valorTotal > 0 && valorTotal <= LIMITE_SRP_COTA) {
+        if (!aplicarCotaMeEpp) {
+            // Demandante optou por não reservar cota (com justificativa no
+            // processo) — mantém 100% Ampla Concorrência independentemente
+            // da faixa de valor.
+        } else if (valorTotal > 0 && valorTotal <= LIMITE_SRP_COTA) {
             // Art. 48, I: contratação de até R$ 80.000,00 é EXCLUSIVA para ME/EPP.
             modo = 'exclusiva';
             itens.forEach(it => splits.set(it, { qtdAmpla: 0, qtdMeEpp: Number(it.quantidade) || 0 }));
