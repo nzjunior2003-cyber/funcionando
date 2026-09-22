@@ -213,27 +213,90 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         }
     };
 
-    const hasLote = data.itens.some(item => item.loteId && item.loteId.trim() !== '');
+    // Constantes da regra de rateio de cota ME/EPP (Lei 14.133/21, art. 48).
+    // Ficam nomeadas (em vez de números soltos no meio do código, o que
+    // chamamos de "magic numbers") pra qualquer pessoa lendo entender o
+    // significado de cada valor sem precisar decorar a lei.
+    const TETO_VALOR_LOTE = 4800000;   // Acima disso, a cota deixa de ser obrigatória (§2º).
+    const LIMITE_SRP_COTA = 80000;     // Teto absoluto da cota ME/EPP quando o processo é SRP.
+    const PERCENTUAL_COTA = 0.25;      // 25% é o percentual padrão de reserva (art. 48, III).
 
-    const lotesTotal: Record<string, number> = {};
-    if (hasLote) {
-        data.itens.forEach(it => {
-            if (it.loteId) {
-                lotesTotal[it.loteId] = (lotesTotal[it.loteId] || 0) + ((it.quantidade || 0) * (it.valorUnitario || 0));
-            }
+    // "SRP" = Sistema de Registro de Preços. No TR de Bens isso é identificado
+    // pelas checkboxes de forma de contratação: Pregão p/ Registro de Preços
+    // ou Adesão a uma Ata já existente — em ambos os casos a cota ME/EPP,
+    // quando calculada em percentual, fica limitada a R$ 80.000,00.
+    const isSRP = data.formaContratacao?.includes('pregao_rp') || data.formaContratacao?.includes('adesao_ata');
+
+    type TrItem = TrBensData['itens'][0];
+    type Split = { qtdAmpla: number; qtdMeEpp: number };
+
+    // Função pura: recebe os itens de UM grupo (ou um único item avulso,
+    // tratado como "grupo de 1") e devolve quanto de cada item vai pra
+    // Ampla Concorrência e quanto vai pra cota ME/EPP, seguindo a mesma
+    // matemática já usada e validada no Orçamento Estimado
+    // (components/OrcamentoForm.tsx, função processItems).
+    const calcularSplit = (itens: TrItem[]) => {
+        const valorTotal = itens.reduce(
+            (acc, it) => acc + (Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0), 0
+        );
+
+        // Por padrão, sem nenhuma regra especial, 100% do item vai pra Ampla.
+        // O Map guarda o resultado de cada item — vamos sobrescrever essas
+        // entradas abaixo, conforme a faixa de valor em que o grupo se encaixa.
+        const splits = new Map<TrItem, Split>();
+        itens.forEach(it => splits.set(it, { qtdAmpla: Number(it.quantidade) || 0, qtdMeEpp: 0 }));
+
+        let modo: 'ampla' | 'exclusiva' | 'dividida' = 'ampla';
+
+        if (valorTotal > 0 && valorTotal <= LIMITE_SRP_COTA) {
+            // Art. 48, I: contratação de até R$ 80.000,00 é EXCLUSIVA para ME/EPP.
+            modo = 'exclusiva';
+            itens.forEach(it => splits.set(it, { qtdAmpla: 0, qtdMeEpp: Number(it.quantidade) || 0 }));
+        } else if (valorTotal > LIMITE_SRP_COTA && valorTotal <= TETO_VALOR_LOTE) {
+            // Faixa intermediária: reserva-se 25% do valor pra ME/EPP,
+            // limitado a R$ 80.000,00 quando o processo é SRP.
+            modo = 'dividida';
+            let valorCota = valorTotal * PERCENTUAL_COTA;
+            if (isSRP && valorCota > LIMITE_SRP_COTA) valorCota = LIMITE_SRP_COTA;
+            const percentualEfetivo = valorCota / valorTotal;
+
+            itens.forEach(it => {
+                const qtdTotal = Number(it.quantidade) || 0;
+                // Math.floor arredonda pra baixo: garante que a soma das cotas
+                // de todos os itens do grupo nunca ultrapasse o percentual (ou
+                // teto) calculado — o "resto" da divisão sobra pra Ampla.
+                const qtdMeEpp = Math.floor(qtdTotal * percentualEfetivo);
+                const qtdAmpla = qtdTotal - qtdMeEpp;
+                splits.set(it, { qtdAmpla, qtdMeEpp });
+            });
+        }
+        // Se valorTotal > TETO_VALOR_LOTE (ou for zero), mantém o padrão
+        // "tudo Ampla" já setado acima — nada a fazer aqui.
+
+        // Soma quanto em R$ cada categoria representa, pra alimentar as
+        // linhas de total que aparecem no fim de cada grupo.
+        let totalAmpla = 0, totalMeEpp = 0;
+        itens.forEach(it => {
+            const { qtdAmpla, qtdMeEpp } = splits.get(it)!;
+            const valorUnit = Number(it.valorUnitario) || 0;
+            totalAmpla += qtdAmpla * valorUnit;
+            totalMeEpp += qtdMeEpp * valorUnit;
         });
-    }
+
+        return { splits, modo, totalAmpla, totalMeEpp, totalGrupo: totalAmpla + totalMeEpp };
+    };
 
     const t1Head: any[] = [];
-    t1Head.push([{ 
-        content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)', 
-        colSpan: hasLote ? 9 : 8, 
-        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' } 
+    t1Head.push([{
+        content: '1. O QUE SERÁ CONTRATADO?\n(art. 6°, XXIII, a e i, da Lei Federal nº 14.133/21)',
+        colSpan: 8,
+        styles: { fillColor: colorBlueHeader, textColor: 255, halign: 'center', fontStyle: 'bold' }
     }]);
 
-    const colNamesRow: any[] = [];
-    if (hasLote) colNamesRow.push({ content: 'Grupo', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } });
-    colNamesRow.push(
+    // A coluna "Grupo" não existe mais — o nome do grupo agora vira uma
+    // linha de título dentro da própria tabela (igual ao Orçamento Estimado),
+    // então a tabela sempre tem 8 colunas, com ou sem agrupamento.
+    const colNamesRow: any[] = [
         { content: 'Item', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Descrição', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Código SIMAS', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
@@ -242,36 +305,104 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         { content: 'V. Unitário', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'V. Total', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } },
         { content: 'Concorrência', styles: { halign: 'center', valign: 'middle', fillColor: colorYellowHeader, fontStyle: 'bold' } }
-    );
+    ];
     t1Head.push(colNamesRow);
 
     const t1Body: RowInput[] = [];
     let totalGlobal = 0;
-    
+
+    // Desenha as 1 ou 2 linhas de UM item (1 linha se ele for 100% de um tipo
+    // só; 2 linhas — uma "Ampla" e uma "Cota Reservada" — se o valor do grupo
+    // caiu na faixa que exige rateio).
+    const pushItemRows = (item: TrItem, split: Split, modo: 'ampla' | 'exclusiva' | 'dividida') => {
+        const pushRow = (qtd: number, label: string) => {
+            if (qtd <= 0) return; // Não imprime linha "vazia" (ex.: cota 0 quando o rateio zerou o item).
+            const valorPorcao = qtd * (Number(item.valorUnitario) || 0);
+            t1Body.push([
+                { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
+                { content: sanitizeText(item.descricao), styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
+                { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
+                { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
+                { content: qtd.toString(), styles: { halign: 'center', valign: 'middle' } },
+                { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
+                { content: formatCurrency(valorPorcao), styles: { halign: 'right', valign: 'middle' } },
+                { content: label, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
+            ]);
+        };
+
+        if (modo === 'exclusiva') {
+            pushRow(split.qtdMeEpp, 'Exclusiva\nME/EPP');
+        } else if (modo === 'ampla') {
+            pushRow(split.qtdAmpla, 'Ampla\nConcorrência');
+        } else {
+            pushRow(split.qtdAmpla, 'Ampla\nConcorrência');
+            pushRow(split.qtdMeEpp, 'Cota Reservada\nME/EPP');
+        }
+    };
+
+    // Processa um grupo inteiro (ou um item avulso, como grupo de 1): soma no
+    // total global, calcula o rateio e desenha as linhas de item. Devolve os
+    // totais do grupo pra quem chamou decidir se desenha (ou não) as linhas
+    // de subtotal — itens avulsos não têm subtotal próprio, só os grupos.
+    const processarGrupo = (itens: TrItem[]) => {
+        itens.forEach(it => { totalGlobal += (Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0); });
+        const { splits, modo, totalAmpla, totalMeEpp, totalGrupo } = calcularSplit(itens);
+        itens.forEach(it => pushItemRows(it, splits.get(it)!, modo));
+        return { totalAmpla, totalMeEpp, totalGrupo };
+    };
+
+    // Separa os itens em grupos (mesmo loteId) e avulsos (sem loteId),
+    // preservando a ordem em que cada grupo apareceu pela primeira vez —
+    // mesma estratégia usada no Orçamento Estimado (licitacao.ts).
+    const ordemGrupos: string[] = [];
+    const itensPorGrupo: Record<string, TrItem[]> = {};
+    const avulsos: TrItem[] = [];
+
     data.itens.forEach(item => {
-        const subtotal = (item.quantidade || 0) * (item.valorUnitario || 0);
-        totalGlobal += subtotal;
-
-        const valorReferencia = (hasLote && item.loteId) ? lotesTotal[item.loteId] : subtotal;
-        const cotaStr = (valorReferencia <= 80000 && valorReferencia > 0) ? 'Exclusiva\nME/EPP' : 'Ampla\nConcorrência';
-
-        const row: any[] = [];
-        if (hasLote) row.push({ content: item.loteId || '-', styles: { halign: 'center', valign: 'middle' } });
-        row.push(
-            { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
-            { content: sanitizeText(item.descricao), styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
-            { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
-            { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
-            { content: (item.quantidade || 0).toString(), styles: { halign: 'center', valign: 'middle' } },
-            { content: formatCurrency(item.valorUnitario), styles: { halign: 'right', valign: 'middle' } },
-            { content: formatCurrency(subtotal), styles: { halign: 'right', valign: 'middle' } },
-            { content: cotaStr, styles: { halign: 'center', valign: 'middle', fontStyle: 'bold' } }
-        );
-        t1Body.push(row);
+        if (item.loteId && item.loteId.trim() !== '') {
+            if (!itensPorGrupo[item.loteId]) {
+                itensPorGrupo[item.loteId] = [];
+                ordemGrupos.push(item.loteId);
+            }
+            itensPorGrupo[item.loteId].push(item);
+        } else {
+            avulsos.push(item);
+        }
     });
 
+    ordemGrupos.forEach(loteId => {
+        // Linha de título do grupo, ocupando as 8 colunas — substitui a antiga
+        // coluna "Grupo" que se repetia em toda linha de item.
+        t1Body.push([{
+            content: `GRUPO ${loteId}`,
+            colSpan: 8,
+            styles: { fillColor: colorBlueHeader, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+        }]);
+
+        const { totalAmpla, totalMeEpp, totalGrupo } = processarGrupo(itensPorGrupo[loteId]);
+
+        // As 3 linhas de fechamento do grupo: quanto ficou em cada cota e o
+        // total do grupo — igual ao padrão pedido, espelhando o Orçamento.
+        t1Body.push([
+            { content: 'TOTAL ME/EPP', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
+            { content: formatCurrency(totalMeEpp), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
+        ]);
+        t1Body.push([
+            { content: 'TOTAL AMPLA CONCORRÊNCIA', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
+            { content: formatCurrency(totalAmpla), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
+        ]);
+        t1Body.push([
+            { content: `TOTAL DO GRUPO ${loteId}`, colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } },
+            { content: formatCurrency(totalGrupo), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
+        ]);
+    });
+
+    // Itens avulsos (sem loteId) vêm depois de todos os grupos, sem título
+    // nem subtotal — exatamente como já funcionava antes desta mudança.
+    avulsos.forEach(item => processarGrupo([item]));
+
     t1Body.push([
-        { content: 'VALOR GLOBAL ESTIMADO', colSpan: hasLote ? 6 : 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } },
+        { content: 'VALOR GLOBAL ESTIMADO', colSpan: 5, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } },
         { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } }
     ]);
 
@@ -281,10 +412,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         body: t1Body,
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
-        columnStyles: hasLote ? {
-            0: { cellWidth: 10 }, 1: { cellWidth: 10 }, 2: { cellWidth: 'auto' }, 3: { cellWidth: 15 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 10 }, 6: { cellWidth: 24 }, 7: { cellWidth: 24 }, 8: { cellWidth: 22 }
-        } : {
+        columnStyles: {
             0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
             4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }
         },
