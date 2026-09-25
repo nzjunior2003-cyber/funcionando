@@ -10,6 +10,23 @@ import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { GoogleGenAI, Type } from "@google/genai";
 import { logoCBMPABase64 } from './assets/logoBase64';
 
+// Gera um `id` novo e garantidamente único pra cada item de uma lista vinda de
+// um arquivo JSON importado. É necessário porque os formulários identificam
+// qual item editar comparando o campo `id` (ex.: handleItemChange em
+// EtpForm.tsx e TrBensForm.tsx faz `item.id === id`) — se o JSON importado
+// trouxer itens sem `id` (fica `undefined` em todos) ou com o mesmo `id`
+// repetido, essa comparação vira verdadeira para MAIS DE UM item ao mesmo
+// tempo, e editar um item acaba editando todos os outros junto.
+// Combinamos o timestamp da importação com o índice do item na lista: o
+// timestamp sozinho não bastaria, porque todos os itens são processados no
+// mesmo instante (mesmo `Date.now()`), mas o índice nunca se repete dentro
+// da mesma lista.
+const regenerateIds = <T extends { id?: string }>(list: T[] | undefined): T[] | undefined => {
+    if (!Array.isArray(list)) return list;
+    const importTimestamp = Date.now();
+    return list.map((item, index) => ({ ...item, id: `${importTimestamp}-${index}` }));
+};
+
 const today = new Date().toISOString().split('T')[0];
 
 const initialSignatory = {
@@ -464,10 +481,21 @@ function App() {
 
               switch(parsed.type) {
                   case DocumentType.DFD: resetDfdData(parsed.data); break;
-                  case DocumentType.ETP: resetEtpData(parsed.data); break;
+                  case DocumentType.ETP:
+                      resetEtpData({
+                          ...parsed.data,
+                          itens: regenerateIds(parsed.data.itens),
+                          padraoQualidade: regenerateIds(parsed.data.padraoQualidade),
+                      });
+                      break;
                   case DocumentType.RISCO: resetRiscoData(parsed.data); break;
                   case DocumentType.ORCAMENTO: resetOrcamentoData(parsed.data); break;
-                  case DocumentType.TR_BENS: resetTrBensData(parsed.data); break;
+                  case DocumentType.TR_BENS:
+                      resetTrBensData({
+                          ...parsed.data,
+                          itens: regenerateIds(parsed.data.itens),
+                      });
+                      break;
               }
 
               setToast({ message: `Dados de ${parsed.type.toUpperCase()} importados com sucesso!`, type: 'success' });
