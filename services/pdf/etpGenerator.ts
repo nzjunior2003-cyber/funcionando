@@ -8,7 +8,8 @@ import {
     formatDate, 
     formatCurrency,
     setDefaultFont,
-    sanitizeText
+    sanitizeText,
+    splitLongText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -364,12 +365,56 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     ]);
 
+    // Quebra respostas de texto muito longas em linhas extras ANTES de montar
+    // a tabela final (ver splitLongText em pdfUtils.ts): como esta tabela usa
+    // rowPageBreak: 'avoid' (necessário pra não duplicar texto justificado/
+    // checkbox ao cortar uma linha entre páginas), uma resposta gigante
+    // pularia inteira pra próxima página, desperdiçando o espaço que sobrou
+    // na atual. Quebrando em pedaços menores, só o pedaço que não coube pula.
+    const expandLongTextRows = (rows: any[]): any[] => {
+        const expanded: any[] = [];
+        rows.forEach(row => {
+            if (!Array.isArray(row)) { expanded.push(row); return; }
+            // Não mexe em linhas com rowSpan — quebrá-las aqui bagunçaria o
+            // encaixe com a(s) linha(s) seguinte(s) que completam o rowSpan.
+            if (row.some((c: any) => c && typeof c === 'object' && c.rowSpan)) {
+                expanded.push(row);
+                return;
+            }
+            // Acha a célula de texto justificado (a resposta) desta linha, se houver.
+            let longIdx = -1;
+            for (let i = row.length - 1; i >= 0; i--) {
+                const c = row[i];
+                const txt = c && typeof c === 'object' ? c.content : c;
+                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.length > 700) {
+                    longIdx = i;
+                    break;
+                }
+            }
+            if (longIdx === -1) { expanded.push(row); return; }
+
+            const cell = row[longIdx];
+            const pedacos = splitLongText(cell.content);
+            expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
+
+            // Pedaços seguintes: só a continuação do texto, ocupando a
+            // largura toda da tabela, sem repetir pergunta/rótulo.
+            if (pedacos.length > 1) {
+                const totalCols = row.reduce((sum: number, c: any) => sum + ((c && typeof c === 'object' && c.colSpan) ? c.colSpan : 1), 0);
+                for (let i = 1; i < pedacos.length; i++) {
+                    expanded.push([{ content: pedacos[i], colSpan: totalCols, styles: { ...cell.styles } }]);
+                }
+            }
+        });
+        return expanded;
+    };
+
     // ----------------------------------------------------------------------
     // O MOTOR ANTISANFONA E DESENHO DE CAIXINHAS
     // ----------------------------------------------------------------------
     autoTable(doc, {
         startY: y,
-        body: body,
+        body: expandLongTextRows(body),
         theme: 'grid',
         margin: { left: L_MARGIN, right: R_MARGIN },
         tableWidth: tableWidth,

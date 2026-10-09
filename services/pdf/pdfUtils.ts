@@ -10,6 +10,48 @@ export const ITEM_GRAY_BG = '#F0F0F0';
 
 // --- Funções de Formatação ---
 
+/**
+ * Quebra um texto longo em pedaços menores (por padrão, no máximo
+ * `maxCharsPerChunk` caracteres cada), cortando sempre no fim de uma frase
+ * (". ") ou, na falta de uma por perto, no fim de uma palavra — nunca no
+ * meio de uma palavra.
+ *
+ * Por quê isso existe: nas tabelas do ETP e do TR de Bens, cada linha usa
+ * `rowPageBreak: 'avoid'` pra impedir que o jsPDF corte uma linha ao meio
+ * entre duas páginas (isso causava duplicação de texto com os renderizadores
+ * customizados de justificado/checkbox). O efeito colateral é que uma
+ * resposta de texto MUITO longa vira um bloco "tudo ou nada": se não cabe
+ * inteira no que sobrou da página atual, a linha inteira pula pra próxima
+ * página, desperdiçando todo aquele espaço em branco. Quebrando o texto em
+ * pedaços menores ANTES de montar a linha da tabela, cada pedaço vira sua
+ * própria linha — no pior caso, só o pedaço que não coube pula, não o texto
+ * inteiro.
+ */
+export const splitLongText = (text: string, maxCharsPerChunk: number = 700): string[] => {
+    const trimmed = (text || '').trim();
+    if (trimmed.length <= maxCharsPerChunk) return [trimmed];
+
+    const chunks: string[] = [];
+    let remaining = trimmed;
+    while (remaining.length > maxCharsPerChunk) {
+        // Procura o fim de frase mais próximo do tamanho-alvo, sem passar
+        // muito do limite (evita cortar logo na primeira frase do texto).
+        let cutAt = remaining.lastIndexOf('. ', maxCharsPerChunk);
+        if (cutAt < maxCharsPerChunk * 0.5) {
+            // Não achou um ponto final razoável perto do alvo — corta na
+            // última quebra de palavra antes do limite.
+            cutAt = remaining.lastIndexOf(' ', maxCharsPerChunk);
+        }
+        if (cutAt <= 0) cutAt = maxCharsPerChunk; // fallback bruto, evita loop infinito
+        else cutAt += 1; // inclui o ponto final (ou o espaço) no pedaço atual
+
+        chunks.push(remaining.slice(0, cutAt).trim());
+        remaining = remaining.slice(cutAt).trim();
+    }
+    if (remaining) chunks.push(remaining);
+    return chunks;
+};
+
 export const setDefaultFont = (doc: jsPDF) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);

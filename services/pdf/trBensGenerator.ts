@@ -7,7 +7,8 @@ import {
     setDefaultFont,
     drawInstitutionalHeader,
     drawInstitutionalFooter,
-    sanitizeText
+    sanitizeText,
+    splitLongText
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -446,16 +447,33 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const pushRow = (q: string, a: string, justificado: boolean = false) => {
         const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
+        // Textos muito longos são quebrados em pedaços menores (ver
+        // splitLongText em pdfUtils.ts) — evita que uma resposta gigante
+        // pule inteira pra próxima página e deixe um espaço enorme em
+        // branco na página atual (a tabela usa rowPageBreak: 'avoid').
+        const texto = sanitizeText(a);
+        const pedacos = justificado ? splitLongText(texto) : [texto];
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
-            { content: sanitizeText(a), styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
+            { content: pedacos[0], styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
         ]);
+        // Pedaços seguintes: só a continuação do texto, ocupando a largura
+        // toda, sem repetir a pergunta.
+        for (let i = 1; i < pedacos.length; i++) {
+            const bgContinuacao = isZebra ? colorGrayLabel : colorWhiteLabel;
+            isZebra = !isZebra;
+            t2Body.push([{ content: pedacos[i], colSpan: 2, styles: { fillColor: bgContinuacao, valign: 'middle', halign: 'justify' } }]);
+        }
     };
 
     const pushFullRow = (content: string, justificado: boolean = false) => {
-        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
-        isZebra = !isZebra;
-        t2Body.push([{ content: sanitizeText(content), colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
+        const texto = sanitizeText(content);
+        const pedacos = justificado ? splitLongText(texto) : [texto];
+        pedacos.forEach(pedaco => {
+            const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
+            isZebra = !isZebra;
+            t2Body.push([{ content: pedaco, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
+        });
     };
 
     pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
