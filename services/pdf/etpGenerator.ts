@@ -397,13 +397,15 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             const pedacos = splitLongText(cell.content);
             expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
 
-            // Pedaços seguintes: só a continuação do texto, ocupando a
-            // largura toda da tabela, sem repetir pergunta/rótulo.
-            if (pedacos.length > 1) {
-                const totalCols = row.reduce((sum: number, c: any) => sum + ((c && typeof c === 'object' && c.colSpan) ? c.colSpan : 1), 0);
-                for (let i = 1; i < pedacos.length; i++) {
-                    expanded.push([{ content: pedacos[i], colSpan: totalCols, styles: { ...cell.styles } }]);
-                }
+            // Pedaços seguintes: mantém todas as colunas da linha original
+            // (incluindo a da pergunta/rótulo), só que em branco — a coluna
+            // continua presente e com a mesma largura por toda a extensão
+            // do texto, sem repetir o rótulo.
+            for (let i = 1; i < pedacos.length; i++) {
+                expanded.push(row.map((c: any, idx: number) => {
+                    if (idx === longIdx) return { ...cell, content: pedacos[i] };
+                    return (c && typeof c === 'object') ? { ...c, content: '' } : '';
+                }));
             }
         });
         return expanded;

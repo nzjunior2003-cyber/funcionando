@@ -457,12 +457,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
             { content: pedacos[0], styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
         ]);
-        // Pedaços seguintes: só a continuação do texto, ocupando a largura
-        // toda, sem repetir a pergunta.
+        // Pedaços seguintes: mantém as duas colunas (pergunta/resposta) —
+        // a célula da pergunta fica em branco, sem repetir o texto, mas a
+        // coluna continua lá, com a mesma largura, na extensão toda.
         for (let i = 1; i < pedacos.length; i++) {
             const bgContinuacao = isZebra ? colorGrayLabel : colorWhiteLabel;
             isZebra = !isZebra;
-            t2Body.push([{ content: pedacos[i], colSpan: 2, styles: { fillColor: bgContinuacao, valign: 'middle', halign: 'justify' } }]);
+            t2Body.push([
+                { content: '', styles: { fillColor: bgContinuacao, valign: 'middle' } },
+                { content: pedacos[i], styles: { fillColor: bgContinuacao, valign: 'middle', halign: 'justify' } }
+            ]);
         }
     };
 
