@@ -11,10 +11,13 @@ export const ITEM_GRAY_BG = '#F0F0F0';
 // --- Funções de Formatação ---
 
 /**
- * Quebra um texto longo em pedaços menores (por padrão, no máximo
- * `maxCharsPerChunk` caracteres cada), cortando sempre no fim de uma frase
- * (". ") ou, na falta de uma por perto, no fim de uma palavra — nunca no
- * meio de uma palavra.
+ * Quebra um texto longo em pedaços que preenchem, cada um, uma página
+ * inteira (ou quase) de uma coluna de tabela — medindo de verdade, com o
+ * próprio jsPDF, quantas linhas o texto ocupa na largura/fonte informadas,
+ * em vez de chutar um número fixo de caracteres (que erra pra mais ou pra
+ * menos dependendo da largura da coluna e do tamanho da fonte de cada
+ * tabela, podendo tanto estourar uma página quanto fragmentar sem
+ * necessidade dentro de uma mesma página).
  *
  * Por quê isso existe: nas tabelas do ETP e do TR de Bens, cada linha usa
  * `rowPageBreak: 'avoid'` pra impedir que o jsPDF corte uma linha ao meio
@@ -23,40 +26,45 @@ export const ITEM_GRAY_BG = '#F0F0F0';
  * resposta de texto MUITO longa vira um bloco "tudo ou nada": se não cabe
  * inteira no que sobrou da página atual, a linha inteira pula pra próxima
  * página, desperdiçando todo aquele espaço em branco. Quebrando o texto em
- * pedaços menores ANTES de montar a linha da tabela, cada pedaço vira sua
- * própria linha — no pior caso, só o pedaço que não coube pula, não o texto
- * inteiro.
+ * pedaços do tamanho de uma página ANTES de montar a linha da tabela, cada
+ * pedaço vira sua própria linha — no pior caso, só o pedaço que não coube
+ * pula, não o texto inteiro, e nenhum pedaço fica menor do que precisa.
  *
- * O tamanho padrão do pedaço (`maxCharsPerChunk`) é calibrado pra aproximar
- * "o quanto cabe numa página inteira" (não um pedaço pequeno arbitrário) —
- * a ideia é que um texto comum some como uma linha só, e só quebre em uma
- * segunda linha quando realmente ultrapassa o que uma página comporta. Cada
- * chamador pode ajustar esse número pra refletir a largura real da coluna
- * de resposta da sua tabela (colunas mais largas cabem mais caracteres por
- * linha, logo mais caracteres por página).
+ * @param doc Instância do jsPDF (usada só pra medir o texto com a fonte atual).
+ * @param text Texto completo a quebrar.
+ * @param cellWidthMm Largura real (em mm) da coluna onde esse texto será desenhado, já descontado o padding.
+ * @param fontSize Tamanho da fonte (em pt) usada nessa célula.
+ * @param lineHeightFactor Mesmo fator usado pelos renderizadores customizados (padrão 1.15).
  */
-export const splitLongText = (text: string, maxCharsPerChunk: number = 2500): string[] => {
+export const splitLongText = (
+    doc: jsPDF,
+    text: string,
+    cellWidthMm: number,
+    fontSize: number,
+    lineHeightFactor: number = 1.15
+): string[] => {
     const trimmed = (text || '').trim();
-    if (trimmed.length <= maxCharsPerChunk) return [trimmed];
+    if (!trimmed) return [trimmed];
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(fontSize);
+    const allLines: string[] = doc.splitTextToSize(trimmed, cellWidthMm);
+
+    const fontSizeMm = (fontSize * 25.4) / 72;
+    const lineHeight = fontSizeMm * lineHeightFactor;
+    const usableHeight = PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM;
+    // 85% da altura útil: a primeira ocorrência de uma linha longa quase
+    // sempre começa mais abaixo do topo da página (depois de outras
+    // perguntas já respondidas antes dela), então uma margem de segurança
+    // evita estourar o fim da página mesmo nesse caso mais comum.
+    const maxLinesPerChunk = Math.max(1, Math.floor((usableHeight * 0.85) / lineHeight));
+
+    if (allLines.length <= maxLinesPerChunk) return [trimmed];
 
     const chunks: string[] = [];
-    let remaining = trimmed;
-    while (remaining.length > maxCharsPerChunk) {
-        // Procura o fim de frase mais próximo do tamanho-alvo, sem passar
-        // muito do limite (evita cortar logo na primeira frase do texto).
-        let cutAt = remaining.lastIndexOf('. ', maxCharsPerChunk);
-        if (cutAt < maxCharsPerChunk * 0.5) {
-            // Não achou um ponto final razoável perto do alvo — corta na
-            // última quebra de palavra antes do limite.
-            cutAt = remaining.lastIndexOf(' ', maxCharsPerChunk);
-        }
-        if (cutAt <= 0) cutAt = maxCharsPerChunk; // fallback bruto, evita loop infinito
-        else cutAt += 1; // inclui o ponto final (ou o espaço) no pedaço atual
-
-        chunks.push(remaining.slice(0, cutAt).trim());
-        remaining = remaining.slice(cutAt).trim();
+    for (let i = 0; i < allLines.length; i += maxLinesPerChunk) {
+        chunks.push(allLines.slice(i, i + maxLinesPerChunk).join(' '));
     }
-    if (remaining) chunks.push(remaining);
     return chunks;
 };
 

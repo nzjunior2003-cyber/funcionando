@@ -447,15 +447,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const pushRow = (q: string, a: string, justificado: boolean = false) => {
         const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
-        // Textos muito longos são quebrados em pedaços menores (ver
-        // splitLongText em pdfUtils.ts) — evita que uma resposta gigante
-        // pule inteira pra próxima página e deixe um espaço enorme em
-        // branco na página atual (a tabela usa rowPageBreak: 'avoid').
+        // Textos muito longos são quebrados em pedaços do tamanho de uma
+        // página (ver splitLongText em pdfUtils.ts, que mede de verdade
+        // com a largura/fonte reais desta coluna) — evita que uma resposta
+        // gigante pule inteira pra próxima página e deixe um espaço enorme
+        // em branco na página atual (a tabela usa rowPageBreak: 'avoid').
         const texto = sanitizeText(a);
-        // A coluna de resposta aqui (cellWidth: 'auto', na prática ~139mm)
-        // é bem mais larga que a do ETP, então cabe mais caracteres por
-        // página — usa um limite maior que o padrão de splitLongText.
-        const pedacos = justificado ? splitLongText(texto, 4000) : [texto];
+        // Coluna de resposta: cellWidth 'auto' = 194mm (tableWidth) - 55mm
+        // (coluna 0) = 139mm, menos o padding horizontal (3+1.2mm).
+        const pedacos = justificado ? splitLongText(doc, texto, 139 - 4.2, 8) : [texto];
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
             { content: pedacos[0], styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
@@ -475,7 +475,8 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
     const pushFullRow = (content: string, justificado: boolean = false) => {
         const texto = sanitizeText(content);
-        const pedacos = justificado ? splitLongText(texto) : [texto];
+        // Aqui a célula ocupa a largura toda (colSpan 2): 194mm - padding.
+        const pedacos = justificado ? splitLongText(doc, texto, 194 - 4.2, 8) : [texto];
         pedacos.forEach(pedaco => {
             const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
             isZebra = !isZebra;

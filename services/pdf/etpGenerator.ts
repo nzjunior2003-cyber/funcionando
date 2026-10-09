@@ -386,7 +386,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             for (let i = row.length - 1; i >= 0; i--) {
                 const c = row[i];
                 const txt = c && typeof c === 'object' ? c.content : c;
-                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.length > 2500) {
+                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.trim()) {
                     longIdx = i;
                     break;
                 }
@@ -394,7 +394,12 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             if (longIdx === -1) { expanded.push(row); return; }
 
             const cell = row[longIdx];
-            const pedacos = splitLongText(cell.content);
+            // Aproxima a largura real da coluna de resposta desta linha: a
+            // tabela tem 6 colunas no total (somando os colSpans da linha),
+            // então essa célula ocupa colSpan/6 da largura total da tabela.
+            const cellColSpan = cell.colSpan || 1;
+            const estimatedWidth = (cellColSpan / 6) * tableWidth - 4.2; // menos padding horizontal
+            const pedacos = splitLongText(doc, cell.content, estimatedWidth, 10);
             expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
 
             // Pedaços seguintes: mantém todas as colunas da linha original
