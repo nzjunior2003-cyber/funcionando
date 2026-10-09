@@ -386,7 +386,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             for (let i = row.length - 1; i >= 0; i--) {
                 const c = row[i];
                 const txt = c && typeof c === 'object' ? c.content : c;
-                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.length > 700) {
+                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.length > 2500) {
                     longIdx = i;
                     break;
                 }

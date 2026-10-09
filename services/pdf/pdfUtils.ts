@@ -26,8 +26,16 @@ export const ITEM_GRAY_BG = '#F0F0F0';
  * pedaços menores ANTES de montar a linha da tabela, cada pedaço vira sua
  * própria linha — no pior caso, só o pedaço que não coube pula, não o texto
  * inteiro.
+ *
+ * O tamanho padrão do pedaço (`maxCharsPerChunk`) é calibrado pra aproximar
+ * "o quanto cabe numa página inteira" (não um pedaço pequeno arbitrário) —
+ * a ideia é que um texto comum some como uma linha só, e só quebre em uma
+ * segunda linha quando realmente ultrapassa o que uma página comporta. Cada
+ * chamador pode ajustar esse número pra refletir a largura real da coluna
+ * de resposta da sua tabela (colunas mais largas cabem mais caracteres por
+ * linha, logo mais caracteres por página).
  */
-export const splitLongText = (text: string, maxCharsPerChunk: number = 700): string[] => {
+export const splitLongText = (text: string, maxCharsPerChunk: number = 2500): string[] => {
     const trimmed = (text || '').trim();
     if (trimmed.length <= maxCharsPerChunk) return [trimmed];
 

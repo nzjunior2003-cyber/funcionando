@@ -452,7 +452,10 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         // pule inteira pra próxima página e deixe um espaço enorme em
         // branco na página atual (a tabela usa rowPageBreak: 'avoid').
         const texto = sanitizeText(a);
-        const pedacos = justificado ? splitLongText(texto) : [texto];
+        // A coluna de resposta aqui (cellWidth: 'auto', na prática ~139mm)
+        // é bem mais larga que a do ETP, então cabe mais caracteres por
+        // página — usa um limite maior que o padrão de splitLongText.
+        const pedacos = justificado ? splitLongText(texto, 4000) : [texto];
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
             { content: pedacos[0], styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
