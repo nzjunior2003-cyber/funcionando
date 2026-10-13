@@ -2,7 +2,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { RiscoData } from '../../types';
 import {
-    drawDocumentHeader,
+    drawInstitutionalHeader,
     drawFormattedSignature,
     formatDate,
     COLOR_HEADER_BG,
@@ -13,7 +13,7 @@ import {
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
 export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
-    let finalY = drawDocumentHeader(doc, 'ANÁLISE DE RISCO', `PAE Nº ${data.pae || '...'}`);
+    let finalY = drawInstitutionalHeader(doc, '', 'ANÁLISE DE RISCO', `PAE nº ${data.pae || '...'}`, false);
     const { willDrawCell: justifyWillDrawCell, didDrawCell } = createJustifiedCellHooks(doc);
 
     if (data.riscos && data.riscos.length > 0) {

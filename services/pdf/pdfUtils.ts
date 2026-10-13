@@ -616,7 +616,7 @@ export const drawCheckbox = (doc: jsPDF, x: number, y: number, label: string, ch
     return y + (lines.length * 6);
 };
 
-export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string, subtitle?: string) => {
+export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string, subtitle?: string, showSetor: boolean = true) => {
     const colorRedFooter: [number, number, number] = [192, 57, 43];
     
     // --- INSERÇÃO DO LOGOTIPO PRINCIPAL (CABEÇALHO) ---
@@ -644,7 +644,9 @@ export const drawInstitutionalHeader = (doc: jsPDF, setor: string, title: string
     doc.text("CORPO DE BOMBEIROS MILITAR DO PARÁ E", PAGE_WIDTH / 2, 20, { align: 'center' });
     doc.text("COORDENADORIA ESTADUAL DE PROTEÇÃO E DEFESA CIVIL", PAGE_WIDTH / 2, 25, { align: 'center' });
     
-    doc.text(setor?.toUpperCase() || "SETOR", PAGE_WIDTH / 2, 30, { align: 'center' });
+    if (showSetor) {
+        doc.text(setor?.toUpperCase() || "SETOR", PAGE_WIDTH / 2, 30, { align: 'center' });
+    }
 
     doc.setFontSize(10);
     doc.text(title.toUpperCase(), PAGE_WIDTH / 2, 45, { align: 'center' });
