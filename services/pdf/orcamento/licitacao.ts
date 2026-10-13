@@ -551,7 +551,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         theme: 'grid',
         styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 15 } },
+        // minCellWidth nas colunas de valor: evita que um valor grande (ex.: R$ 254.579,61) quebre os centavos pra linha de baixo
+        columnStyles: { 0: { cellWidth: 15 }, 3: { minCellWidth: 28 }, 5: { minCellWidth: 32 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,

@@ -396,16 +396,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         // As 3 linhas de fechamento do grupo: quanto ficou em cada cota e o
         // total do grupo — igual ao padrão pedido, espelhando o Orçamento.
         t1Body.push([
-            { content: 'TOTAL ME/EPP', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
-            { content: formatCurrency(totalMeEpp), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
+            { content: 'TOTAL ME/EPP', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
+            { content: formatCurrency(totalMeEpp), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
         ]);
         t1Body.push([
-            { content: 'TOTAL AMPLA CONCORRÊNCIA', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
-            { content: formatCurrency(totalAmpla), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
+            { content: 'TOTAL AMPLA CONCORRÊNCIA', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
+            { content: formatCurrency(totalAmpla), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
         ]);
         t1Body.push([
-            { content: `TOTAL DO GRUPO ${loteId}`, colSpan: 7, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } },
-            { content: formatCurrency(totalGrupo), styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
+            { content: `TOTAL DO GRUPO ${loteId}`, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } },
+            { content: formatCurrency(totalGrupo), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
         ]);
     });
 
@@ -426,7 +426,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
         columnStyles: {
             0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
-            4: { cellWidth: 10 }, 5: { cellWidth: 24 }, 6: { cellWidth: 24 }, 7: { cellWidth: 22 }
+            4: { cellWidth: 10 }, 5: { cellWidth: 28 }, 6: { cellWidth: 30 }, 7: { cellWidth: 22 }
         },
         margin: { left: L_MARGIN, right: R_MARGIN },
         rowPageBreak: 'avoid',

@@ -205,7 +205,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         startY: y, head: [['Item', 'Descrição', 'Valor de Mercado', colValorReferencia, 'Preço Adotado']], body: qcb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' }, alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        columnStyles: { 0: { cellWidth: 12 }, 2: { cellWidth: 35 }, 3: { cellWidth: 35 }, 4: { cellWidth: 25 } },
+        columnStyles: { 0: { cellWidth: 12 }, 2: { minCellWidth: 35 }, 3: { minCellWidth: 35 }, 4: { minCellWidth: 32 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,

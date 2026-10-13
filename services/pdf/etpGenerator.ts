@@ -395,7 +395,9 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             overflow: 'linebreak'
         },
         columnStyles: {
-            0: { cellWidth: 40 }
+            0: { cellWidth: 40 },
+            3: { minCellWidth: 30 },
+            5: { minCellWidth: 32 }
         },
         rowPageBreak: 'avoid',
         willDrawCell: (hookData) => {
