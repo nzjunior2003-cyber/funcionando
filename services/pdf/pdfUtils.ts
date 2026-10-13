@@ -187,21 +187,63 @@ export const expandLongTextRows = (
         // Não coube no que sobrou da página atual: quebra em pedaços — o
         // primeiro do tamanho do que sobra agora (ou pula pra página nova
         // se não sobrar quase nada), os seguintes do tamanho de uma página.
+        //
+        // Importante: o corte é feito no TEXTO ORIGINAL (por posição de
+        // caractere), nunca reconstruindo a partir das linhas já quebradas
+        // por `allLines` — usar `allLines.join('\n')` carimbaria quebras de
+        // linha na largura que NÓS estimamos (que pode não bater com a
+        // largura real da coluna calculada pelo autoTable), fazendo o motor
+        // de desenho (que respeita essas quebras como fixas, sem redistribuir
+        // o texto) cortar linhas curtas demais no meio do parágrafo. Cortando
+        // o texto original por caractere, cada pedaço preserva toda a
+        // formatação (inclusive parágrafos) e continua sendo re-quebrado em
+        // linhas pelo motor de desenho, na largura real, na hora de desenhar.
+        const original = String(cell.content).trim();
+
+        // Estima a posição (em caracteres) do texto original correspondente
+        // ao fim da N-ésima linha, somando o tamanho das linhas já quebradas
+        // (cada uma delas é uma substring do texto original).
+        const charOffsetForLine = (n: number): number => {
+            let total = 0;
+            for (let i = 0; i < n && i < allLines.length; i++) total += allLines[i].length + 1; // +1 do espaço/quebra entre as linhas
+            return total;
+        };
+
+        // Corta o texto original na posição estimada, ajustando pra trás até
+        // o fim de um parágrafo (linha em branco), senão até o fim de uma
+        // frase, senão até uma quebra de palavra — nunca no meio de uma
+        // palavra.
+        const findCut = (text: string, approxOffset: number): number => {
+            if (approxOffset >= text.length) return text.length;
+            let cut = text.lastIndexOf('\n\n', approxOffset);
+            if (cut < approxOffset * 0.5) cut = text.lastIndexOf('. ', approxOffset);
+            if (cut < approxOffset * 0.5) cut = text.lastIndexOf(' ', approxOffset);
+            if (cut <= 0) cut = approxOffset;
+            else if (text[cut] === ' ' || text[cut] === '.') cut += 1; // inclui o espaço/ponto no pedaço atual
+            return cut;
+        };
+
         let firstChunkLines = Math.floor((remaining - safetyMargin - cellPaddingV) / lineHeight);
         if (firstChunkLines < 2) firstChunkLines = 0; // não compensa um pedacinho de 1 linha só — pula tudo pra próxima página
 
         const pedacos: string[] = [];
-        let idx = 0;
+        let charIdx = 0;
+        let lineIdx = 0;
         if (firstChunkLines > 0) {
-            pedacos.push(allLines.slice(0, firstChunkLines).join('\n'));
-            idx = firstChunkLines;
+            const cut = findCut(original, charOffsetForLine(firstChunkLines));
+            pedacos.push(original.slice(charIdx, cut).trim());
+            charIdx = cut;
+            lineIdx = firstChunkLines;
         }
-        while (idx < allLines.length) {
-            const end = Math.min(idx + maxLinesFullPage, allLines.length);
-            pedacos.push(allLines.slice(idx, end).join('\n'));
-            idx = end;
+        while (charIdx < original.length) {
+            lineIdx += maxLinesFullPage;
+            const cut = findCut(original, charOffsetForLine(lineIdx));
+            const chunk = original.slice(charIdx, cut).trim();
+            if (!chunk) break; // evita loop infinito se o corte não avançar
+            pedacos.push(chunk);
+            charIdx = cut;
         }
-        if (pedacos.length === 0) pedacos.push('');
+        if (pedacos.length === 0) pedacos.push(original);
 
         expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
 
