@@ -130,9 +130,18 @@ export const expandLongTextRows = (
 
     const expanded: any[] = [];
     let currentY = startY;
+    // Cada linha processada antes da atual carrega um pouco de erro de
+    // estimativa (nosso cálculo de altura é só uma aproximação do que o
+    // autoTable realmente desenha) — e esse erro se acumula ao longo do
+    // documento. Quanto mais linhas já passaram, maior a chance de
+    // `currentY` estar bem desviado da posição real, então a margem de
+    // segurança cresce com a quantidade de linhas já processadas (ver
+    // `safetyMargin` mais abaixo), em vez de ser um valor fixo só.
+    let rowsProcessed = 0;
 
     rows.forEach(row => {
         if (!Array.isArray(row)) { expanded.push(row); return; }
+        rowsProcessed++;
         // Não mexe em linhas com rowSpan — quebrá-las aqui bagunçaria o
         // encaixe com a(s) linha(s) seguinte(s) que completam o rowSpan.
         if (row.some((c: any) => c && typeof c === 'object' && c.rowSpan)) {
@@ -167,11 +176,18 @@ export const expandLongTextRows = (
         const rowHeight = allLines.length * lineHeight + cellPaddingV;
         const remaining = usableBottom - currentY;
         // Margem de segurança: nossa estimativa de altura/posição é uma
-        // aproximação do que o autoTable realmente calcula por dentro — em
-        // casos de borda, um texto que "cabe" pela nossa conta pode não
-        // caber de verdade. Descontar ~2 linhas de folga evita que esses
-        // casos de borda voltem a pular a linha inteira (o bug original).
-        const safetyMargin = 2 * lineHeight;
+        // aproximação do que o autoTable realmente calcula por dentro, e o
+        // desvio entre o que simulamos e o que o autoTable realmente
+        // desenha vai se acumulando conforme o documento cresce (cada
+        // linha anterior contribui um pouco de erro). Por isso a margem
+        // tem uma parte fixa (~5 linhas) mais uma parte que CRESCE com a
+        // quantidade de linhas já processadas (`rowsProcessed`) — quanto
+        // mais seções vieram antes da célula de texto longo atual, maior
+        // o desvio acumulado esperado, e maior a margem de segurança
+        // precisa ser pra absorver esse desvio e evitar que
+        // ele volte a causar o bug original (o texto inteiro pulando pra
+        // próxima página com um espaço enorme em branco na anterior).
+        const safetyMargin = 5 * lineHeight + rowsProcessed * 3;
 
         if (rowHeight <= remaining - safetyMargin) {
             // Cabe inteiro no que sobrou da página atual: não precisa

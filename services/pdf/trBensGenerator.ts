@@ -595,7 +595,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // se não couber mas um espaçamento mais compacto (ainda legível)
     // couber, usa o compacto em vez de jogar tudo pra uma página nova
     // e desperdiçar o espaço que sobrou na página atual.
-    const idealGap = 30, compactGap = 15;
+    const idealGap = 38, compactGap = 18;
     const sigFootprint = 10; // altura ocupada abaixo da linha de assinatura (nome + função)
     const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - finalY;
 
