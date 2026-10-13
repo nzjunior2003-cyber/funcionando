@@ -68,6 +68,155 @@ export const splitLongText = (
     return chunks;
 };
 
+/**
+ * Processa o corpo inteiro de uma tabela (um array de linhas, no formato de
+ * `body` do jspdf-autotable) e quebra, em linhas extras, qualquer célula de
+ * texto justificado longa demais pra caber de uma vez — usada pelo ETP e
+ * pelo TR de Bens, que montam a tabela inteira num array antes de uma única
+ * chamada a `autoTable`.
+ *
+ * Diferente de só chamar `splitLongText` em cada célula isoladamente, esta
+ * função SIMULA a posição vertical (currentY) percorrendo a tabela inteira,
+ * linha por linha, replicando o jeito como o autoTable realmente desenha
+ * (cada linha empurra currentY; quando uma linha não cabe mais no que
+ * sobrou da página — o que `rowPageBreak: 'avoid'` já faz pra qualquer
+ * linha — o currentY "reinicia" no topo de uma nova página). Isso é o que
+ * permite saber, bem na hora de uma célula de texto longo específica,
+ * quanto de espaço REALMENTE sobra na página ali (que pode ser bem menos
+ * que uma página inteira) — sem isso, uma resposta de tamanho médio que não
+ * seja grande o bastante pra precisar de várias páginas, mas que também não
+ * caiba no restinho de espaço que sobrou, continuaria pulando inteira e
+ * desperdiçando esse restinho (o mesmo bug que motivou essa função).
+ *
+ * @param doc Instância do jsPDF.
+ * @param rows O array de linhas já montado (cada linha é um array de células).
+ * @param opts.startY Posição Y onde a tabela começa a ser desenhada.
+ * @param opts.fontSize Tamanho de fonte usado pelas células de texto.
+ * @param opts.getCellWidthMm Dado uma célula, devolve a largura real (mm, já sem padding horizontal) que ela ocupa — varia conforme o layout de colunas de cada tabela.
+ * @param opts.lineHeightFactor Mesmo fator usado pelos renderizadores customizados (padrão 1.15).
+ * @param opts.cellPaddingV Padding vertical total (top+bottom) de cada célula (padrão 2.4mm).
+ */
+export const expandLongTextRows = (
+    doc: jsPDF,
+    rows: any[],
+    opts: {
+        startY: number;
+        fontSize: number;
+        getCellWidthMm: (cell: any) => number;
+        lineHeightFactor?: number;
+        cellPaddingV?: number;
+    }
+): any[] => {
+    const { startY, fontSize, getCellWidthMm, lineHeightFactor = 1.15, cellPaddingV = 2.4 } = opts;
+    const fontSizeMm = (fontSize * 25.4) / 72;
+    const lineHeight = fontSizeMm * lineHeightFactor;
+    const usableBottom = PAGE_HEIGHT - MARGIN_BOTTOM;
+    const maxLinesFullPage = Math.max(1, Math.floor(((PAGE_HEIGHT - MARGIN_TOP - MARGIN_BOTTOM) * 0.85) / lineHeight));
+
+    const estimateRowHeight = (row: any[]): number => {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(fontSize);
+        let maxHeight = lineHeight + cellPaddingV;
+        row.forEach((c: any) => {
+            const txt = c && typeof c === 'object' ? c.content : c;
+            if (typeof txt !== 'string' || !txt) return;
+            const width = Math.max(getCellWidthMm(c), 10);
+            const lines = doc.splitTextToSize(txt, width);
+            const h = lines.length * lineHeight + cellPaddingV;
+            if (h > maxHeight) maxHeight = h;
+        });
+        return maxHeight;
+    };
+
+    const expanded: any[] = [];
+    let currentY = startY;
+
+    rows.forEach(row => {
+        if (!Array.isArray(row)) { expanded.push(row); return; }
+        // Não mexe em linhas com rowSpan — quebrá-las aqui bagunçaria o
+        // encaixe com a(s) linha(s) seguinte(s) que completam o rowSpan.
+        if (row.some((c: any) => c && typeof c === 'object' && c.rowSpan)) {
+            expanded.push(row);
+            const h = estimateRowHeight(row);
+            currentY = (currentY + h > usableBottom) ? MARGIN_TOP + h : currentY + h;
+            return;
+        }
+        // Acha a célula de texto justificado (a resposta) desta linha, se houver.
+        let longIdx = -1;
+        for (let i = row.length - 1; i >= 0; i--) {
+            const c = row[i];
+            const txt = c && typeof c === 'object' ? c.content : c;
+            if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.trim()) {
+                longIdx = i;
+                break;
+            }
+        }
+        if (longIdx === -1) {
+            const h = estimateRowHeight(row);
+            currentY = (currentY + h > usableBottom) ? MARGIN_TOP + h : currentY + h;
+            expanded.push(row);
+            return;
+        }
+
+        const cell = row[longIdx];
+        const estimatedWidth = Math.max(getCellWidthMm(cell), 10);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(fontSize);
+        const allLines: string[] = doc.splitTextToSize(String(cell.content).trim(), estimatedWidth);
+
+        // Quantas linhas cabem no espaço que REALMENTE sobra na página
+        // atual, nesta posição específica da tabela?
+        const remaining = usableBottom - currentY;
+        let firstChunkLines = Math.floor((remaining - cellPaddingV) / lineHeight);
+        if (firstChunkLines < 2) firstChunkLines = 0; // não compensa um pedacinho de 1 linha só — pula tudo pra próxima página
+
+        const pedacos: string[] = [];
+        let idx = 0;
+        if (firstChunkLines > 0 && allLines.length > 0) {
+            const end = Math.min(firstChunkLines, allLines.length);
+            pedacos.push(allLines.slice(0, end).join(' '));
+            idx = end;
+        }
+        while (idx < allLines.length) {
+            const end = Math.min(idx + maxLinesFullPage, allLines.length);
+            pedacos.push(allLines.slice(idx, end).join(' '));
+            idx = end;
+        }
+        if (pedacos.length === 0) pedacos.push('');
+
+        expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
+
+        // Pedaços seguintes: mantém todas as colunas da linha original
+        // (incluindo a da pergunta/rótulo), só que em branco — a coluna
+        // continua presente e com a mesma largura por toda a extensão do
+        // texto, sem repetir o rótulo.
+        for (let i = 1; i < pedacos.length; i++) {
+            expanded.push(row.map((c: any, idx2: number) => {
+                if (idx2 === longIdx) return { ...cell, content: pedacos[i] };
+                return (c && typeof c === 'object') ? { ...c, content: '' } : '';
+            }));
+        }
+
+        // Atualiza a posição simulada: se o primeiro pedaço coube na página
+        // atual, a próxima linha continua logo depois dele; senão, o
+        // primeiro pedaço já É o 1º pedaço de uma página nova. Pedaço(s)
+        // seguinte(s), se houver, sempre começam numa página nova (cheia).
+        const heightOf = (texto: string) => {
+            const linhas = doc.splitTextToSize(texto, estimatedWidth);
+            return linhas.length * lineHeight + cellPaddingV;
+        };
+        if (pedacos.length === 1) {
+            const h = heightOf(pedacos[0]);
+            currentY = firstChunkLines > 0 ? currentY + h : MARGIN_TOP + h;
+        } else {
+            currentY = MARGIN_TOP + heightOf(pedacos[pedacos.length - 1]);
+        }
+    });
+
+    return expanded;
+};
+
 export const setDefaultFont = (doc: jsPDF) => {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(11);

@@ -9,7 +9,7 @@ import {
     formatCurrency,
     setDefaultFont,
     sanitizeText,
-    splitLongText
+    expandLongTextRows
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -365,63 +365,22 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
         }
     ]);
 
-    // Quebra respostas de texto muito longas em linhas extras ANTES de montar
-    // a tabela final (ver splitLongText em pdfUtils.ts): como esta tabela usa
-    // rowPageBreak: 'avoid' (necessário pra não duplicar texto justificado/
-    // checkbox ao cortar uma linha entre páginas), uma resposta gigante
-    // pularia inteira pra próxima página, desperdiçando o espaço que sobrou
-    // na atual. Quebrando em pedaços menores, só o pedaço que não coube pula.
-    const expandLongTextRows = (rows: any[]): any[] => {
-        const expanded: any[] = [];
-        rows.forEach(row => {
-            if (!Array.isArray(row)) { expanded.push(row); return; }
-            // Não mexe em linhas com rowSpan — quebrá-las aqui bagunçaria o
-            // encaixe com a(s) linha(s) seguinte(s) que completam o rowSpan.
-            if (row.some((c: any) => c && typeof c === 'object' && c.rowSpan)) {
-                expanded.push(row);
-                return;
-            }
-            // Acha a célula de texto justificado (a resposta) desta linha, se houver.
-            let longIdx = -1;
-            for (let i = row.length - 1; i >= 0; i--) {
-                const c = row[i];
-                const txt = c && typeof c === 'object' ? c.content : c;
-                if (c && typeof c === 'object' && c.styles?.halign === 'justify' && typeof txt === 'string' && txt.trim()) {
-                    longIdx = i;
-                    break;
-                }
-            }
-            if (longIdx === -1) { expanded.push(row); return; }
-
-            const cell = row[longIdx];
-            // Aproxima a largura real da coluna de resposta desta linha: a
-            // tabela tem 6 colunas no total (somando os colSpans da linha),
-            // então essa célula ocupa colSpan/6 da largura total da tabela.
-            const cellColSpan = cell.colSpan || 1;
-            const estimatedWidth = (cellColSpan / 6) * tableWidth - 4.2; // menos padding horizontal
-            const pedacos = splitLongText(doc, cell.content, estimatedWidth, 10);
-            expanded.push(row.map((c: any, i: number) => i === longIdx ? { ...cell, content: pedacos[0] } : c));
-
-            // Pedaços seguintes: mantém todas as colunas da linha original
-            // (incluindo a da pergunta/rótulo), só que em branco — a coluna
-            // continua presente e com a mesma largura por toda a extensão
-            // do texto, sem repetir o rótulo.
-            for (let i = 1; i < pedacos.length; i++) {
-                expanded.push(row.map((c: any, idx: number) => {
-                    if (idx === longIdx) return { ...cell, content: pedacos[i] };
-                    return (c && typeof c === 'object') ? { ...c, content: '' } : '';
-                }));
-            }
-        });
-        return expanded;
-    };
 
     // ----------------------------------------------------------------------
     // O MOTOR ANTISANFONA E DESENHO DE CAIXINHAS
     // ----------------------------------------------------------------------
     autoTable(doc, {
         startY: y,
-        body: expandLongTextRows(body),
+        body: expandLongTextRows(doc, body, {
+            startY: y,
+            fontSize: 10,
+            // A tabela tem 6 colunas no total (somando os colSpans de cada
+            // linha); uma célula de colSpan N ocupa N/6 da largura total.
+            getCellWidthMm: (cell: any) => {
+                const colSpan = (cell && cell.colSpan) || 1;
+                return (colSpan / 6) * tableWidth - 4.2;
+            }
+        }),
         theme: 'grid',
         margin: { left: L_MARGIN, right: R_MARGIN },
         tableWidth: tableWidth,

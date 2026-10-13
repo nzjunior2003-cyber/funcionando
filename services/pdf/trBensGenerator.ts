@@ -8,7 +8,7 @@ import {
     drawInstitutionalHeader,
     drawInstitutionalFooter,
     sanitizeText,
-    splitLongText
+    expandLongTextRows
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -447,41 +447,16 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const pushRow = (q: string, a: string, justificado: boolean = false) => {
         const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
         isZebra = !isZebra;
-        // Textos muito longos são quebrados em pedaços do tamanho de uma
-        // página (ver splitLongText em pdfUtils.ts, que mede de verdade
-        // com a largura/fonte reais desta coluna) — evita que uma resposta
-        // gigante pule inteira pra próxima página e deixe um espaço enorme
-        // em branco na página atual (a tabela usa rowPageBreak: 'avoid').
-        const texto = sanitizeText(a);
-        // Coluna de resposta: cellWidth 'auto' = 194mm (tableWidth) - 55mm
-        // (coluna 0) = 139mm, menos o padding horizontal (3+1.2mm).
-        const pedacos = justificado ? splitLongText(doc, texto, 139 - 4.2, 8) : [texto];
         t2Body.push([
             { content: q, styles: { fillColor: bg, fontStyle: 'bold', valign: 'middle' } },
-            { content: pedacos[0], styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
+            { content: sanitizeText(a), styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }
         ]);
-        // Pedaços seguintes: mantém as duas colunas (pergunta/resposta) —
-        // a célula da pergunta fica em branco, sem repetir o texto, mas a
-        // coluna continua lá, com a mesma largura, na extensão toda.
-        for (let i = 1; i < pedacos.length; i++) {
-            const bgContinuacao = isZebra ? colorGrayLabel : colorWhiteLabel;
-            isZebra = !isZebra;
-            t2Body.push([
-                { content: '', styles: { fillColor: bgContinuacao, valign: 'middle' } },
-                { content: pedacos[i], styles: { fillColor: bgContinuacao, valign: 'middle', halign: 'justify' } }
-            ]);
-        }
     };
 
     const pushFullRow = (content: string, justificado: boolean = false) => {
-        const texto = sanitizeText(content);
-        // Aqui a célula ocupa a largura toda (colSpan 2): 194mm - padding.
-        const pedacos = justificado ? splitLongText(doc, texto, 194 - 4.2, 8) : [texto];
-        pedacos.forEach(pedaco => {
-            const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
-            isZebra = !isZebra;
-            t2Body.push([{ content: pedaco, colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
-        });
+        const bg = isZebra ? colorGrayLabel : colorWhiteLabel;
+        isZebra = !isZebra;
+        t2Body.push([{ content: sanitizeText(content), colSpan: 2, styles: { fillColor: bg, valign: 'middle', halign: justificado ? 'justify' : 'left' } }]);
     };
 
     pushHeader('2. JUSTIFICATIVA PARA O AGRUPAMENTO DE ITENS\n(art. 40, §§ 2° e 3°, da Lei Federal nº 14.133/21)');
@@ -580,13 +555,24 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
     autoTable(doc, {
         startY: currentY,
-        body: t2Body,
+        body: expandLongTextRows(doc, t2Body, {
+            startY: currentY,
+            fontSize: 8,
+            // Célula de largura total (colSpan 2, usada pelo pushFullRow):
+            // 194mm (tableWidth) - padding. Célula de resposta comum
+            // (pushRow, coluna 1 'auto'): 194 - 55 (coluna 0) - padding.
+            getCellWidthMm: (cell: any) => {
+                const tableWidth = PAGE_WIDTH - L_MARGIN - R_MARGIN;
+                const colSpan = (cell && cell.colSpan) || 1;
+                return (colSpan === 2 ? tableWidth : tableWidth - 55) - 4.2;
+            }
+        }),
         theme: 'grid',
-        styles: { 
-            fontSize: 8, 
-            lineColor: [0,0,0], 
-            lineWidth: 0.1, 
-            textColor: 0, 
+        styles: {
+            fontSize: 8,
+            lineColor: [0,0,0],
+            lineWidth: 0.1,
+            textColor: 0,
             overflow: 'linebreak',
             cellPadding: { top: 1.2, right: 3, bottom: 1.2, left: 1.2 }
         },
