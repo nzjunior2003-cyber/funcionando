@@ -63,7 +63,7 @@ export const splitLongText = (
 
     const chunks: string[] = [];
     for (let i = 0; i < allLines.length; i += maxLinesPerChunk) {
-        chunks.push(allLines.slice(i, i + maxLinesPerChunk).join(' '));
+        chunks.push(allLines.slice(i, i + maxLinesPerChunk).join('\n'));
     }
     return chunks;
 };
@@ -164,23 +164,41 @@ export const expandLongTextRows = (
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(fontSize);
         const allLines: string[] = doc.splitTextToSize(String(cell.content).trim(), estimatedWidth);
-
-        // Quantas linhas cabem no espaço que REALMENTE sobra na página
-        // atual, nesta posição específica da tabela?
+        const rowHeight = allLines.length * lineHeight + cellPaddingV;
         const remaining = usableBottom - currentY;
-        let firstChunkLines = Math.floor((remaining - cellPaddingV) / lineHeight);
+        // Margem de segurança: nossa estimativa de altura/posição é uma
+        // aproximação do que o autoTable realmente calcula por dentro — em
+        // casos de borda, um texto que "cabe" pela nossa conta pode não
+        // caber de verdade. Descontar ~2 linhas de folga evita que esses
+        // casos de borda voltem a pular a linha inteira (o bug original).
+        const safetyMargin = 2 * lineHeight;
+
+        if (rowHeight <= remaining - safetyMargin) {
+            // Cabe inteiro no que sobrou da página atual: não precisa
+            // quebrar em pedaços. Mantém o conteúdo ORIGINAL sem
+            // reconstruir via join — evita qualquer efeito colateral no
+            // motor de justificado por causa de quebras de linha
+            // artificiais que não existiam antes.
+            expanded.push(row);
+            currentY = currentY + rowHeight;
+            return;
+        }
+
+        // Não coube no que sobrou da página atual: quebra em pedaços — o
+        // primeiro do tamanho do que sobra agora (ou pula pra página nova
+        // se não sobrar quase nada), os seguintes do tamanho de uma página.
+        let firstChunkLines = Math.floor((remaining - safetyMargin - cellPaddingV) / lineHeight);
         if (firstChunkLines < 2) firstChunkLines = 0; // não compensa um pedacinho de 1 linha só — pula tudo pra próxima página
 
         const pedacos: string[] = [];
         let idx = 0;
-        if (firstChunkLines > 0 && allLines.length > 0) {
-            const end = Math.min(firstChunkLines, allLines.length);
-            pedacos.push(allLines.slice(0, end).join(' '));
-            idx = end;
+        if (firstChunkLines > 0) {
+            pedacos.push(allLines.slice(0, firstChunkLines).join('\n'));
+            idx = firstChunkLines;
         }
         while (idx < allLines.length) {
             const end = Math.min(idx + maxLinesFullPage, allLines.length);
-            pedacos.push(allLines.slice(idx, end).join(' '));
+            pedacos.push(allLines.slice(idx, end).join('\n'));
             idx = end;
         }
         if (pedacos.length === 0) pedacos.push('');
