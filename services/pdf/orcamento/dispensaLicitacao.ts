@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable, { RowInput } from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
+import { formatDate, setDefaultFont, drawFormattedSignature, drawPaeSignatureMark, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -232,6 +232,7 @@ export const generateOrcamentoDispensaPdf = (doc: jsPDF, data: OrcamentoData) =>
     
     y += 20;
     const sigX = PAGE_WIDTH / 2;
+    if (data.assinadoPae) drawPaeSignatureMark(doc, sigX, y);
     doc.setLineWidth(0.1); doc.setDrawColor(120);
     doc.line(sigX - 40, y, sigX + 40, y);
 

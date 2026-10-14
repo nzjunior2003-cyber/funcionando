@@ -592,12 +592,12 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const centerX = PAGE_WIDTH / 2;
 
     if (data.assinante1Nome) {
-        drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, centerX, y);
+        drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, centerX, y, !!data.assinadoPae);
     }
 
     if (data.assinante2Nome) {
         y += gapEntreAssinantes;
-        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, centerX, y);
+        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, centerX, y, !!data.assinadoPae);
     }
 
     const totalPages = (doc as any).internal.getNumberOfPages();

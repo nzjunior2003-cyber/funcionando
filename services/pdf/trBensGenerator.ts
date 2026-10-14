@@ -8,7 +8,8 @@ import {
     drawInstitutionalHeader,
     drawInstitutionalFooter,
     sanitizeText,
-    expandLongTextRows
+    expandLongTextRows,
+    drawPaeSignatureMark
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -618,6 +619,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     
     const sigWidth = 80;
     const sigX = PAGE_WIDTH / 2;
+    if (data.assinadoPae) drawPaeSignatureMark(doc, sigX, finalY);
     doc.setLineWidth(0.1); 
     doc.setDrawColor(120, 120, 120); 
     doc.line(sigX - (sigWidth / 2), finalY, sigX + (sigWidth / 2), finalY);

@@ -1077,6 +1077,10 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                 <Field label="Função"><input type="text" name="assinante2Funcao" value={data.assinante2Funcao || ''} onChange={handleChange} className={inputClasses} /></Field>
             </div>
         </div>
+        <label className="flex items-center gap-2 cursor-pointer mt-6">
+          <input type="checkbox" checked={!!data.assinadoPae} onChange={e => setData(prev => ({ ...prev, assinadoPae: e.target.checked }))} className="h-4 w-4 accent-cbmpa-red" />
+          <span className="text-sm font-medium">Incluir "Assinado Eletronicamente via PAE" acima dos nomes</span>
+        </label>
       </Section>
     </div>
   );

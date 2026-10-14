@@ -69,7 +69,7 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
         }
     }
     doc.text(`${data.cidade || 'Belém'}, ${formatDate(data.data)}.`, PAGE_WIDTH / 2, finalY + preDateGap, { align: 'center' });
-    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + preDateGap + gap);
+    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao, PAGE_WIDTH / 2, finalY + preDateGap + gap, !!data.assinadoPae);
 
     // Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();

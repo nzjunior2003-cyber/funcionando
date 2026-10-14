@@ -761,7 +761,17 @@ export const drawSignature = (doc: jsPDF, name: string, cargo: string, x: number
     return y;
 };
 
-export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: string, f: string, sx: number, y: number) => {
+export const PAE_SIGNATURE_TEXT = 'Assinado Eletronicamente via PAE';
+
+export const drawPaeSignatureMark = (doc: jsPDF, sx: number, y: number) => {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.setTextColor(0);
+    doc.text(PAE_SIGNATURE_TEXT, sx, y - 2, { align: 'center' });
+};
+
+export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: string, f: string, sx: number, y: number, assinadoPae: boolean = false) => {
+    if (assinadoPae) drawPaeSignatureMark(doc, sx, y);
     doc.setDrawColor(0);
     doc.setLineWidth(0.5);
     doc.line(sx - 40, y, sx + 40, y);

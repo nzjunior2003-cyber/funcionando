@@ -118,6 +118,12 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
                         </select>
                     </Field>
                     <Field label="Função" required><input type="text" name="funcao" value={data.funcao} onChange={handleChange} required className={inputClasses} /></Field>
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={!!data.assinadoPae} onChange={e => setData(prev => ({ ...prev, assinadoPae: e.target.checked }))} className="h-4 w-4 accent-cbmpa-red" />
+              <span className="text-sm font-medium">Incluir "Assinado Eletronicamente via PAE" acima do nome</span>
+            </label>
+          </div>
                 </div>
             </Section>
         </div>

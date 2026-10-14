@@ -99,7 +99,7 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     doc.text(dateLine, PAGE_WIDTH / 2, yPos, { align: 'center' });
 
     yPos += gap;
-    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao || 'matrícula', PAGE_WIDTH / 2, yPos);
+    drawFormattedSignature(doc, data.nome, data.nomeGuerra, data.cargo, data.funcao || 'matrícula', PAGE_WIDTH / 2, yPos, !!data.assinadoPae);
 
     // 8. Lógica do Rodapé: Institucional SOMENTE na última página
     const totalPages = (doc as any).internal.getNumberOfPages();

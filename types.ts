@@ -16,6 +16,7 @@ export interface Signatory {
   nomeGuerra: string;
   cargo: string;
   funcao: string;
+  assinadoPae?: boolean;
 }
 
 export interface DfdData extends Signatory {
@@ -249,7 +250,8 @@ export interface OrcamentoData {
   assinante2NomeGuerra: string;
   assinante2Cargo: string;
   assinante2Funcao: string;
-  
+  assinadoPae?: boolean;
+
   // NOVO: Campos para Credenciamento
   tabelaConsup?: TabelaConsupItem[];
   numeroResolucao?: string;

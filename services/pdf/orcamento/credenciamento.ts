@@ -219,13 +219,13 @@ export const generateOrcamentoCredenciamentoPdf = (doc: jsPDF, data: OrcamentoDa
     const sigX = PAGE_WIDTH / 2;
     
     y += 30;
-    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y);
+    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y, !!data.assinadoPae);
     
     if (data.assinante2Nome) {
         y += 15;
         addPage(40);
         y += 25;
-        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y);
+        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y, !!data.assinadoPae);
     }
 
     // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA COM NUMERAÇÃO EM TODAS

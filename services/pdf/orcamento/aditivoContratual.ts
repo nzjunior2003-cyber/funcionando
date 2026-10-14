@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawPaeSignatureMark, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -345,6 +345,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
 
     const drawSignatureLocal = (nomeCompleto: string, nomeGuerra: string, cargo: string, funcao: string, xPos: number, yPos: number) => {
         if (!nomeCompleto) return;
+        if (data.assinadoPae) drawPaeSignatureMark(doc, xPos, yPos);
         doc.setLineWidth(0.1); doc.setDrawColor(120); doc.line(xPos - 40, yPos, xPos + 40, yPos);
         const fullName = (nomeCompleto || '').trim(); const guerra = (nomeGuerra || '').trim(); const cargoTexto = (cargo || '').trim();
         doc.setFontSize(10);
