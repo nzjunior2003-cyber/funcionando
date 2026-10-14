@@ -417,7 +417,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
                 t1Body.push(totalGrupoRow(nAmpla, totalAmpla));
 
                 const nCota = String(++seqGrupo);
-                t1Body.push(tituloGrupo(`GRUPO ${nCota} — COTA RESERVADA ME/EPP (origem: Grupo ${loteId})`, colorBlueHeader, [255, 255, 255]));
+                t1Body.push(tituloGrupo(`GRUPO ${nCota} — COTA RESERVADA ME/EPP (origem: ${/^\s*(grupo|lote)\b/i.test(loteId) ? loteId.trim() : `Grupo ${loteId}`})`, colorBlueHeader, [255, 255, 255]));
                 itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'cota'));
                 t1Body.push(totalGrupoRow(nCota, totalMeEpp));
             } else {
@@ -462,9 +462,25 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         { content: formatCurrency(totalGlobal), colSpan: 3, styles: { fontStyle: 'bold', halign: 'right', valign: 'middle', fillColor: colorGrayLabel } }
     ]);
 
+    // O título da seção é uma tabela própria (aparece só uma vez); a tabela de
+    // itens repete apenas a linha com os nomes das colunas ao virar a página.
+    // Garante espaço pro título + nomes das colunas + ao menos uma linha de item,
+    // pra o título nunca ficar sozinho no fim de uma página.
+    if (currentY + 60 > PAGE_HEIGHT - MARGIN_BOTTOM) {
+        doc.addPage();
+        currentY = MARGIN_TOP;
+    }
     autoTable(doc, {
         startY: currentY,
-        head: t1Head,
+        body: [t1Head[0]],
+        theme: 'grid',
+        styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
+        margin: { left: L_MARGIN, right: R_MARGIN },
+        rowPageBreak: 'avoid'
+    });
+    autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY,
+        head: [t1Head[1]],
         body: t1Body,
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },

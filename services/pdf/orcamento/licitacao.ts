@@ -477,7 +477,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             if (isSrpPregao) fb.push(linhaTotalLote(nomeAmpla, totalAmpla));
 
             const nomeCota = nomeBloco(loteId);
-            const origem = isSrpPregao ? ` (origem: Lote ${loteId})` : '';
+            const origem = isSrpPregao ? ` (origem: ${/^\s*(grupo|lote)\b/i.test(loteId) ? loteId.trim() : `Lote ${loteId}`})` : '';
             fb.push(tituloLote(`LOTE ${nomeCota} — COTA RESERVADA ME/EPP${origem}`, LBLUE, [0, 0, 0]));
             fb.push(loteSubHeader);
             const totalCota = desenharCota(itensLote, 'cota', 'ME/EPP');
