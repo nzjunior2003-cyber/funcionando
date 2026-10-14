@@ -327,12 +327,14 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // Desenha as 1 ou 2 linhas de UM item (1 linha se ele for 100% de um tipo
     // só; 2 linhas — uma "Ampla" e uma "Cota Reservada" — se o valor do grupo
     // caiu na faixa que exige rateio).
+    // No Pregão SRP os itens são renumerados em sequência única, atravessando os grupos.
+    let seqItemRP = 0;
     const pushItemRows = (item: TrItem, split: Split, modo: 'ampla' | 'exclusiva' | 'dividida' | 'cota') => {
         const pushRow = (qtd: number, label: string) => {
             if (qtd <= 0) return; // Não imprime linha "vazia" (ex.: cota 0 quando o rateio zerou o item).
             const valorPorcao = qtd * (Number(item.valorUnitario) || 0);
             t1Body.push([
-                { content: item.item || '-', styles: { halign: 'center', valign: 'middle' } },
+                { content: isPregaoRP ? String(++seqItemRP) : (item.item || '-'), styles: { halign: 'center', valign: 'middle' } },
                 { content: sanitizeText(item.descricao), styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
                 { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
                 { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
