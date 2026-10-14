@@ -403,117 +403,96 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         { content: temPeriodoValido ? 'Valor Mensal' : 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } }
     ];
 
+    // Pregão eletrônico para Registro de Preços: o lote que se divide em
+    // Ampla + Cota ME/EPP vira DOIS lotes independentes, com numeração
+    // sequencial em todo o documento e total próprio. A origem fica no título.
+    const isSrpPregao = data.modalidadeLicitacao === 'pregao_eletronico_rp';
+    let seqLote = 0;
+    const nomeBloco = (loteId: string) => isSrpPregao ? String(++seqLote) : loteId;
+
+    const tituloLote = (texto: string, fill: any, txt: [number, number, number]) => [{
+        content: texto,
+        colSpan: 6,
+        styles: {
+            fillColor: fill, textColor: txt,
+            fontStyle: 'bold', halign: 'left', valign: 'middle',
+            cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
+        }
+    }];
+
+    const linhaTotalLote = (nome: string, valor: number) => [{
+        content: `VALOR DO LOTE ${nome}`, colSpan: 5,
+        styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
+    }, {
+        content: formatValue(valor, 'moeda'),
+        styles: { fontStyle: 'bold', fillColor: GRAY }
+    }];
+
+    // Desenha as linhas de UMA cota ('ampla' ou 'cota') de todos os itens do lote
+    // e devolve o total em R$ dessa parte.
+    const desenharCota = (itensLote: typeof data.itemGroups, cotaId: 'ampla' | 'cota', label: string): number => {
+        let totalParte = 0;
+        itensLote.forEach(g => {
+            const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+            const kMultiplier = getPeriodMultiplier(g);
+            const cota = g.cotas?.find(c => c.id === cotaId && Number(c.quantidade) > 0);
+            if (!cota) return;
+            const cQtd = Number(cota.quantidade) || 0;
+
+            const cMensal = Math.round(cQtd * est * 100) / 100;
+            const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
+
+            totalMensalCentavos += Math.round(cMensal * 100);
+            totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
+            totalParte += temPeriodoValido ? cGlobal : cMensal;
+
+            const descExibicao = (g as any).periodoContratacao
+                ? `${g.descricao}
+(Período: ${(g as any).periodoContratacao})`
+                : g.descricao;
+
+            fb.push([
+                seqItem.toString(),
+                { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
+                label,
+                formatValue(est, g.tipoValor),
+                cQtd,
+                formatValue(cMensal, g.tipoValor)
+            ]);
+            seqItem++;
+        });
+        return totalParte;
+    };
+
     lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
         const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
 
         if (temAmpla && temCota) {
-            fb.push([{
-                content: `LOTE ${loteId} — AMPLA CONCORRÊNCIA`,
-                colSpan: 6,
-                styles: {
-                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
+            const nomeAmpla = nomeBloco(loteId);
+            fb.push(tituloLote(`LOTE ${nomeAmpla} — AMPLA CONCORRÊNCIA`, BLUE, [255, 255, 255]));
             fb.push(loteSubHeader);
-            itensLote.forEach(g => {
-                const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-                const kMultiplier = getPeriodMultiplier(g);
-                const cotaAmpla = g.cotas?.find(c => c.id === 'ampla' && Number(c.quantidade) > 0);
-                if (!cotaAmpla) return;
-                const cQtd = Number(cotaAmpla.quantidade) || 0;
-                
-                const cMensal = Math.round(cQtd * est * 100) / 100;
-                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                
-                totalMensalCentavos += Math.round(cMensal * 100);
-                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
-                
-                const descExibicao = (g as any).periodoContratacao 
-                    ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
-                    : g.descricao;
+            const totalAmpla = desenharCota(itensLote, 'ampla', 'AMPLA');
+            if (isSrpPregao) fb.push(linhaTotalLote(nomeAmpla, totalAmpla));
 
-                fb.push([
-                    seqItem.toString(),
-                    { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
-                    'AMPLA',
-                    formatValue(est, g.tipoValor),
-                    cQtd,
-                    formatValue(cMensal, g.tipoValor)
-                ]);
-                seqItem++;
-            });
-
-            fb.push([{
-                content: `LOTE ${loteId} — COTA RESERVADA ME/EPP`,
-                colSpan: 6,
-                styles: {
-                    fillColor: LBLUE, textColor: [0, 0, 0] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
+            const nomeCota = nomeBloco(loteId);
+            const origem = isSrpPregao ? ` (origem: Lote ${loteId})` : '';
+            fb.push(tituloLote(`LOTE ${nomeCota} — COTA RESERVADA ME/EPP${origem}`, LBLUE, [0, 0, 0]));
             fb.push(loteSubHeader);
-            itensLote.forEach(g => {
-                const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-                const kMultiplier = getPeriodMultiplier(g);
-                const cotaME = g.cotas?.find(c => c.id === 'cota' && Number(c.quantidade) > 0);
-                if (!cotaME) return;
-                const cQtd = Number(cotaME.quantidade) || 0;
-                
-                const cMensal = Math.round(cQtd * est * 100) / 100;
-                const cGlobal = Math.round(cQtd * est * kMultiplier * 100) / 100;
-                
-                totalMensalCentavos += Math.round(cMensal * 100);
-                totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
-
-                const descExibicao = (g as any).periodoContratacao 
-                    ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
-                    : g.descricao;
-
-                fb.push([
-                    seqItem.toString(),
-                    { content: descExibicao, styles: { halign: 'justify', valign: 'middle' } },
-                    'ME/EPP',
-                    formatValue(est, g.tipoValor),
-                    cQtd,
-                    formatValue(cMensal, g.tipoValor)
-                ]);
-                seqItem++;
-            });
-            const loteTotal = getLoteTotal(itensLote);
-            fb.push([{
-                content: `VALOR DO LOTE ${loteId}`, colSpan: 5,
-                styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
-            }, {
-                content: formatValue(loteTotal, 'moeda'),
-                styles: { fontStyle: 'bold', fillColor: GRAY }
-            }]);
-
+            const totalCota = desenharCota(itensLote, 'cota', 'ME/EPP');
+            if (isSrpPregao) {
+                fb.push(linhaTotalLote(nomeCota, totalCota));
+            } else {
+                fb.push(linhaTotalLote(loteId, getLoteTotal(itensLote)));
+            }
         } else {
             const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
-            fb.push([{
-                content: `LOTE ${loteId} — ${tipoLote}`,
-                colSpan: 6,
-                styles: {
-                    fillColor: BLUE, textColor: [255, 255, 255] as [number, number, number],
-                    fontStyle: 'bold', halign: 'left', valign: 'middle',
-                    cellPadding: { top: 3, bottom: 3, left: 4, right: 4 }
-                }
-            }]);
+            const nome = nomeBloco(loteId);
+            fb.push(tituloLote(`LOTE ${nome} — ${tipoLote}`, BLUE, [255, 255, 255]));
             fb.push(loteSubHeader);
             itensLote.forEach(processarItem);
-            const loteTotal = getLoteTotal(itensLote);
-            fb.push([{
-                content: `VALOR DO LOTE ${loteId}`, colSpan: 5,
-                styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
-            }, {
-                content: formatValue(loteTotal, 'moeda'),
-                styles: { fontStyle: 'bold', fillColor: GRAY }
-            }]);
+            fb.push(linhaTotalLote(nome, getLoteTotal(itensLote)));
         }
     });
 

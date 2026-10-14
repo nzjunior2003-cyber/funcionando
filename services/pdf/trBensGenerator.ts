@@ -327,7 +327,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // Desenha as 1 ou 2 linhas de UM item (1 linha se ele for 100% de um tipo
     // só; 2 linhas — uma "Ampla" e uma "Cota Reservada" — se o valor do grupo
     // caiu na faixa que exige rateio).
-    const pushItemRows = (item: TrItem, split: Split, modo: 'ampla' | 'exclusiva' | 'dividida') => {
+    const pushItemRows = (item: TrItem, split: Split, modo: 'ampla' | 'exclusiva' | 'dividida' | 'cota') => {
         const pushRow = (qtd: number, label: string) => {
             if (qtd <= 0) return; // Não imprime linha "vazia" (ex.: cota 0 quando o rateio zerou o item).
             const valorPorcao = qtd * (Number(item.valorUnitario) || 0);
@@ -345,6 +345,8 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
 
         if (modo === 'exclusiva') {
             pushRow(split.qtdMeEpp, 'Exclusiva\nME/EPP');
+        } else if (modo === 'cota') {
+            pushRow(split.qtdMeEpp, 'Cota Reservada\nME/EPP');
         } else if (modo === 'ampla') {
             pushRow(split.qtdAmpla, 'Ampla\nConcorrência');
         } else {
@@ -383,7 +385,49 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         }
     });
 
+    // Pregão Eletrônico para Registro de Preços: o grupo que se divide em
+    // Ampla + Cota ME/EPP vira DOIS grupos independentes, com numeração
+    // sequencial em todo o documento e total próprio; a origem fica no título.
+    const isPregaoRP = !!data.formaContratacao?.includes('pregao_rp');
+    let seqGrupo = 0;
+
+    const tituloGrupo = (texto: string, fill: any, textColor: [number, number, number]): any[] => [{
+        content: texto,
+        colSpan: 8,
+        styles: { fillColor: fill, textColor, fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
+    }];
+    const totalGrupoRow = (nome: string, valor: number): any[] => [
+        { content: `TOTAL DO GRUPO ${nome}`, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } },
+        { content: formatCurrency(valor), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
+    ];
+
     ordemGrupos.forEach(loteId => {
+        const itensGrupo = itensPorGrupo[loteId];
+
+        if (isPregaoRP) {
+            itensGrupo.forEach(it => { totalGlobal += (Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0); });
+            const { splits, modo, totalAmpla, totalMeEpp } = calcularSplit(itensGrupo);
+
+            if (modo === 'dividida') {
+                const nAmpla = String(++seqGrupo);
+                t1Body.push(tituloGrupo(`GRUPO ${nAmpla} — AMPLA CONCORRÊNCIA`, colorBlueHeader, [255, 255, 255]));
+                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'ampla'));
+                t1Body.push(totalGrupoRow(nAmpla, totalAmpla));
+
+                const nCota = String(++seqGrupo);
+                t1Body.push(tituloGrupo(`GRUPO ${nCota} — COTA RESERVADA ME/EPP (origem: Grupo ${loteId})`, colorBlueHeader, [255, 255, 255]));
+                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'cota'));
+                t1Body.push(totalGrupoRow(nCota, totalMeEpp));
+            } else {
+                const n = String(++seqGrupo);
+                const sufixo = modo === 'exclusiva' ? ' — EXCLUSIVA ME/EPP' : '';
+                t1Body.push(tituloGrupo(`GRUPO ${n}${sufixo}`, colorBlueHeader, [255, 255, 255]));
+                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, modo));
+                t1Body.push(totalGrupoRow(n, totalAmpla + totalMeEpp));
+            }
+            return;
+        }
+
         // Linha de título do grupo, ocupando as 8 colunas — substitui a antiga
         // coluna "Grupo" que se repetia em toda linha de item.
         t1Body.push([{
@@ -392,7 +436,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             styles: { fillColor: colorBlueHeader, textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold', halign: 'left', valign: 'middle', cellPadding: { top: 3, bottom: 3, left: 4, right: 4 } }
         }]);
 
-        const { totalAmpla, totalMeEpp, totalGrupo } = processarGrupo(itensPorGrupo[loteId]);
+        const { totalAmpla, totalMeEpp, totalGrupo } = processarGrupo(itensGrupo);
 
         // As 3 linhas de fechamento do grupo: quanto ficou em cada cota e o
         // total do grupo — igual ao padrão pedido, espelhando o Orçamento.
@@ -404,10 +448,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
             { content: 'TOTAL AMPLA CONCORRÊNCIA', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } },
             { content: formatCurrency(totalAmpla), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorGrayLabel } }
         ]);
-        t1Body.push([
-            { content: `TOTAL DO GRUPO ${loteId}`, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } },
-            { content: formatCurrency(totalGrupo), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
-        ]);
+        t1Body.push(totalGrupoRow(loteId, totalGrupo));
     });
 
     // Itens avulsos (sem loteId) vêm depois de todos os grupos, sem título
