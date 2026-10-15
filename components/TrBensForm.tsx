@@ -898,7 +898,13 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                       <div className="flex items-center">
                         <span className="mr-2 dark:text-gray-300">A cada</span>
                         <input type="number" min="0" name="reajusteMeses" value={data.reajusteMeses} onChange={handleChange} className={inputClasses} placeholder="Ex: 12"/>
-                        <span className="ml-2 dark:text-gray-300">meses.</span>
+                        <span className="mx-2 dark:text-gray-300">{Number(data.reajusteMeses) === 1 ? 'mês,' : 'meses,'}</span>
+                        <select name="reajusteMarco" value={data.reajusteMarco || ''} onChange={handleChange} className={inputClasses}>
+                            <option value="">a partir de...</option>
+                            <option value="orcamento">a partir do orçamento estimado</option>
+                            <option value="proposta">a partir da apresentação da proposta</option>
+                            <option value="contrato">a partir da assinatura do contrato</option>
+                        </select>
                       </div>
                   </Field>
               </div>

@@ -343,6 +343,7 @@ export interface TrBensData extends Signatory {
   garantiaContratoJustificativa: string;
   reajusteIndice: string;
   reajusteMeses: string;
+  reajusteMarco?: '' | 'orcamento' | 'proposta' | 'contrato';
   formaEntrega: string;
   entregaParcelas: string;
   entregaPrimeira: string;

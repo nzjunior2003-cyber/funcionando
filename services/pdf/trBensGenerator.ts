@@ -625,7 +625,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     pushRow('9.3. PAGAMENTO', pgText || 'Conforme Edital.', true);
 
     pushRow('9.4. GARANTIA DE CONTRATO', `${radio(data.garantiaContratoTipo === 'porcentagem')} Sim: ${data.garantiaContratoPorcentagem || '0'}% do valor inicial. Justificativa: ${data.garantiaContratoJustificativa || '-'}\n\n${radio(data.garantiaContratoTipo === 'nao_ha')} Não há.`, true);
-    pushRow('9.5. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} meses.`);
+    const marcosReajuste: Record<string, string> = {
+        orcamento: 'a partir do orçamento estimado',
+        proposta: 'a partir da apresentação da proposta',
+        contrato: 'a partir da assinatura do contrato'
+    };
+    const nMesesReajuste = Number(data.reajusteMeses);
+    const unidadeMeses = nMesesReajuste === 1 ? 'mês' : 'meses';
+    const marcoReajuste = data.reajusteMarco ? `, ${marcosReajuste[data.reajusteMarco]}` : '';
+    pushRow('9.5. REAJUSTE', `Índice: ${data.reajusteIndice || 'N/A'}. Periodicidade: a cada ${data.reajusteMeses || '-'} ${unidadeMeses}${marcoReajuste}.`);
 
     pushHeader('10. PREVISÃO ORÇAMENTÁRIA\n(art. 18, § 1°, VI, da Lei Federal nº 14.133/21)');
     pushFullRow('10.1. DADOS ORÇAMENTÁRIOS DA CONTRATAÇÃO');
