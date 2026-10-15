@@ -225,6 +225,7 @@ const initialTrBensState: TrBensData = {
     garantiaContratoJustificativa: '',
     reajusteIndice: '',
     reajusteMeses: '',
+    reajusteMarco: '',
     formaEntrega: '',
     entregaParcelas: '',
     entregaPrimeira: '',
