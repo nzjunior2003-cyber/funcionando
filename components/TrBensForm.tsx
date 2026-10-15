@@ -37,6 +37,16 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
     setData({ ...data, [e.target.name]: e.target.value });
   };
 
+  const addGarantiaPeriodo = () => setData(prev => ({ ...prev, garantiaPeriodos: [...(prev.garantiaPeriodos || []), { id: Date.now().toString(), itemIds: [], meses: '' }] }));
+  const removeGarantiaPeriodo = (id: string) => setData(prev => ({ ...prev, garantiaPeriodos: (prev.garantiaPeriodos || []).filter(p => p.id !== id) }));
+  const updateGarantiaPeriodo = (id: string, patch: { meses?: string }) => setData(prev => ({ ...prev, garantiaPeriodos: (prev.garantiaPeriodos || []).map(p => p.id === id ? { ...p, ...patch } : p) }));
+  const toggleGarantiaItem = (periodoId: string, itemId: string) => setData(prev => ({
+    ...prev,
+    garantiaPeriodos: (prev.garantiaPeriodos || []).map(p => p.id === periodoId
+      ? { ...p, itemIds: p.itemIds.includes(itemId) ? p.itemIds.filter(i => i !== itemId) : [...p.itemIds, itemId] }
+      : p)
+  }));
+
   const handleSigilosoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setData(prev => ({
@@ -476,8 +486,32 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
               <RadioGroup name="garantiaBem" value={data.garantiaBem} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} />
               {data.garantiaBem === 'sim' && (
                 <div className="p-4 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 mt-2 space-y-4 shadow-inner">
-                    <Field label="Indicação dos Itens" note="Ex: 01, 02 e 05"><input type="text" name="garantiaItens" value={data.garantiaItens || ''} onChange={handleChange} placeholder="Quais itens terão garantia?" className={inputClasses}/></Field>
-                    <Field label="Prazo de Garantia (meses)"><input type="number" min="0" name="garantiaBemMeses" value={data.garantiaBemMeses} onChange={handleChange} placeholder="Ex: 12" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/></Field>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Cada período de garantia pode valer para itens diferentes. Marque os itens e informe o prazo; o nome do item é puxado automaticamente.</p>
+                    {(data.garantiaPeriodos || []).map((per, idx) => (
+                        <div key={per.id} className="p-3 border rounded dark:border-gray-600 space-y-2">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="font-semibold text-sm dark:text-gray-200">Período {idx + 1}</span>
+                                <div className="flex items-center gap-2">
+                                    <input type="number" min="0" value={per.meses} onChange={e => updateGarantiaPeriodo(per.id, { meses: e.target.value })} placeholder="Meses" className="w-24 p-2 border rounded dark:bg-gray-700 dark:text-white"/>
+                                    <span className="text-sm dark:text-gray-300">meses</span>
+                                    <button type="button" onClick={() => removeGarantiaPeriodo(per.id)} className="text-red-600 text-sm hover:underline">Remover</button>
+                                </div>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto space-y-1">
+                                {data.itens.map(it => {
+                                    const emOutro = (data.garantiaPeriodos || []).some(o => o.id !== per.id && o.itemIds.includes(it.id));
+                                    return (
+                                        <label key={it.id} className={`flex items-start gap-2 text-sm dark:text-gray-300 ${emOutro ? 'opacity-50' : ''}`}>
+                                            <input type="checkbox" className="mt-1" disabled={emOutro} checked={per.itemIds.includes(it.id)} onChange={() => toggleGarantiaItem(per.id, it.id)}/>
+                                            <span><b>Item {it.item || '-'}</b> – {it.descricao || '(sem descrição)'}{emOutro ? ' (já em outro período)' : ''}</span>
+                                        </label>
+                                    );
+                                })}
+                                {data.itens.length === 0 && <p className="text-sm text-gray-500">Cadastre os itens na seção 1.</p>}
+                            </div>
+                        </div>
+                    ))}
+                    <button type="button" onClick={addGarantiaPeriodo} className="px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700">+ Adicionar período de garantia</button>
                 </div>
               )}
           </Field>

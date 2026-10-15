@@ -258,6 +258,12 @@ export interface OrcamentoData {
   dataResolucao?: string;
 }
 
+export interface GarantiaPeriodo {
+  id: string;
+  itemIds: string[];
+  meses: string;
+}
+
 export interface TrBensItem extends EtpItem {
   grupo: string;
   item: string;
@@ -283,6 +289,7 @@ export interface TrBensData extends Signatory {
   garantiaBem: string;
   garantiaBemMeses: string;
   garantiaItens: string;
+  garantiaPeriodos?: GarantiaPeriodo[];
   assistenciaTecnica: string;
   assistenciaTecnicaItens: string;
   assistenciaTecnicaMeses: string;

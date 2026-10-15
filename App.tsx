@@ -172,6 +172,7 @@ const initialTrBensState: TrBensData = {
     garantiaBem: '',
     garantiaBemMeses: '',
     garantiaItens: '',
+    garantiaPeriodos: [],
     assistenciaTecnica: 'nao',
     assistenciaTecnicaItens: '',
     assistenciaTecnicaMeses: '',

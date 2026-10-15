@@ -464,18 +464,24 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         return totalParte;
     };
 
-    lotesOrdemFinal.forEach(loteId => {
+    // No Pregão SRP, primeiro saem todos os lotes de Ampla Concorrência e só
+    // depois os de Cota Reservada / Exclusiva ME/EPP, com numeração contínua.
+    const passesLotes: Array<'tudo' | 'ampla' | 'meepp'> = isSrpPregao ? ['ampla', 'meepp'] : ['tudo'];
+    passesLotes.forEach(passe => lotesOrdemFinal.forEach(loteId => {
         const itensLote = lotesBucketFinal[loteId];
         const temAmpla = itensLote.some(g => g.cotas?.some(c => c.id === 'ampla' && Number(c.quantidade) > 0));
         const temCota  = itensLote.some(g => g.cotas?.some(c => c.id === 'cota'  && Number(c.quantidade) > 0));
 
         if (temAmpla && temCota) {
+            if (passe !== 'meepp') {
             const nomeAmpla = nomeBloco(loteId);
             fb.push(tituloLote(`LOTE ${nomeAmpla} — AMPLA CONCORRÊNCIA`, BLUE, [255, 255, 255]));
             fb.push(loteSubHeader);
             const totalAmpla = desenharCota(itensLote, 'ampla', 'AMPLA');
             if (isSrpPregao) fb.push(linhaTotalLote(nomeAmpla, totalAmpla));
+            }
 
+            if (passe === 'ampla') return;
             const nomeCota = nomeBloco(loteId);
             const origem = isSrpPregao ? ` (origem: ${/^\s*(grupo|lote)\b/i.test(loteId) ? loteId.trim() : `Lote ${loteId}`})` : '';
             fb.push(tituloLote(`LOTE ${nomeCota} — COTA RESERVADA ME/EPP${origem}`, LBLUE, [0, 0, 0]));
@@ -487,6 +493,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 fb.push(linhaTotalLote(loteId, getLoteTotal(itensLote)));
             }
         } else {
+            if ((passe === 'ampla' && !temAmpla) || (passe === 'meepp' && temAmpla)) return;
             const tipoLote = !temAmpla ? 'EXCLUSIVA ME/EPP' : 'AMPLA CONCORRÊNCIA';
             const nome = nomeBloco(loteId);
             fb.push(tituloLote(`LOTE ${nome} — ${tipoLote}`, BLUE, [255, 255, 255]));
@@ -494,7 +501,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             itensLote.forEach(processarItem);
             fb.push(linhaTotalLote(nome, getLoteTotal(itensLote)));
         }
-    });
+    }));
 
     avulsosFinal.forEach(processarItem);
 
