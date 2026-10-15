@@ -393,7 +393,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // Pregão Eletrônico para Registro de Preços: o grupo que se divide em
     // Ampla + Cota ME/EPP vira DOIS grupos independentes, com numeração
     // sequencial em todo o documento e total próprio; a origem fica no título.
-    const isPregaoRP = !!data.formaContratacao?.includes('pregao_rp');
+    const isPregaoRP = !!data.formaContratacao?.some(f => ['pregao', 'pregao_rp', 'dispensa_valor', 'dispensa_art75'].includes(f));
     let seqGrupo = 0;
 
     const tituloGrupo = (texto: string, fill: any, textColor: [number, number, number]): any[] => [{

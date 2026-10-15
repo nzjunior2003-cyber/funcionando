@@ -406,7 +406,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     // Pregão eletrônico para Registro de Preços: o lote que se divide em
     // Ampla + Cota ME/EPP vira DOIS lotes independentes, com numeração
     // sequencial em todo o documento e total próprio. A origem fica no título.
-    const isSrpPregao = data.modalidadeLicitacao === 'pregao_eletronico_rp';
+    const isSrpPregao = data.tipoOrcamento === 'dispensa_licitacao' || data.modalidadeLicitacao === 'pregao_eletronico_rp' || data.modalidadeLicitacao === 'pregao_eletronico_comum';
     let seqLote = 0;
     const nomeBloco = (loteId: string) => isSrpPregao ? String(++seqLote) : loteId;
 
