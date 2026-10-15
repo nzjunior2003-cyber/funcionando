@@ -329,12 +329,15 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // caiu na faixa que exige rateio).
     // No Pregão SRP os itens são renumerados em sequência única, atravessando os grupos.
     let seqItemRP = 0;
+    const numerosImpressos = new Map<string, string[]>(); // id do item -> números impressos no PDF
     const pushItemRows = (item: TrItem, split: Split, modo: 'ampla' | 'exclusiva' | 'dividida' | 'cota') => {
         const pushRow = (qtd: number, label: string) => {
             if (qtd <= 0) return; // Não imprime linha "vazia" (ex.: cota 0 quando o rateio zerou o item).
             const valorPorcao = qtd * (Number(item.valorUnitario) || 0);
+            const numeroImpresso = isPregaoRP ? String(++seqItemRP) : (item.item || '-');
+            numerosImpressos.set(item.id, [...(numerosImpressos.get(item.id) || []), numeroImpresso]);
             t1Body.push([
-                { content: isPregaoRP ? String(++seqItemRP) : (item.item || '-'), styles: { halign: 'center', valign: 'middle' } },
+                { content: numeroImpresso, styles: { halign: 'center', valign: 'middle' } },
                 { content: sanitizeText(item.descricao), styles: { valign: 'middle', halign: 'justify', cellPadding: { top: 1.5, right: 3, bottom: 1.5, left: 1.5 } } },
                 { content: item.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
                 { content: item.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
@@ -390,7 +393,7 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     // Pregão Eletrônico para Registro de Preços: o grupo que se divide em
     // Ampla + Cota ME/EPP vira DOIS grupos independentes, com numeração
     // sequencial em todo o documento e total próprio; a origem fica no título.
-    const isPregaoRP = !!data.formaContratacao?.includes('pregao_rp');
+    const isPregaoRP = !!data.formaContratacao?.some(f => ['pregao', 'pregao_rp', 'dispensa_valor', 'dispensa_art75'].includes(f));
     let seqGrupo = 0;
 
     const tituloGrupo = (texto: string, fill: any, textColor: [number, number, number]): any[] => [{
@@ -403,32 +406,35 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
         { content: formatCurrency(valor), colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: colorYellowHeader } }
     ];
 
-    ordemGrupos.forEach(loteId => {
-        const itensGrupo = itensPorGrupo[loteId];
-
-        if (isPregaoRP) {
+    // Pregão SRP: primeiro todos os grupos de Ampla Concorrência, depois os
+    // de Cota Reservada / Exclusiva ME/EPP, com numeração contínua de grupos e itens.
+    if (isPregaoRP) {
+        const infos = ordemGrupos.map(loteId => {
+            const itensGrupo = itensPorGrupo[loteId];
             itensGrupo.forEach(it => { totalGlobal += (Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0); });
-            const { splits, modo, totalAmpla, totalMeEpp } = calcularSplit(itensGrupo);
+            return { loteId, itensGrupo, ...calcularSplit(itensGrupo) };
+        });
+        const origemDe = (loteId: string) => /^\s*(grupo|lote)\b/i.test(loteId) ? loteId.trim() : `Grupo ${loteId}`;
 
-            if (modo === 'dividida') {
-                const nAmpla = String(++seqGrupo);
-                t1Body.push(tituloGrupo(`GRUPO ${nAmpla} — AMPLA CONCORRÊNCIA`, colorBlueHeader, [255, 255, 255]));
-                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'ampla'));
-                t1Body.push(totalGrupoRow(nAmpla, totalAmpla));
+        infos.forEach(({ itensGrupo, splits, modo, totalAmpla }) => {
+            if (modo === 'exclusiva') return;
+            const n = String(++seqGrupo);
+            t1Body.push(tituloGrupo(`GRUPO ${n} — AMPLA CONCORRÊNCIA`, colorBlueHeader, [255, 255, 255]));
+            itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'ampla'));
+            t1Body.push(totalGrupoRow(n, totalAmpla));
+        });
+        infos.forEach(({ loteId, itensGrupo, splits, modo, totalMeEpp }) => {
+            if (modo === 'ampla') return;
+            const n = String(++seqGrupo);
+            const titulo = modo === 'exclusiva' ? `GRUPO ${n} — EXCLUSIVA ME/EPP (origem: ${origemDe(loteId)})` : `GRUPO ${n} — COTA RESERVADA ME/EPP (origem: ${origemDe(loteId)})`;
+            t1Body.push(tituloGrupo(titulo, colorBlueHeader, [255, 255, 255]));
+            itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, modo === 'exclusiva' ? 'exclusiva' : 'cota'));
+            t1Body.push(totalGrupoRow(n, totalMeEpp));
+        });
+    }
 
-                const nCota = String(++seqGrupo);
-                t1Body.push(tituloGrupo(`GRUPO ${nCota} — COTA RESERVADA ME/EPP (origem: ${/^\s*(grupo|lote)\b/i.test(loteId) ? loteId.trim() : `Grupo ${loteId}`})`, colorBlueHeader, [255, 255, 255]));
-                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, 'cota'));
-                t1Body.push(totalGrupoRow(nCota, totalMeEpp));
-            } else {
-                const n = String(++seqGrupo);
-                const sufixo = modo === 'exclusiva' ? ' — EXCLUSIVA ME/EPP' : '';
-                t1Body.push(tituloGrupo(`GRUPO ${n}${sufixo}`, colorBlueHeader, [255, 255, 255]));
-                itensGrupo.forEach(it => pushItemRows(it, splits.get(it)!, modo));
-                t1Body.push(totalGrupoRow(n, totalAmpla + totalMeEpp));
-            }
-            return;
-        }
+    (isPregaoRP ? [] : ordemGrupos).forEach(loteId => {
+        const itensGrupo = itensPorGrupo[loteId];
 
         // Linha de título do grupo, ocupando as 8 colunas — substitui a antiga
         // coluna "Grupo" que se repetia em toda linha de item.
@@ -533,7 +539,20 @@ export const generateTrBensPdf = (doc: jsPDF, data: TrBensData) => {
     const amostraTextoPadrao = `Será requerida apresentação de AMOSTRA a ser entregue no local indicado no chat da sessão pública e dentro de ${data.amostraPrazo || 'xx (xxxx)'} dias úteis, contados do dia posterior à solicitação, sendo incluído o último dia na contagem; podendo ser prorrogado a critério da administração e, se devidamente justificado pelo licitante e, em tempo hábil, qual seja, antes de findo o prazo concedido.\n\nNo caso de a amostra ser apresentada fora das especificações e havendo tempo hábil previsto no item acima, poderá o Pregoeiro solicitar a devida adequação.\n\nOs exemplares colocados à disposição da Administração serão tratados como protótipos, podendo ser manuseados e desmontados pela equipe técnica responsável pela análise, não gerando direito a ressarcimento.\n\nApós a análise definitiva da amostra pelo setor responsável, o pregoeiro informará o licitante para que faça a retirada da amostra no prazo de até ${data.amostraPrazoRetirada || 'xx (xxx)'} dias úteis, após o qual, se não retiradas, poderão ser descartadas ou usadas pela Administração, sem direito a ressarcimento. Em casos excepcionais, poderá a administração liberar a amostra para retirada somente após a entrega do primeiro pedido, para que seja verificada a compatibilidade entre o produto ofertado e o efetivamente entregue.`;
     const amostraJustificativa = data.justificativaAmostra ? `Justificativa: ${data.justificativaAmostra}\n\n` : '';
     pushRow('5.2. O EDITAL EXIGIRÁ AMOSTRA?', `${radio(data.amostra === 'sim')} Sim.\n\n${data.amostra === 'sim' ? amostraJustificativa + amostraTextoPadrao : ''}\n\n${radio(data.amostra === 'nao')} Não.`, true);
-    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim. Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.\n\n${radio(data.garantiaBem === 'nao')} Não.`, true);
+    const periodosGarantia = (data.garantiaPeriodos || []).filter(p => p.itemIds.length > 0);
+    let garantiaDetalhe: string;
+    if (periodosGarantia.length > 0) {
+        garantiaDetalhe = periodosGarantia.map((p, i) => {
+            const linhas = p.itemIds.map(id => data.itens.find(it => it.id === id)).filter(Boolean).map(it => {
+                const nums = (numerosImpressos.get(it!.id) || [it!.item || '-']).join(' / ');
+                return `Item ${nums} – ${sanitizeText(it!.descricao)}`;
+            });
+            return `Garantia de ${p.meses || '-'} meses:\n${linhas.join('\n')}`;
+        }).join('\n\n');
+    } else {
+        garantiaDetalhe = `Itens: ${data.garantiaItens || '-'}. Prazo: ${data.garantiaBemMeses || '-'} meses.`;
+    }
+    pushRow('5.3. HAVERÁ GARANTIA DO BEM?', `${radio(data.garantiaBem === 'sim')} Sim.${data.garantiaBem === 'sim' ? '\n' + garantiaDetalhe : ''}\n\n${radio(data.garantiaBem === 'nao')} Não.`, true);
     pushRow('5.4. HAVERÁ ASSISTÊNCIA TÉCNICA?', `${radio(data.assistenciaTecnica === 'sim')} Sim. Itens: ${data.assistenciaTecnicaItens || '-'}. Prazo: ${data.assistenciaTecnicaMeses || '-'} meses.\nMODO: ${data.assistenciaTecnicaModo === 'propria' ? 'Própria' : 'Empresa Credenciada'}\n\n${radio(data.assistenciaTecnica === 'nao')} Não.`, true);
 
     pushHeader('6. CRITÉRIOS DE SELEÇÃO\n(art. 6°, XXIII, h, da Lei Federal nº 14.133/21)');
