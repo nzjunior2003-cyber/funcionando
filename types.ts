@@ -7,6 +7,7 @@ export enum DocumentType {
   RISCO = 'risco',
   ORCAMENTO = 'orcamento',
   TR_BENS = 'tr_bens',
+  TR_SERVICOS = 'tr_servicos',
 }
 
 export interface Signatory {
@@ -271,6 +272,86 @@ export interface TrBensItem extends EtpItem {
   concorrencia: string;
   loteId?: string;
   aplicarCotaMeEpp?: boolean; // Controla se a reserva de cota ME/EPP (art. 48, Lei 14.133/21) é aplicada a este item/grupo.
+}
+
+// Campos comuns a todos os Termos de Referência (Bens, Serviços e futuros módulos,
+// como serviços com dedicação exclusiva de mão de obra). Os motores de PDF e os
+// blocos de formulário compartilhados (components/trCommon, services/pdf/trCommonGenerator)
+// trabalham apenas com este contrato.
+export interface TrCommonData extends Signatory {
+  pae: string;
+  setor: string;
+  itens: TrBensItem[];
+  justificativaAgrupamento: string;
+  motivoContratacao: string;
+  formaContratacao: string[];
+  inexigibilidadeInciso: string;
+  dispensaInciso: string;
+  criterioJulgamento: string;
+  orcamentoSigiloso: string;
+  justificativaOrcamentoSigiloso: string;
+  criterioAceitabilidade: string;
+  participacaoME: string;
+  participacaoMEItens: string;
+  itensParticipacaoExclusiva: string;
+  itensParticipacaoExclusivaDesc: string;
+  habilitacaoJuridica: string[];
+  habilitacaoFiscal: string[];
+  qualificacaoEconomica: string[];
+  habilitacaoTecnicaExigida: string;
+  habilitacaoTecnicaQual: string;
+  habilitacaoTecnicaPorque: string;
+  qualificacoesTecnicas: string[];
+  qualificacoesTecnicasJustificativas: { [key: string]: string };
+  criterioSustentabilidade: string;
+  criterioSustentabilidadeDesc: string;
+  riscosAssumidos: string;
+  riscosAssumidosDesc: string;
+  participacaoConsorcio: string;
+  participacaoConsorcioJustificativa: string;
+  participacaoConsorcioPercentual: string;
+  subcontratacao: string;
+  subcontratacaoOpcao: string;
+  subcontratacaoDetalhes: string;
+  prazoContrato: string;
+  possibilidadeProrrogacao: string;
+  pagamentoPrazoDias: string;
+  garantiaContratoTipo: string;
+  garantiaContratoPorcentagem: string;
+  garantiaContratoJustificativa: string;
+  garantiaContratoNaoHaJustificativa?: string;
+  reajusteIndice: string;
+  reajusteMeses: string;
+  reajusteMarco?: '' | 'orcamento' | 'proposta' | 'contrato';
+  dadosOrcamentariosFuncional: string;
+  dadosOrcamentariosElemento: string;
+  dadosOrcamentariosFonte: string;
+}
+
+export interface TrServicosData extends TrCommonData {
+  naturezaServico: '' | 'nao_continuado' | 'continuado';
+  // Continuado
+  justificativaContinuado: string;
+  periodicidadeExecucao: string;
+  pagamentoPeriodicidade: '' | 'mensal' | 'ordem_servico';
+  reajusteDataBase: string;
+  // Reajuste opcional no serviço não continuado
+  reajusteHavera: '' | 'sim' | 'nao';
+  prorrogacaoFundamento: string;
+  // Garantia do serviço
+  garantiaServico: '' | 'sim' | 'nao';
+  garantiaServicoMeses: string;
+  // Vistoria
+  vistoria: '' | 'sim' | 'nao';
+  vistoriaDataInicio: string;
+  vistoriaDataFim: string;
+  vistoriaHorarioInicio: string;
+  vistoriaHorarioFim: string;
+  // Forma e local de prestação
+  formaPrestacao: '' | 'ordem_servico' | 'inicio_imediato';
+  localPrestacao: string;
+  horarioPrestacaoInicio: string;
+  horarioPrestacaoFim: string;
 }
 
 export interface TrBensData extends Signatory {
