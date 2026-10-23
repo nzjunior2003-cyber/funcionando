@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DocumentType, DfdData, EtpData, RiscoData, OrcamentoData, TrBensData } from './types';
+import { DocumentType, DfdData, EtpData, RiscoData, OrcamentoData, TrBensData, TrServicosData } from './types';
 import { generatePdf } from './services/pdfGenerator';
 import { DfdForm } from './components/DfdForm';
 import { EtpForm } from './components/EtpForm';
 import { RiscoForm } from './components/RiscoForm';
 import { OrcamentoForm } from './components/OrcamentoForm';
 import { TrBensForm } from './components/TrBensForm';
+import { TrServicosForm } from './components/TrServicosForm';
+import { validateTrServicos } from './services/trServicosValidation';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { GoogleGenAI, Type } from "@google/genai";
 import { logoCBMPABase64 } from './assets/logoBase64';
@@ -237,6 +239,75 @@ const initialTrBensState: TrBensData = {
     dadosOrcamentariosFonte: '',
 };
 
+const initialTrServicosState: TrServicosData = {
+    ...initialSignatory,
+    pae: '',
+    setor: '',
+    naturezaServico: '',
+    itens: [],
+    justificativaAgrupamento: '',
+    motivoContratacao: '',
+    justificativaContinuado: '',
+    periodicidadeExecucao: '',
+    garantiaServico: '',
+    garantiaServicoMeses: '',
+    formaContratacao: [],
+    inexigibilidadeInciso: '',
+    dispensaInciso: '',
+    criterioJulgamento: '',
+    orcamentoSigiloso: '',
+    justificativaOrcamentoSigiloso: '',
+    criterioAceitabilidade: 'A proposta deve observar os valores unitários e global máximos aceitáveis conforme planilha de composição de preços do orçamento estimado.',
+    participacaoME: '',
+    participacaoMEItens: '',
+    itensParticipacaoExclusiva: '',
+    itensParticipacaoExclusivaDesc: '',
+    habilitacaoJuridica: [],
+    habilitacaoFiscal: [],
+    qualificacaoEconomica: [],
+    habilitacaoTecnicaExigida: '',
+    habilitacaoTecnicaQual: '',
+    habilitacaoTecnicaPorque: '',
+    qualificacoesTecnicas: [],
+    qualificacoesTecnicasJustificativas: {},
+    criterioSustentabilidade: '',
+    criterioSustentabilidadeDesc: '',
+    riscosAssumidos: '',
+    riscosAssumidosDesc: '',
+    participacaoConsorcio: '',
+    participacaoConsorcioJustificativa: '',
+    participacaoConsorcioPercentual: '10',
+    subcontratacao: '',
+    subcontratacaoOpcao: '',
+    subcontratacaoDetalhes: '',
+    vistoria: '',
+    vistoriaDataInicio: '',
+    vistoriaDataFim: '',
+    vistoriaHorarioInicio: '',
+    vistoriaHorarioFim: '',
+    formaPrestacao: '',
+    localPrestacao: '',
+    horarioPrestacaoInicio: '',
+    horarioPrestacaoFim: '',
+    prazoContrato: '',
+    possibilidadeProrrogacao: '',
+    prorrogacaoFundamento: '',
+    pagamentoPrazoDias: '30 (trinta)',
+    pagamentoPeriodicidade: '',
+    garantiaContratoTipo: '',
+    garantiaContratoPorcentagem: '',
+    garantiaContratoJustificativa: '',
+    garantiaContratoNaoHaJustificativa: '',
+    reajusteHavera: 'nao',
+    reajusteIndice: '',
+    reajusteMeses: '',
+    reajusteMarco: '',
+    reajusteDataBase: '',
+    dadosOrcamentariosFuncional: '',
+    dadosOrcamentariosElemento: '',
+    dadosOrcamentariosFonte: '',
+};
+
 const documentOptions = [
     { 
         type: DocumentType.DFD, 
@@ -281,6 +352,15 @@ const documentOptions = [
         icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v.75c0 1.036.84 1.875 1.875 1.875h17.25c1.035 0 1.875-.84 1.875-1.875v-.75C22.5 3.839 21.66 3 20.625 3H3.375z" /><path fillRule="evenodd" d="M3.087 9l.54 9.17c.108 1.84 1.62 3.33 3.465 3.33h9.816c1.845 0 3.357-1.49 3.465-3.33L20.913 9H3.087zm4.547 4.5a.75.75 0 000 1.5h8.732a.75.75 0 000-1.5H7.634z" clipRule="evenodd" /></svg>,
         iconBg: 'bg-blue-900',
         borderColor: 'border-blue-900',
+        textColor: 'text-gray-800'
+    },
+    { 
+        type: DocumentType.TR_SERVICOS, 
+        title: "TR (Serviços)", 
+        description: "Termo de Referência (Serviços sem dedicação exclusiva)", 
+        icon: <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-8 h-8"><path d="M3.375 3C2.339 3 1.5 3.84 1.5 4.875v.75c0 1.036.84 1.875 1.875 1.875h17.25c1.035 0 1.875-.84 1.875-1.875v-.75C22.5 3.839 21.66 3 20.625 3H3.375z" /><path fillRule="evenodd" d="M3.087 9l.54 9.17c.108 1.84 1.62 3.33 3.465 3.33h9.816c1.845 0 3.357-1.49 3.465-3.33L20.913 9H3.087zm4.547 4.5a.75.75 0 000 1.5h8.732a.75.75 0 000-1.5H7.634z" clipRule="evenodd" /></svg>,
+        iconBg: 'bg-teal-700',
+        borderColor: 'border-teal-700',
         textColor: 'text-gray-800'
     }
 ];
@@ -371,6 +451,7 @@ function App() {
   const [riscoData, setRiscoData, undoRisco, canUndoRisco, resetRiscoData] = useFormWithHistory<RiscoData>(initialRiscoState);
   const [orcamentoData, setOrcamentoData, undoOrcamento, canUndoOrcamento, resetOrcamentoData] = useFormWithHistory<OrcamentoData>(initialOrcamentoState);
   const [trBensData, setTrBensData, undoTrBens, canUndoTrBens, resetTrBensData] = useFormWithHistory<TrBensData>(initialTrBensState);
+  const [trServicosData, setTrServicosData, undoTrServicos, canUndoTrServicos, resetTrServicosData] = useFormWithHistory<TrServicosData>(initialTrServicosState);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   
@@ -381,7 +462,7 @@ function App() {
     if (toast) {
         const timer = setTimeout(() => {
             setToast(null);
-        }, 4000); 
+        }, toast.type === 'error' && toast.message.length > 80 ? 10000 : 4000); 
         return () => clearTimeout(timer);
     }
   }, [toast]);
@@ -393,9 +474,10 @@ function App() {
         case DocumentType.RISCO: return { undo: undoRisco, canUndo: canUndoRisco };
         case DocumentType.ORCAMENTO: return { undo: undoOrcamento, canUndo: canUndoOrcamento };
         case DocumentType.TR_BENS: return { undo: undoTrBens, canUndo: canUndoTrBens };
+        case DocumentType.TR_SERVICOS: return { undo: undoTrServicos, canUndo: canUndoTrServicos };
         default: return { undo: () => {}, canUndo: false };
     }
-  }, [docType, canUndoDfd, undoDfd, canUndoEtp, undoEtp, canUndoRisco, undoRisco, canUndoOrcamento, undoOrcamento, canUndoTrBens, undoTrBens]);
+  }, [docType, canUndoDfd, undoDfd, canUndoEtp, undoEtp, canUndoRisco, undoRisco, canUndoOrcamento, undoOrcamento, canUndoTrBens, undoTrBens, canUndoTrServicos, undoTrServicos]);
   
   const currentDocInfo = useMemo(() => documentOptions.find(d => d.type === docType), [docType]);
 
@@ -407,6 +489,7 @@ function App() {
         case DocumentType.RISCO: resetRiscoData(initialRiscoState); break;
         case DocumentType.ORCAMENTO: resetOrcamentoData(initialOrcamentoState); break;
         case DocumentType.TR_BENS: resetTrBensData(initialTrBensState); break;
+        case DocumentType.TR_SERVICOS: resetTrServicosData(initialTrServicosState); break;
       }
     }
   };
@@ -426,6 +509,7 @@ function App() {
         case DocumentType.RISCO: dataToExport = riscoData; break;
         case DocumentType.ORCAMENTO: dataToExport = orcamentoData; break;
         case DocumentType.TR_BENS: dataToExport = trBensData; break;
+        case DocumentType.TR_SERVICOS: dataToExport = trServicosData; break;
         default: return;
     }
 
@@ -496,6 +580,13 @@ function App() {
                       resetTrBensData({
                           ...parsed.data,
                           itens: regenerateIds(parsed.data.itens),
+                      });
+                      break;
+                  case DocumentType.TR_SERVICOS:
+                      resetTrServicosData({
+                          ...initialTrServicosState,
+                          ...parsed.data,
+                          itens: regenerateIds(parsed.data.itens || []),
                       });
                       break;
               }
@@ -590,6 +681,17 @@ function App() {
                 case DocumentType.RISCO: data = riscoData; break;
                 case DocumentType.ORCAMENTO: data = orcamentoData; break;
                 case DocumentType.TR_BENS: data = trBensData; break;
+                case DocumentType.TR_SERVICOS: {
+                    const erros = validateTrServicos(trServicosData);
+                    if (erros.length > 0) {
+                        const lista = erros.slice(0, 3).join(' ');
+                        const resto = erros.length > 3 ? ` (+${erros.length - 3} pendência(s))` : '';
+                        setToast({ message: `Não foi possível gerar o PDF. ${lista}${resto}`, type: 'error' });
+                        return;
+                    }
+                    data = trServicosData;
+                    break;
+                }
                 default: 
                     setToast({ message: 'Geração de PDF para este documento ainda não foi implementada.', type: 'info' }); 
                     return;
@@ -619,6 +721,8 @@ function App() {
         return <OrcamentoForm data={orcamentoData} setData={setOrcamentoData} />;
       case DocumentType.TR_BENS:
         return <TrBensForm data={trBensData} setData={setTrBensData} />;
+      case DocumentType.TR_SERVICOS:
+        return <TrServicosForm data={trServicosData} setData={setTrServicosData} />;
       default:
         return <DocumentSelector onSelect={setDocType} />;
     }

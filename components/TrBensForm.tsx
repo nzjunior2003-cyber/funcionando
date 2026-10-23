@@ -1,41 +1,31 @@
-import React, { useState, useMemo } from 'react';
-import { TrBensData, TrBensItem } from '../types';
+import React from 'react';
+import { TrBensData } from '../types';
 import { AiAssistant } from './AiAssistant';
-import { cargoOptions, inputClasses, parseCurrency, formatCurrencyInput, Field, SectionWithHelp as Section } from './formCommon';
+import { inputClasses, Field, SectionWithHelp as Section } from './formCommon';
+import { Checkbox, RadioGroup, useTrHandlers } from './trCommon/common';
+import { ItensSection } from './trCommon/ItensSection';
+import { FormaContratacaoField, CriteriosSelecaoFields } from './trCommon/SelecaoFields';
+import { HabilitacoesFields, QualificacaoTecnicaFields, SustentabilidadeRiscosFields, ConsorcioSubcontratacaoFields } from './trCommon/RequisitosFields';
+import { GarantiaContratoField, ReajusteCampos, PrevisaoOrcamentariaSection, AssinaturaSection } from './trCommon/ContratoFields';
 
 interface TrBensFormProps {
   data: TrBensData;
   setData: React.Dispatch<React.SetStateAction<TrBensData>>;
 }
 
-const SIGILOSO_TEXT_PADRAO = "O custo estimado da contratação possui caráter sigiloso e será tornado público apenas e imediatamente após o julgamento das propostas. Quando as propostas permanecerem com preços acima do orçamento estimado, o custo estimado da contratação será tornado público após a fase de lances.";
-
-const Checkbox: React.FC<{ name: string, value: string, checked: boolean, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, children: React.ReactNode }> = ({ name, value, checked, onChange, children }) => (
-    <div className="flex items-start">
-        <input type="checkbox" id={`${name}-${value.replace(/\s/g, '')}`} name={name} value={value} checked={checked} onChange={onChange} className="mr-2 h-4 w-4 mt-1 flex-shrink-0"/>
-        <label htmlFor={`${name}-${value.replace(/\s/g, '')}`} className="dark:text-gray-300 leading-tight">{children}</label>
-    </div>
-);
-
-const RadioGroup: React.FC<{ name: keyof TrBensData, value: string, options: {val: string, label: string}[], onChange: (e: React.ChangeEvent<HTMLInputElement>) => void }> = ({ name, value, options, onChange }) => (
-    <div className="flex flex-col gap-y-2">
-        {options.map(opt => (
-            <div key={opt.val} className="flex items-start">
-                <input type="radio" id={`${name}-${opt.val}`} name={name} value={opt.val} checked={value === opt.val} onChange={onChange} className="mr-2 h-4 w-4 mt-1 flex-shrink-0"/>
-                <label htmlFor={`${name}-${opt.val}`} className="dark:text-gray-300">{opt.label}</label>
-            </div>
-        ))}
-    </div>
-);
+const QUALIFICACOES_BENS = [
+    {val: 'ciencia', label: 'Declaração de ciência das informações necessárias.'},
+    {val: 'registro', label: 'Registro na entidade profissional competente.'},
+    {val: 'pessoal', label: 'Indicação de pessoal técnico para execução.'},
+    {val: 'atestado', label: 'Atestado de capacidade técnica operacional.'},
+    {val: 'lei_especial', label: 'Outro previsto em lei especial.'},
+    {val: 'nao_exigida', label: 'Não será exigida prova em razão da baixa complexidade.'}
+];
 
 export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
-  const [loteInputValue, setLoteInputValue] = useState('');
-  const [editingPrice, setEditingPrice] = useState<{[key: string]: string}>({});
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setData({ ...data, [e.target.name]: e.target.value });
-  };
+  const h = useTrHandlers(setData);
+  const { handleChange, handleCheckboxChange } = h;
+  const shared = { data, setData, h };
 
   const addGarantiaPeriodo = () => setData(prev => ({ ...prev, garantiaPeriodos: [...(prev.garantiaPeriodos || []), { id: Date.now().toString(), itemIds: [], meses: '' }] }));
   const removeGarantiaPeriodo = (id: string) => setData(prev => ({ ...prev, garantiaPeriodos: (prev.garantiaPeriodos || []).filter(p => p.id !== id) }));
@@ -46,295 +36,6 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
       ? { ...p, itemIds: p.itemIds.includes(itemId) ? p.itemIds.filter(i => i !== itemId) : [...p.itemIds, itemId] }
       : p)
   }));
-
-  const handleSigilosoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setData(prev => ({
-        ...prev,
-        orcamentoSigiloso: val,
-        justificativaOrcamentoSigiloso: val === 'sim' ? SIGILOSO_TEXT_PADRAO : ''
-    }));
-  };
-
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value, checked } = e.target;
-    setData(prev => {
-        const field = name as keyof TrBensData;
-        const prevValue = (prev[field] as string[]) || [];
-        const newValue = checked ? [...prevValue, value] : prevValue.filter(v => v !== value);
-        
-        const updates: Partial<TrBensData> = { [field]: newValue };
-        
-        if (value === 'inexigibilidade' && !checked) updates.inexigibilidadeInciso = '';
-        if (value === 'dispensa_art75' && !checked) updates.dispensaInciso = '';
-        
-        return { ...prev, ...updates };
-    });
-  };
-
-  const handleJustificationChange = (key: string, value: string) => {
-    setData(prev => ({
-        ...prev,
-        qualificacoesTecnicasJustificativas: {
-            ...prev.qualificacoesTecnicasJustificativas,
-            [key]: value
-        }
-    }));
-  };
-
-  const handleItemChange = (id: string, field: keyof TrBensItem, value: string | number | boolean) => {
-    setData(prev => ({
-        ...prev,
-        itens: prev.itens.map(item => item.id === id ? { ...item, [field]: value } : item)
-    }));
-  };
-
-  // Liga/desliga a reserva de cota ME/EPP de UM item avulso (sem grupo).
-  // Antes de desmarcar num item de até R$ 80.000,00 — onde a Lei manda ser
-  // exclusivo pra ME/EPP — pede uma confirmação, porque isso é uma exceção
-  // que precisa estar justificada no processo administrativo (fora desta
-  // ferramenta, num despacho do demandante, por exemplo).
-  const handleCotaToggle = (item: TrBensItem, checked: boolean) => {
-    const valorItem = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0);
-    if (!checked && valorItem <= 80000 && valorItem > 0) {
-        const confirmJustificativa = window.confirm("ATENÇÃO: A Lei prevê exclusividade ME/EPP para itens até R$ 80.000,00.\n\nHá justificativa no processo para não atendimento desta previsão legal?");
-        if (!confirmJustificativa) return;
-    }
-    handleItemChange(item.id, 'aplicarCotaMeEpp', checked);
-  };
-
-  // Mesma ideia acima, mas pra um GRUPO inteiro de itens: como a regra é
-  // calculada em cima do valor total do grupo, ligar/desligar precisa
-  // aplicar o mesmo valor a TODOS os itens daquele loteId de uma vez —
-  // não faria sentido um item do grupo aplicar a regra e outro não.
-  const handleLoteCotaToggle = (loteId: string, checked: boolean, valorLote: number) => {
-    if (!checked && valorLote <= 80000 && valorLote > 0) {
-        const confirmJustificativa = window.confirm("ATENÇÃO: A Lei prevê exclusividade ME/EPP para Grupos até R$ 80.000,00.\n\nHá justificativa no processo para não atendimento desta previsão legal?");
-        if (!confirmJustificativa) return;
-    }
-    setData(prev => ({
-        ...prev,
-        itens: prev.itens.map(item => item.loteId === loteId ? { ...item, aplicarCotaMeEpp: checked } : item)
-    }));
-  };
-
-  const handlePriceInputChange = (id: string, value: string) => {
-    let clean = value.replace(/[^\d,]/g, '');
-    const parts = clean.split(',');
-    if (parts.length > 2) clean = parts[0] + ',' + parts.slice(1).join('');
-    setEditingPrice(prev => ({ ...prev, [id]: clean }));
-  };
-
-  const handlePriceBlur = (id: string, value: string) => {
-    const numericValue = parseCurrency(value);
-    handleItemChange(id, 'valorUnitario', numericValue);
-    setEditingPrice(prev => {
-        const newState = { ...prev };
-        delete newState[id];
-        return newState;
-    });
-  };
-
-  const addItem = () => {
-    const newItem: TrBensItem = { id: Date.now().toString(), grupo: '', item: (data.itens.length + 1).toString(), descricao: '', codigoSimas: '', unidade: '', quantidade: 0, valorUnitario: 0, concorrencia: '', aplicarCotaMeEpp: true };
-    setData(prev => ({ ...prev, itens: [...prev.itens, newItem] }));
-  };
-
-  const removeItem = (id: string) => {
-    setData(prev => ({ ...prev, itens: prev.itens.filter(item => item.id !== id) }));
-  };
-
-  const toggleItemSelection = (itemId: string) => {
-    setSelectedItems(prev => {
-        const newSelection = new Set(prev);
-        if (newSelection.has(itemId)) {
-            newSelection.delete(itemId);
-        } else {
-            newSelection.add(itemId);
-        }
-        return newSelection;
-    });
-  };
-
-  const handleAgrupar = () => {
-    if (selectedItems.size === 0) {
-        alert("Selecione itens para agrupar.");
-        return;
-    }
-    if (!loteInputValue.trim()) {
-        alert("Digite o nome ou número do grupo.");
-        return;
-    }
-    setData(prev => ({
-        ...prev,
-        itens: prev.itens.map(item =>
-            selectedItems.has(item.id) ? { ...item, loteId: loteInputValue.trim(), grupo: loteInputValue.trim() } : item
-        )
-    }));
-    setSelectedItems(new Set());
-    setLoteInputValue('');
-  };
-
-  const handleDesagrupar = () => {
-      if (selectedItems.size === 0) {
-          alert("Selecione itens para desagrupar.");
-          return;
-      }
-      setData(prev => ({
-          ...prev,
-          itens: prev.itens.map(item =>
-              selectedItems.has(item.id) ? { ...item, loteId: undefined, grupo: '' } : item
-          )
-      }));
-      setSelectedItems(new Set());
-  };
-
-  const groupedItens = useMemo(() => {
-    const lotes: {[key: string]: TrBensItem[]} = {};
-    const ungrouped: TrBensItem[] = [];
-    data.itens.forEach(item => {
-        if (item.loteId) {
-            if (!lotes[item.loteId]) lotes[item.loteId] = [];
-            lotes[item.loteId].push(item);
-        } else {
-            ungrouped.push(item);
-        }
-    });
-    return { lotes, ungrouped };
-  }, [data.itens]);
-
-  // --- NOVA INTERFACE EM CARDS PARA OS ITENS ---
-  const renderItemCard = (item: TrBensItem) => {
-    const isSelected = selectedItems.has(item.id);
-    return (
-        <div key={item.id} className={`relative flex flex-col p-4 rounded-xl border ${isSelected ? 'border-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700'} shadow-sm transition-all`}>
-            
-            {/* Top Bar: Checkbox, Ícone e Grupo */}
-            <div className="flex justify-between items-center pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-                <div className="flex items-center gap-3">
-                    <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleItemSelection(item.id)}
-                        className="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <div className="flex items-center gap-2">
-                        <span className="font-bold text-gray-700 dark:text-gray-200">Item</span>
-                        <input
-                            type="text"
-                            value={item.item}
-                            onChange={e => handleItemChange(item.id, 'item', e.target.value)}
-                            className="w-12 text-center font-bold bg-transparent border-b border-gray-300 focus:border-cbmpa-red outline-none dark:text-white"
-                        />
-                        {item.loteId && (
-                            <span className="ml-2 text-xs font-bold px-2 py-1 bg-blue-100 text-blue-800 rounded-md dark:bg-blue-900 dark:text-blue-200">
-                                Grupo {item.loteId}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-gray-400 hover:text-red-600 transition-colors p-1"
-                    title="Remover Item"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                </button>
-            </div>
-
-            {/* Grid Interno do Card */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-                {/* Descrição Full Width */}
-                <div className="md:col-span-12">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Descrição Detalhada</label>
-                    <textarea
-                        value={item.descricao}
-                        onChange={e => handleItemChange(item.id, 'descricao', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white min-h-[80px] focus:ring-1 focus:ring-cbmpa-red outline-none resize-y"
-                        placeholder="Descreva o objeto..."
-                    />
-                </div>
-                
-                {/* Campos Menores */}
-                <div className="md:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Cód. SIMAS</label>
-                    <input
-                        type="text"
-                        value={item.codigoSimas}
-                        onChange={e => handleItemChange(item.id, 'codigoSimas', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
-                        placeholder="Ex: 12345"
-                    />
-                </div>
-
-                <div className="md:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Unidade</label>
-                    <input
-                        type="text"
-                        value={item.unidade}
-                        onChange={e => handleItemChange(item.id, 'unidade', e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
-                        placeholder="Ex: UND"
-                    />
-                </div>
-
-                <div className="md:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">Quantidade</label>
-                    <input
-                        type="number"
-                        min="0"
-                        value={item.quantidade}
-                        onChange={e => handleItemChange(item.id, 'quantidade', parseFloat(e.target.value) || 0)}
-                        className="w-full p-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-center"
-                    />
-                </div>
-
-                <div className="md:col-span-3">
-                    <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">V. Unitário (Opcional)</label>
-                    <div className="relative flex items-center">
-                        <span className="absolute left-3 text-gray-500">R$</span>
-                        <input
-                            type="text"
-                            value={editingPrice[item.id] ?? formatCurrencyInput(item.valorUnitario)}
-                            onChange={e => handlePriceInputChange(item.id, e.target.value)}
-                            onBlur={e => handlePriceBlur(item.id, e.target.value)}
-                            className="w-full py-2 pl-9 pr-2 border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white focus:ring-1 focus:ring-cbmpa-red outline-none text-right"
-                        />
-                    </div>
-                </div>
-
-                {/* Checkbox de cota ME/EPP — só aparece pra item AVULSO (sem grupo).
-                    Itens dentro de um grupo usam o checkbox único do cabeçalho do
-                    grupo, porque a regra é calculada em cima do valor do grupo todo. */}
-                {!item.loteId && (() => {
-                    const valorItem = (Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0);
-                    const isAboveTeto = valorItem > 4800000;
-                    const isExclusivoME = valorItem <= 80000 && valorItem > 0;
-                    let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste item";
-                    if (isAboveTeto) cotaMessage = "Valor acima do limite (R$ 4,8M). 100% Ampla Concorrência.";
-                    else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Até R$ 80.000,00)";
-
-                    return (
-                        <div className={`md:col-span-12 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={item.aplicarCotaMeEpp !== false && !isAboveTeto}
-                                    onChange={e => handleCotaToggle(item, e.target.checked)}
-                                    disabled={isAboveTeto}
-                                    className="h-4 w-4 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red cursor-pointer disabled:opacity-50"
-                                />
-                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{cotaMessage}</span>
-                            </label>
-                        </div>
-                    );
-                })()}
-            </div>
-        </div>
-    );
-  };
 
   return (
     <div className="space-y-6">
@@ -349,102 +50,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
         </div>
       </Section>
 
-      <Section title="1. O QUE SERÁ CONTRATADO?" instruction="Indicar o objeto da contratação (bem comum) e os quantitativos estimados.">
-        
-        {/* Painel de Agrupamento */}
-        {selectedItems.size > 0 && (
-            <div className="flex flex-wrap items-center justify-end gap-4 mb-6 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-lg shadow-sm">
-                <span className="font-semibold dark:text-blue-200">{selectedItems.size} item(s) selecionado(s)</span>
-                <input
-                    type="text"
-                    value={loteInputValue}
-                    onChange={e => setLoteInputValue(e.target.value)}
-                    placeholder="Nome/Nº do Grupo"
-                    className="p-2 border rounded-md dark:bg-gray-800 dark:border-gray-600 dark:text-gray-200 focus:ring-1 focus:ring-blue-500 outline-none"
-                />
-                <button onClick={handleAgrupar} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Agrupar em Grupo</button>
-                <button onClick={handleDesagrupar} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg shadow-sm transition">Desagrupar</button>
-            </div>
-        )}
-
-        {/* Lista de Cards (Substituindo a Tabela) */}
-        <div className="space-y-6 mb-6">
-            {/* Renderizar Grupos */}
-            {Object.keys(groupedItens.lotes).sort().map(loteId => {
-                const itensLote = groupedItens.lotes[loteId];
-                const valorTotalLote = itensLote.reduce((acc, it) => acc + ((Number(it.quantidade) || 0) * (Number(it.valorUnitario) || 0)), 0);
-                const isAboveTeto = valorTotalLote > 4800000;
-                const isExclusivoME = valorTotalLote <= 80000 && valorTotalLote > 0;
-                const aplicarCota = itensLote[0]?.aplicarCotaMeEpp !== false;
-
-                let cotaMessage = "Aplicar regra de divisão de Cota ME/EPP (25%) neste GRUPO";
-                if (isAboveTeto) cotaMessage = "Valor do Grupo acima do limite (R$ 4,8M). 100% Ampla Concorrência.";
-                else if (isExclusivoME) cotaMessage = "Aplicar exclusividade ME/EPP (Grupo até R$ 80.000,00)";
-
-                return (
-                    <div key={`lote-group-${loteId}`} className="bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                        <h3 className="font-bold text-lg text-cbmpa-red uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
-                            Grupo: {loteId}
-                        </h3>
-
-                        {/* Checkbox único pro grupo inteiro: a regra do art. 48 é calculada
-                            em cima do valor somado de todos os itens do grupo, então ligar/
-                            desligar aqui aplica o mesmo valor a todo mundo do grupo de uma vez. */}
-                        <div className={`mb-4 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    checked={aplicarCota && !isAboveTeto}
-                                    onChange={e => handleLoteCotaToggle(loteId, e.target.checked, valorTotalLote)}
-                                    disabled={isAboveTeto}
-                                    className="h-4 w-4 rounded border-gray-300 text-cbmpa-red focus:ring-cbmpa-red cursor-pointer disabled:opacity-50"
-                                />
-                                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">{cotaMessage}</span>
-                            </label>
-                        </div>
-
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            {itensLote.map(item => renderItemCard(item))}
-                        </div>
-                    </div>
-                );
-            })}
-            
-            {/* Renderizar Itens sem Grupo */}
-            {groupedItens.ungrouped.length > 0 && (
-                <div className={`${Object.keys(groupedItens.lotes).length > 0 ? 'bg-gray-50 dark:bg-gray-800/40 p-4 md:p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm' : ''}`}>
-                    {Object.keys(groupedItens.lotes).length > 0 && (
-                        <h3 className="font-bold text-lg text-gray-600 dark:text-gray-300 uppercase tracking-wide mb-4 border-b pb-2 dark:border-gray-600">
-                            Itens Sem Grupo
-                        </h3>
-                    )}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {groupedItens.ungrouped.map(item => renderItemCard(item))}
-                    </div>
-                </div>
-            )}
-
-            {/* Empty State */}
-            {data.itens.length === 0 && (
-                <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl">
-                    <p className="text-gray-500 dark:text-gray-400 italic">Nenhum item adicionado ainda. Clique no botão abaixo para começar.</p>
-                </div>
-            )}
-        </div>
-
-        <button onClick={addItem} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg text-sm shadow transition transform active:scale-95">➕ Adicionar Novo Item</button>
-      </Section>
-
-      {Object.keys(groupedItens.lotes).length > 0 && (
-        <Section title="2. JUSTIFICATIVA PARA O AGRUPAMENTO" instruction="Justificar como foi formado o grupo, indicando as razões técnicas que justificam o agrupamento ou a economia de escala que se espera obter.">
-          <Field label="Justificativa" note="Se a licitação for apenas por item(ns), preencha com 'não se aplica'.">
-              <div className="relative">
-                  <textarea name="justificativaAgrupamento" value={data.justificativaAgrupamento} onChange={handleChange} className={`${inputClasses} h-24 pr-10`} />
-                  <AiAssistant fieldName="Justificativa para Agrupamento de Itens" onGeneratedText={(t) => setData(prev => ({...prev, justificativaAgrupamento: t}))} />
-              </div>
-          </Field>
-        </Section>
-      )}
+      <ItensSection {...shared} objeto="bem comum" />
 
       <Section title="3. DESCRIÇÃO DA SOLUÇÃO" instruction="Resumir a solução escolhida pelo estudo técnico preliminar, a partir da demanda.">
         <Field label="3.1 Qual o motivo da contratação?" note="Descrição detalhada de como os bens suprem a demanda.">
@@ -530,229 +136,15 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
       </Section>
 
       <Section title="6. CRITÉRIOS DE SELEÇÃO" instruction="Formas de contratação e julgamento baseados na Lei Federal nº 14.133/21.">
-        <Field label="6.1 Forma de Contratação" required>
-            <div className="flex flex-col gap-y-2">
-                <Checkbox name="formaContratacao" value="inexigibilidade" checked={data.formaContratacao.includes('inexigibilidade')} onChange={handleCheckboxChange}>Inexigibilidade de licitação, com fundamento no art. 74.</Checkbox>
-                {data.formaContratacao.includes('inexigibilidade') && (
-                    <div className="ml-6 p-3 bg-white dark:bg-gray-800 border border-blue-200 rounded-md shadow-inner">
-                        <label className="block text-sm font-semibold mb-1 dark:text-blue-200">Selecione o Inciso (Art. 74):</label>
-                        <select name="inexigibilidadeInciso" value={data.inexigibilidadeInciso} onChange={handleChange} className={inputClasses}>
-                            <option value="">Selecione...</option>
-                            <option value="I">I - Aquisição com exclusividade</option>
-                            <option value="II">II - Notória especialização (serviços técnicos)</option>
-                            <option value="III">III - Artista consagrado</option>
-                            <option value="IV">IV - Credenciamento</option>
-                            <option value="V">V - Aquisição/locação de imóvel específico</option>
-                        </select>
-                    </div>
-                )}
-                <Checkbox name="formaContratacao" value="dispensa_valor" checked={data.formaContratacao.includes('dispensa_valor')} onChange={handleCheckboxChange}>Dispensa de licitação em razão do valor*, com fundamento no art. 75, II.</Checkbox>
-                <Checkbox name="formaContratacao" value="dispensa_art75" checked={data.formaContratacao.includes('dispensa_art75')} onChange={handleCheckboxChange}>Dispensa de licitação, com fundamento no art. 75 (demais incisos).</Checkbox>
-                {data.formaContratacao.includes('dispensa_art75') && (
-                    <div className="ml-6 p-3 bg-white dark:bg-gray-800 border border-blue-200 rounded-md shadow-inner">
-                        <label className="block text-sm font-semibold mb-1 dark:text-blue-200">Selecione o Inciso (Art. 75):</label>
-                        <select name="dispensaInciso" value={data.dispensaInciso} onChange={handleChange} className={inputClasses}>
-                            <option value="">Selecione...</option>
-                            <option value="III">III - Manutenção de veículos/equipamentos</option>
-                            <option value="IV">IV - Emergência/Calamidade</option>
-                            <option value="V">V - Licitação deserta/fracassada</option>
-                            <option value="VI">VI - Produtos perecíveis</option>
-                            <option value="VII">VII - Ensino/Pesquisa</option>
-                            <option value="VIII">VIII - Organizações Sociais</option>
-                            <option value="IX">IX - Ciência/Tecnologia/Inovação</option>
-                        </select>
-                    </div>
-                )}
-                <Checkbox name="formaContratacao" value="pregao" checked={data.formaContratacao.includes('pregao')} onChange={handleCheckboxChange}>Pregão eletrônico.</Checkbox>
-                <Checkbox name="formaContratacao" value="pregao_rp" checked={data.formaContratacao.includes('pregao_rp')} onChange={handleCheckboxChange}>Pregão eletrônico para Registro de Preços.</Checkbox>
-                <Checkbox name="formaContratacao" value="adesao_ata" checked={data.formaContratacao.includes('adesao_ata')} onChange={handleCheckboxChange}>Adesão à Ata de Registro de Preços.</Checkbox>
-            </div>
-        </Field>
-        <Field label="6.2 Critério de Julgamento">
-            <RadioGroup name="criterioJulgamento" value={data.criterioJulgamento} options={[{val: 'menor_preco', label: 'Menor preço.'}, {val: 'maior_desconto', label: 'Maior desconto.'}]} onChange={handleChange} />
-        </Field>
-        <Field label="6.3 O orçamento é sigiloso?">
-            <RadioGroup name="orcamentoSigiloso" value={data.orcamentoSigiloso} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleSigilosoChange} />
-            {data.orcamentoSigiloso === 'sim' && <textarea name="justificativaOrcamentoSigiloso" value={data.justificativaOrcamentoSigiloso} onChange={handleChange} className={`${inputClasses} h-32 mt-2 font-mono text-xs`}/>}
-        </Field>
-        <Field label="6.4 Critério para a Proposta ser Aceita">
-            <textarea name="criterioAceitabilidade" value={data.criterioAceitabilidade} onChange={handleChange} className={`${inputClasses} h-40 text-sm`} />
-        </Field>
-        <Field label="6.5 Há itens com participação exclusiva de ME/EPP?">
-            <RadioGroup name="participacaoME" value={data.participacaoME} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-            {data.participacaoME === 'sim' && (
-                <div className="mt-2">
-                    <Field label="Indicar os itens:">
-                        <input name="participacaoMEItens" value={data.participacaoMEItens} onChange={handleChange} className={inputClasses} placeholder="Ex: 01, 02 e 05"/>
-                    </Field>
-                </div>
-            )}
-        </Field>
+        <FormaContratacaoField {...shared} sec={6} srp />
+        <CriteriosSelecaoFields {...shared} sec={6} />
       </Section>
 
       <Section title="7. REQUISITOS DA CONTRATADA">
-          <Field label="7.1 Habilitação Jurídica">
-            <div className="space-y-2 mb-4">
-                {[
-                    {val: '7.1.1', label: '7.1.1. Pessoa física: cédula de identidade (RG)...'},
-                    {val: '7.1.2', label: '7.1.2. Empresário individual: inscrição no Registro Público...'},
-                    {val: '7.1.3', label: '7.1.3. Microempreendedor Individual - MEI: CCMEI...'},
-                    {val: '7.1.4', label: '7.1.4. Sociedade empresária estrangeira: portaria de autorização...'},
-                    {val: '7.1.5', label: '7.1.5. Sociedade simples: inscrição do ato constitutivo...'},
-                    {val: '7.1.6', label: '7.1.6. Filial, sucursal ou agência: inscrição do ato constitutivo...'},
-                    {val: '7.1.7', label: '7.1.7. Sociedade cooperativa: ata de fundação e estatuto...'},
-                    {val: '7.1.8', label: '7.1.8. Agricultor familiar: Declaração de Aptidão ao Pronaf...'},
-                    {val: '7.1.9', label: '7.1.9. Produtor Rural: matrícula no CEI...'},
-                    {val: '7.1.10', label: '7.1.10. Ato de autorização para o exercício da atividade...'},
-                    {val: '7.1.11', label: '7.1.11. Documentos acompanhados de todas as alterações...'}
-                ].map(opt => (
-                    <Checkbox key={opt.val} name="habilitacaoJuridica" value={opt.val} checked={data.habilitacaoJuridica?.includes(opt.val)} onChange={handleCheckboxChange}>{opt.label}</Checkbox>
-                ))}
-            </div>
-          </Field>
-
-          <Field label="7.2 Habilitação Fiscal, Social e Trabalhista">
-            <div className="space-y-2 mb-4">
-                {[
-                    {val: '7.2.1', label: '7.2.1. Prova de inscrição no CNPJ ou no CPF...'},
-                    {val: '7.2.2', label: '7.2.2. Prova de regularidade fiscal perante a Fazenda Nacional...'},
-                    {val: '7.2.3', label: '7.2.3. Prova de regularidade com o FGTS...'},
-                    {val: '7.2.4', label: '7.2.4. Prova de inexistência de débitos na Justiça do Trabalho...'},
-                    {val: '7.2.5', label: '7.2.5. Prova de inscrição no cadastro Estadual ou Municipal...'},
-                    {val: '7.2.6', label: '7.2.6. Prova de regularidade com a Fazenda Estadual ou Municipal...'},
-                    {val: '7.2.7', label: '7.2.7. Caso o fornecedor seja considerado isento dos tributos...'},
-                    {val: '7.2.8', label: '7.2.8. MEI que pretenda auferir benefícios do tratamento diferenciado...'}
-                ].map(opt => (
-                    <Checkbox key={opt.val} name="habilitacaoFiscal" value={opt.val} checked={data.habilitacaoFiscal?.includes(opt.val)} onChange={handleCheckboxChange}>{opt.label}</Checkbox>
-                ))}
-            </div>
-          </Field>
-
-          <Field label="7.3 Qualificação Econômico-Financeira">
-            <div className="space-y-2 mb-4">
-                {[
-                    {val: '7.3.1', label: '7.3.1. Certidão negativa de insolvência civil...'},
-                    {val: '7.3.2', label: '7.3.2. Certidão negativa de falência...'},
-                    {val: '7.3.3', label: '7.3.3. Balanço patrimonial e demonstrações contábeis...'},
-                    {val: '7.3.4', label: '7.3.4. Índices de Liquidez (LG, LC e SG) superiores a 1...'},
-                    {val: '7.3.5', label: '7.3.5. Empresas criadas no exercício financeiro...'},
-                    {val: '7.3.6', label: '7.3.6. Documentos limitar-se-ão ao último exercício...'},
-                    {val: '7.3.7', label: '7.3.7. Documentos com base no limite definido pela RFB...'},
-                    {val: '7.3.8', label: '7.3.8. Exigência de capital mínimo ou patrimônio líquido...'},
-                    {val: '7.3.9', label: '7.3.9. Balanço atestado por profissional habilitado...'}
-                ].map((opt: any) => (
-                    <Checkbox key={opt.val} name="qualificacaoEconomica" value={opt.val} checked={data.qualificacaoEconomica?.includes(opt.val)} onChange={handleCheckboxChange}>{opt.label}</Checkbox>
-                ))}
-            </div>
-          </Field>
-
-          <Field label="7.4 Será exigida habilitação técnica?">
-              <RadioGroup name="habilitacaoTecnicaExigida" value={data.habilitacaoTecnicaExigida} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.habilitacaoTecnicaExigida === 'sim' && (
-                  <div className="grid md:grid-cols-2 gap-4 mt-2">
-                      <Field label="Qual?"><input name="habilitacaoTecnicaQual" value={data.habilitacaoTecnicaQual} onChange={handleChange} className={inputClasses} placeholder="Especificar exigência"/></Field>
-                      <Field label="Por quê?"><input name="habilitacaoTecnicaPorque" value={data.habilitacaoTecnicaPorque} onChange={handleChange} className={inputClasses} placeholder="Justificar exigência"/></Field>
-                  </div>
-              )}
-          </Field>
-          <Field label="7.5 Qualificações Técnicas Exigidas">
-              <div className="grid grid-cols-1 gap-4">
-                  {[
-                      {val: 'ciencia', label: 'Declaração de ciência das informações necessárias.'},
-                      {val: 'registro', label: 'Registro na entidade profissional competente.'},
-                      {val: 'pessoal', label: 'Indicação de pessoal técnico para execução.'},
-                      {val: 'atestado', label: 'Atestado de capacidade técnica operacional.'},
-                      {val: 'lei_especial', label: 'Outro previsto em lei especial.'},
-                      {val: 'nao_exigida', label: 'Não será exigida prova em razão da baixa complexidade.'}
-                  ].map(opt => (
-                      <div key={opt.val} className="border-b pb-2">
-                        <Checkbox name="qualificacoesTecnicas" value={opt.val} checked={data.qualificacoesTecnicas.includes(opt.val)} onChange={handleCheckboxChange}>{opt.label}</Checkbox>
-                        {data.qualificacoesTecnicas.includes(opt.val) && (
-                            <textarea 
-                                value={data.qualificacoesTecnicasJustificativas?.[opt.val] || ''} 
-                                onChange={(e) => handleJustificationChange(opt.val, e.target.value)}
-                                className={`${inputClasses} mt-2 text-sm h-16`}
-                                placeholder={`Justificativa para ${opt.label.substring(0, 30)}...`}
-                            />
-                        )}
-                      </div>
-                  ))}
-              </div>
-          </Field>
- <Field label="7.6 Há critério de sustentabilidade?">
-              <RadioGroup name="criterioSustentabilidade" value={data.criterioSustentabilidade} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.criterioSustentabilidade === 'sim' && (
-                  <textarea 
-                      name="criterioSustentabilidadeDesc" 
-                      value={data.criterioSustentabilidadeDesc} 
-                      onChange={(e) => {
-                          handleChange(e);
-                          e.target.style.height = 'auto';
-                          e.target.style.height = (e.target.scrollHeight) + 'px';
-                      }} 
-                      className={`${inputClasses} mt-2 min-h-[100px] resize-none overflow-hidden`} 
-                      placeholder="Especificar critério (pressione Enter para pular linha)..."
-                  />
-              )}
-          </Field>
-
-          {/* --- NOVO ITEM 7.7 CORRIGIDO --- */}
-          <Field label="7.7 Há riscos a serem assumidos pela contratada?">
-              <RadioGroup 
-                  name="riscosAssumidos" 
-                  value={data.riscosAssumidos} 
-                  options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} 
-                  onChange={handleChange} 
-              />
-              {data.riscosAssumidos === 'sim' && (
-                  <textarea
-                      name="riscosAssumidosDesc"
-                      value={data.riscosAssumidosDesc}
-                      onChange={handleChange}
-                      className={`${inputClasses} mt-2 min-h-[80px] resize-y`}
-                      placeholder="Descreva detalhadamente os riscos assumidos pela contratada..."
-                  />
-              )}
-          </Field>
-          <Field label="7.8 Será permitida a participação de empresas reunidas em consórcio?">
-              <RadioGroup name="participacaoConsorcio" value={data.participacaoConsorcio} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.participacaoConsorcio === 'sim' && (
-                  <div className="mt-2 p-4 bg-white dark:bg-gray-800 rounded-lg border dark:border-gray-700 shadow-inner space-y-4">
-                      <div className="dark:text-gray-300 text-sm leading-relaxed">
-                          7.8.1. É admitida a participação de empresas reunidas em consórcio, devendo o percentual de acréscimo para fins de qualificação técnica e econômico-financeira ser de 
-                          <input 
-                              type="number" 
-                              name="participacaoConsorcioPercentual" 
-                              value={data.participacaoConsorcioPercentual} 
-                              onChange={handleChange} 
-                              min="10"
-                              max="30"
-                              className="w-16 mx-2 p-1 border-b border-gray-400 bg-transparent text-center focus:border-cbmpa-red outline-none font-bold dark:text-white"
-                              placeholder="10"
-                          />
-                          % sobre o valor exigido para licitantes individuais.
-                          <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-2 italic font-normal">*(O acréscimo deve ser de 10% a 30%, conforme art. 15, §1º da Lei 14.133/21)</p>
-                      </div>
-                  </div>
-              )}
-              {data.participacaoConsorcio === 'nao' && <input name="participacaoConsorcioJustificativa" value={data.participacaoConsorcioJustificativa} onChange={handleChange} className={`${inputClasses} mt-2`} placeholder="Justificar o motivo da vedação"/>}
-          </Field>
-          <Field label="7.9 Será permitida a subcontratação?">
-              <RadioGroup name="subcontratacao" value={data.subcontratacao} options={[{val: 'sim', label: 'Sim.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
-              {data.subcontratacao === 'sim' && (
-                  <div className="mt-2 space-y-4">
-                      <Field label="Selecione a Opção">
-                          <select name="subcontratacaoOpcao" value={data.subcontratacaoOpcao} onChange={handleChange} className={inputClasses}>
-                              <option value="">Selecione uma opção...</option>
-                              <option value="7.9.1">7.9.1. É admitida a subcontratação parcial do objeto...</option>
-                              <option value="7.9.1.1">7.9.1.1. É vedada a subcontratação completa ou da parcela principal...</option>
-                              <option value="7.9.1.2">7.9.1.2. A subcontratação fica limitada a percentual...</option>
-                          </select>
-                      </Field>
-                      <textarea name="subcontratacaoDetalhes" value={data.subcontratacaoDetalhes} onChange={handleChange} className={`${inputClasses} h-20`} placeholder="Especifique limites ou parcelas permitidas..."/>
-                  </div>
-              )}
-          </Field>
+          <HabilitacoesFields {...shared} sec={7} />
+          <QualificacaoTecnicaFields {...shared} sec={7} options={QUALIFICACOES_BENS} />
+          <SustentabilidadeRiscosFields {...shared} sec={7} />
+          <ConsorcioSubcontratacaoFields {...shared} sec={7} />
       </Section>
 
       <Section title="8. FORMA DE ENTREGA DO BEM">
@@ -873,74 +265,15 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
                   </div>
               </div>
           </Field>
-          <Field label="9.4 Qual a garantia do contrato?">
-              <RadioGroup name="garantiaContratoTipo" value={data.garantiaContratoTipo} options={[{val: 'porcentagem', label: 'X% do valor inicial do contrato.'}, {val: 'nao_ha', label: 'Não há.'}]} onChange={handleChange} />
-              {data.garantiaContratoTipo === 'porcentagem' && (
-                  <div className="mt-2 grid grid-cols-2 gap-4">
-                      <input name="garantiaContratoPorcentagem" value={data.garantiaContratoPorcentagem} onChange={handleChange} className={inputClasses} placeholder="X %"/>
-                      <input name="garantiaContratoJustificativa" value={data.garantiaContratoJustificativa} onChange={handleChange} className={inputClasses} placeholder="Justificativa (obrigatório se > 5%)"/>
-                  </div>
-              )}
-          </Field>
+          <GarantiaContratoField {...shared} sec={9} n={4} />
           <Field label="9.5 Reajuste">
-              <div className="grid md:grid-cols-2 gap-4">
-                  <Field label="Índice">
-                      <select name="reajusteIndice" value={data.reajusteIndice} onChange={handleChange} className={inputClasses}>
-                          <option value="">Selecione o índice...</option>
-                          <option value="IPCA">IPCA (IBGE)</option>
-                          <option value="IGP-M">IGP-M (FGV)</option>
-                          <option value="INPC">INPC (IBGE)</option>
-                          <option value="IPC-Fipe">IPC-Fipe</option>
-                          <option value="Outro">Outro</option>
-                      </select>
-                  </Field>
-                  <Field label="Período (meses)">
-                      <div className="flex items-center">
-                        <span className="mr-2 dark:text-gray-300">A cada</span>
-                        <input type="number" min="0" name="reajusteMeses" value={data.reajusteMeses} onChange={handleChange} className={inputClasses} placeholder="Ex: 12"/>
-                        <span className="mx-2 dark:text-gray-300">{Number(data.reajusteMeses) === 1 ? 'mês,' : 'meses,'}</span>
-                        <select name="reajusteMarco" value={data.reajusteMarco || ''} onChange={handleChange} className={inputClasses}>
-                            <option value="">a partir de...</option>
-                            <option value="orcamento">a partir do orçamento estimado</option>
-                            <option value="proposta">a partir da apresentação da proposta</option>
-                            <option value="contrato">a partir da assinatura do contrato</option>
-                        </select>
-                      </div>
-                  </Field>
-              </div>
+              <ReajusteCampos {...shared} />
           </Field>
       </Section>
 
-      <Section title="10. PREVISÃO ORÇAMENTÁRIA">
-          <h3 className="text-gray-700 dark:text-gray-300 font-semibold mb-2">10.1. Dados Orçamentários da Contratação</h3>
-          <div className="grid md:grid-cols-3 gap-4">
-                <Field label="Funcional Programática"><input type="text" name="dadosOrcamentariosFuncional" value={data.dadosOrcamentariosFuncional} onChange={handleChange} className={inputClasses} placeholder="xxx" /></Field>
-                <Field label="Elemento de Despesa"><input type="text" name="dadosOrcamentariosElemento" value={data.dadosOrcamentariosElemento} onChange={handleChange} className={inputClasses} placeholder="xxx" /></Field>
-                <Field label="Fonte do Recurso"><input type="text" name="dadosOrcamentariosFonte" value={data.dadosOrcamentariosFonte} onChange={handleChange} className={inputClasses} placeholder="xxx" /></Field>
-          </div>
-      </Section>
+      <PrevisaoOrcamentariaSection {...shared} sec={10} />
 
-      <Section title="ASSINATURA">
-        <div className="grid md:grid-cols-2 gap-6">
-          <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade} onChange={handleChange} required className={inputClasses} /></Field>
-          <Field label="Data" required><input type="date" name="data" value={data.data} onChange={handleChange} required className={inputClasses} /></Field>
-          <Field label="Nome Completo do Servidor" required><input type="text" name="nome" value={data.nome} onChange={handleChange} required className={inputClasses} /></Field>
-          <Field label="Nome de Guerra" required><input type="text" name="nomeGuerra" value={data.nomeGuerra} onChange={handleChange} required className={inputClasses} /></Field>
-          <Field label="Cargo" required>
-            <select name="cargo" value={data.cargo} onChange={handleChange} required className={inputClasses}>
-                <option value="">Selecione o cargo</option>
-                {cargoOptions.map(cargo => <option key={cargo} value={cargo}>{cargo}</option>)}
-            </select>
-          </Field>
-          <Field label="Função/Matrícula" required><input type="text" name="funcao" value={data.funcao} onChange={handleChange} required className={inputClasses} /></Field>
-          <div className="md:col-span-2">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={!!data.assinadoPae} onChange={e => setData(prev => ({ ...prev, assinadoPae: e.target.checked }))} className="h-4 w-4 accent-cbmpa-red" />
-              <span className="text-sm font-medium">Incluir "Assinado Eletronicamente via PAE" acima do nome</span>
-            </label>
-          </div>
-        </div>
-      </Section>
+      <AssinaturaSection {...shared} />
     </div>
   );
 };

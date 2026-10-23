@@ -9,6 +9,7 @@ import { generateEtpPdf } from './pdf/etpGenerator';
 import { generateRiscoPdf } from './pdf/riscoGenerator';
 import { generateOrcamentoPdf } from './pdf/orcamentoGenerator';
 import { generateTrBensPdf } from './pdf/trBensGenerator';
+import { generateTrServicosPdf } from './pdf/trServicosGenerator';
 
 export const generatePdf = (type: DocumentType, data: any): { success: boolean, error?: string } => {
   try {
@@ -30,6 +31,9 @@ export const generatePdf = (type: DocumentType, data: any): { success: boolean, 
         break;
       case DocumentType.TR_BENS:
         generateTrBensPdf(doc, data);
+        break;
+      case DocumentType.TR_SERVICOS:
+        generateTrServicosPdf(doc, data);
         break;
       default:
         return { success: false, error: 'Tipo de documento não suportado.' };
