@@ -7,7 +7,6 @@ import { RiscoForm } from './components/RiscoForm';
 import { OrcamentoForm } from './components/OrcamentoForm';
 import { TrBensForm } from './components/TrBensForm';
 import { TrServicosForm } from './components/TrServicosForm';
-import { validateTrServicos } from './services/trServicosValidation';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { GoogleGenAI, Type } from "@google/genai";
 import { logoCBMPABase64 } from './assets/logoBase64';
@@ -681,17 +680,7 @@ function App() {
                 case DocumentType.RISCO: data = riscoData; break;
                 case DocumentType.ORCAMENTO: data = orcamentoData; break;
                 case DocumentType.TR_BENS: data = trBensData; break;
-                case DocumentType.TR_SERVICOS: {
-                    const erros = validateTrServicos(trServicosData);
-                    if (erros.length > 0) {
-                        const lista = erros.slice(0, 3).join(' ');
-                        const resto = erros.length > 3 ? ` (+${erros.length - 3} pendência(s))` : '';
-                        setToast({ message: `Não foi possível gerar o PDF. ${lista}${resto}`, type: 'error' });
-                        return;
-                    }
-                    data = trServicosData;
-                    break;
-                }
+                case DocumentType.TR_SERVICOS: data = trServicosData; break;
                 default: 
                     setToast({ message: 'Geração de PDF para este documento ainda não foi implementada.', type: 'info' }); 
                     return;
