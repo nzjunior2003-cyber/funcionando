@@ -1,6 +1,6 @@
 {
-  "short_name": "Gerador CBMPA",
-  "name": "Gerador de Documentos CBMPA",
+  "short_name": "InstruçãoDocs",
+  "name": "InstruçãoDocs",
   "description": "Uma aplicação web para gerar documentos padronizados para processos de compras e contratações do Corpo de Bombeiros Militar do Pará (CBMPA) em formato PDF.",
   "icons": [
     {
