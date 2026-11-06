@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { RiscoData, RiskItem } from '../types';
-import { AiAssistant } from './AiAssistant';
 import { cargoOptions, inputClasses, Field, SectionSimple as Section } from './formCommon';
 
 interface RiscoFormProps {
@@ -51,8 +50,7 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
                         </div>
                         <Field label="Descrição do Risco" required>
                             <div className="relative">
-                                <textarea value={risco.descricao} onChange={e => handleRiskChange(risco.id, 'descricao', e.target.value)} required className={`${inputClasses} h-20 pr-10`}/>
-                                <AiAssistant fieldName="Descrição do Risco" onGeneratedText={(text) => handleRiskChange(risco.id, 'descricao', text)} />
+                                <textarea value={risco.descricao} onChange={e => handleRiskChange(risco.id, 'descricao', e.target.value)} required className={`${inputClasses} h-20`}/>
                             </div>
                         </Field>
                         <div className="grid md:grid-cols-2 gap-4">
@@ -75,8 +73,7 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
                         </div>
                         <Field label="Dano" required>
                             <div className="relative">
-                                <textarea value={risco.dano} onChange={e => handleRiskChange(risco.id, 'dano', e.target.value)} required className={`${inputClasses} h-20 pr-10`}/>
-                                <AiAssistant fieldName="Dano Potencial" onGeneratedText={(text) => handleRiskChange(risco.id, 'dano', text)} />
+                                <textarea value={risco.dano} onChange={e => handleRiskChange(risco.id, 'dano', e.target.value)} required className={`${inputClasses} h-20`}/>
                             </div>
                         </Field>
                         
@@ -84,8 +81,7 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
                              <h4 className="font-semibold text-green-800 dark:text-green-300">Ação Preventiva</h4>
                              <Field label="Descrição" required>
                                 <div className="relative">
-                                    <textarea value={risco.prevDesc} onChange={e => handleRiskChange(risco.id, 'prevDesc', e.target.value)} required className={`${inputClasses} h-20 pr-10`}/>
-                                    <AiAssistant fieldName="Ação Preventiva" onGeneratedText={(text) => handleRiskChange(risco.id, 'prevDesc', text)} />
+                                    <textarea value={risco.prevDesc} onChange={e => handleRiskChange(risco.id, 'prevDesc', e.target.value)} required className={`${inputClasses} h-20`}/>
                                 </div>
                              </Field>
                              <Field label="Responsável" required><input type="text" value={risco.prevResp} onChange={e => handleRiskChange(risco.id, 'prevResp', e.target.value)} required className={inputClasses}/></Field>
@@ -94,8 +90,7 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
                              <h4 className="font-semibold text-yellow-800 dark:text-yellow-300">Ação Contingencial</h4>
                              <Field label="Descrição" required>
                                 <div className="relative">
-                                    <textarea value={risco.contDesc} onChange={e => handleRiskChange(risco.id, 'contDesc', e.target.value)} required className={`${inputClasses} h-20 pr-10`}/>
-                                    <AiAssistant fieldName="Ação Contingencial" onGeneratedText={(text) => handleRiskChange(risco.id, 'contDesc', text)} />
+                                    <textarea value={risco.contDesc} onChange={e => handleRiskChange(risco.id, 'contDesc', e.target.value)} required className={`${inputClasses} h-20`}/>
                                 </div>
                              </Field>
                              <Field label="Responsável" required><input type="text" value={risco.contResp} onChange={e => handleRiskChange(risco.id, 'contResp', e.target.value)} required className={inputClasses}/></Field>

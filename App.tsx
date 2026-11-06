@@ -8,7 +8,6 @@ import { OrcamentoForm } from './components/OrcamentoForm';
 import { TrBensForm } from './components/TrBensForm';
 import { TrServicosForm } from './components/TrServicosForm';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
-import { GoogleGenAI, Type } from "@google/genai";
 import { logoCBMPABase64 } from './assets/logoBase64';
 
 // Gera um `id` novo e garantidamente único pra cada item de uma lista vinda de
@@ -619,61 +618,12 @@ function App() {
 
         if (docType === DocumentType.DFD) {
             const hasContent = dfdData.problema?.trim() && dfdData.quantitativo?.trim() && dfdData.justificativaPrazo?.trim();
-            
-            if (hasContent) {
-                try {
-                    setToast({ message: 'Analisando e aprimorando o texto com IA...', type: 'info' });
-                    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-                    const formattedPrazo = dfdData.prazo ? new Date(dfdData.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : '...';
-                    
-                    const promptText = `Você é um especialista em redação de documentos oficiais para a administração pública brasileira. Sua tarefa é gerar três parágrafos distintos, formais, claros e coesos para um 'Documento de Formalização da Demanda' (DFD), baseados nas ideias fornecidas pelo usuário. Retorne um objeto JSON com uma única chave "paragrafos", que deve ser um array contendo os três parágrafos como strings.
-
-    1.  Para o primeiro parágrafo, elabore um texto sobre o seguinte problema: "${dfdData.problema}". O parágrafo DEVE começar com a frase exata "Solicito que seja providenciada a solução para ".
-    2.  Para o segundo parágrafo, elabore um texto sobre o seguinte quantitativo: "${dfdData.quantitativo}". O parágrafo DEVE começar com a frase exata "Estimo que o quantitativo necessário é de ".
-    3.  Para o terceiro parágrafo, combine o prazo e a justificativa. Use a data "${formattedPrazo}" e a justificativa "${dfdData.justificativaPrazo}". O parágrafo DEVE começar com a frase exata "Informo que a aquisição deve ser concluída até ${formattedPrazo}, tendo em vista que ".
-
-    O resultado deve ser exclusivamente o objeto JSON, sem nenhuma explicação ou texto introdutório.`;
-
-                    const response = await ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
-                        contents: promptText,
-                        config: {
-                            responseMimeType: "application/json",
-                            responseSchema: {
-                                type: Type.OBJECT,
-                                properties: {
-                                paragrafos: {
-                                        type: Type.ARRAY,
-                                        items: { type: Type.STRING }
-                                }
-                                },
-                                required: ["paragrafos"]
-                            }
-                        }
-                    });
-
-                    const aiResult = JSON.parse(response.text || '{"paragrafos": []}');
-                    const dataForPdf = { ...dfdData, aiParagraphs: aiResult.paragrafos };
-
-                    setToast({ message: 'Texto aprimorado! Gerando PDF...', type: 'success' });
-                    const result = generatePdf(docType, dataForPdf as DfdData);
-                    if (!result.success) {
-                        setToast({ message: `Ocorreu um erro ao gerar o PDF: ${result.error}`, type: 'error' });
-                    }
-                } catch (e) {
-                    console.error("AI analysis failed:", e);
-                    setToast({ message: 'Falha na análise da IA. Gerando PDF com os dados originais.', type: 'info' });
-                    const result = generatePdf(docType, dfdData); 
-                    if (!result.success) {
-                        setToast({ message: `Ocorreu um erro ao gerar o PDF: ${result.error}`, type: 'error' });
-                    }
-                }
-            } else {
-                 setToast({ message: 'Campos vazios detectados. Gerando esqueleto do documento...', type: 'info' });
-                 const result = generatePdf(docType, dfdData);
-                 if (!result.success) {
-                    setToast({ message: `Ocorreu um erro ao gerar o PDF: ${result.error}`, type: 'error' });
-                }
+            if (!hasContent) {
+                setToast({ message: 'Campos vazios detectados. Gerando esqueleto do documento...', type: 'info' });
+            }
+            const result = generatePdf(docType, dfdData);
+            if (!result.success) {
+                setToast({ message: `Ocorreu um erro ao gerar o PDF: ${result.error}`, type: 'error' });
             }
         } else {
             let data;

@@ -29,7 +29,6 @@ export interface DfdData extends Signatory {
   prazo: string;
   justificativaPrazo: string;
   statusPCA: string;
-  aiParagraphs?: string[];
 }
 
 export interface EtpItem {
