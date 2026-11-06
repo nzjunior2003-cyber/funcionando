@@ -1,18 +1,30 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  darkMode: 'class', 
+  darkMode: 'class',
   content: [
-    "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
+    './index.html',
+    './*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    './hooks/**/*.{ts,tsx}',
+    './services/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
       colors: {
-        'cbmpa-red': '#C0392B',
-        'cbmpa-blue-start': '#1A2980',
-        'cbmpa-blue-end': '#26D0CE',
-        'cbmpa-purple': '#8E44AD',
-      }
+        'cbmpa-red': '#c0392b',
+        'cbmpa-purple': '#8e44ad',
+        'cbmpa-blue-start': '#667eea',
+        'cbmpa-blue-end': '#764ba2',
+      },
+      keyframes: {
+        'fade-in-down': {
+          '0%': { opacity: '0', transform: 'translateY(-20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        'fade-in-down': 'fade-in-down 0.5s ease-out forwards',
+      },
     },
   },
   plugins: [],
