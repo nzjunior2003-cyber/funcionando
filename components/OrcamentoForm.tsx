@@ -218,6 +218,7 @@ const ItemForm: React.FC<{
                             </select>
                         </div>
 
+                        {tipoOrcamento !== 'aditivo_contratual' && (
                         <div>
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Período de Contratação</label>
                             <input 
@@ -228,6 +229,7 @@ const ItemForm: React.FC<{
                                 placeholder="Ex: 12 meses, 30 dias (Opcional)" 
                             />
                         </div>
+                        )}
 
                         {tipoOrcamento === 'gerenciador_ata' && (
                             <div className="col-span-2">

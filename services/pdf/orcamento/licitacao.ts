@@ -109,6 +109,14 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const temPeriodoValido = data.itemGroups.some(g => (g as any).periodoContratacao && (g as any).periodoContratacao.trim() !== '');
     // Captura a string do primeiro período encontrado para rotular a linha final
     const stringPeriodoGlobal = (data.itemGroups.find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
+    // Itens com períodos diferentes (ou parte deles sem período): o total final não pode citar um único prazo.
+    const periodosDistintos = new Set(data.itemGroups.map(g => String((g as any).periodoContratacao || '').trim().toLowerCase())).size > 1;
+    // Com período, a tabela final ganha as colunas "Período" e "Total no Período".
+    const NCOLS = temPeriodoValido ? 8 : 6;
+    const SPAN_ROTULO = NCOLS - 1;
+    const colunasPeriodo = (g: any, valorPeriodo: string): any[] => temPeriodoValido
+        ? [String(g.periodoContratacao || '').trim() || '-', valorPeriodo]
+        : [];
 
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
 
@@ -337,9 +345,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         const totalGlobalLinha = Math.round(est * qtdTotal * kMultiplier * 100) / 100;
         const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
 
-        const descExibicao = (g as any).periodoContratacao 
-            ? `${g.descricao}\n(Período: ${(g as any).periodoContratacao})`
-            : g.descricao;
+        const descExibicao = g.descricao;
 
         if (cotasValidas && cotasValidas.length > 0) {
             const maxQtd = Math.max(...cotasValidas.map(c => Number(c.quantidade) || 0));
@@ -360,7 +366,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                     label,
                     formatValue(est, g.tipoValor),
                     cQtd,
-                    formatValue(cMensal, g.tipoValor)
+                    formatValue(cMensal, g.tipoValor),
+                    ...colunasPeriodo(g, formatValue(cGlobal, g.tipoValor))
                 ]);
                 seqItem++;
             });
@@ -373,7 +380,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 'AMPLA',
                 formatValue(est, g.tipoValor),
                 qtdTotal,
-                formatValue(totalMensalLinha, g.tipoValor)
+                formatValue(totalMensalLinha, g.tipoValor),
+                ...colunasPeriodo(g, formatValue(totalGlobalLinha, g.tipoValor))
             ]);
             seqItem++;
         }
@@ -400,7 +408,11 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         { content: 'AMPLA OU\nME/EPP', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
         { content: 'Valor Unit.', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
         { content: 'Qtd', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
-        { content: temPeriodoValido ? 'Valor Mensal' : 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } }
+        { content: temPeriodoValido ? 'Valor Mensal' : 'Total', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+        ...(temPeriodoValido ? [
+            { content: 'Período', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } },
+            { content: 'Total no\nPeríodo', styles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle', cellPadding: 2, fontSize: 7.5 } }
+        ] : [])
     ];
 
     // Pregão eletrônico para Registro de Preços: o lote que se divide em
@@ -412,7 +424,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     const tituloLote = (texto: string, fill: any, txt: [number, number, number]) => [{
         content: texto,
-        colSpan: 6,
+        colSpan: NCOLS,
         styles: {
             fillColor: fill, textColor: txt,
             fontStyle: 'bold', halign: 'left', valign: 'middle',
@@ -421,7 +433,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     }];
 
     const linhaTotalLote = (nome: string, valor: number) => [{
-        content: `VALOR DO LOTE ${nome}`, colSpan: 5,
+        content: `VALOR DO LOTE ${nome}`, colSpan: SPAN_ROTULO,
         styles: { halign: 'right', fontStyle: 'bold', fillColor: GRAY }
     }, {
         content: formatValue(valor, 'moeda'),
@@ -446,10 +458,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
             totalGlobalPeriodoCentavos += Math.round(cGlobal * 100);
             totalParte += temPeriodoValido ? cGlobal : cMensal;
 
-            const descExibicao = (g as any).periodoContratacao
-                ? `${g.descricao}
-(Período: ${(g as any).periodoContratacao})`
-                : g.descricao;
+            const descExibicao = g.descricao;
 
             fb.push([
                 seqItem.toString(),
@@ -457,7 +466,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
                 label,
                 formatValue(est, g.tipoValor),
                 cQtd,
-                formatValue(cMensal, g.tipoValor)
+                formatValue(cMensal, g.tipoValor),
+                ...colunasPeriodo(g, formatValue(cGlobal, g.tipoValor))
             ]);
             seqItem++;
         });
@@ -503,6 +513,8 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }
     }));
 
+    // Com período, cada bloco de itens avulsos recebe os nomes das colunas (sem lotes a tabela não teria cabeçalho).
+    if (temPeriodoValido && avulsosFinal.length > 0) fb.push(loteSubHeader);
     avulsosFinal.forEach(processarItem);
 
     // Se houver período indicado, acrescenta a linha "Total Mensal" com cor clara (Item 2)
@@ -513,15 +525,18 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         }, {
             content: formatValue(totalMensalCentavos / 100, 'moeda'),
             styles: { fontStyle: 'bold', fillColor: LBLUE }
+        }, {
+            content: '', colSpan: 2,
+            styles: { fillColor: LBLUE }
         }]);
     }
 
     // Configura o rótulo da linha final de acordo com a existência do período (Item 3)
-    const labelTotalFinal = temPeriodoValido ? `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})` : 'TOTAL';
+    const labelTotalFinal = temPeriodoValido ? (periodosDistintos ? 'TOTAL GLOBAL' : `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})`) : 'TOTAL';
     const valorEfetivoFinal = temPeriodoValido ? totalGlobalPeriodoCentavos : totalMensalCentavos;
 
     fb.push([{
-        content: labelTotalFinal, colSpan: 5,
+        content: labelTotalFinal, colSpan: SPAN_ROTULO,
         styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW }
     }, {
         content: formatValue(valorEfetivoFinal / 100, 'moeda'),
@@ -538,7 +553,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
         styles: { fontSize: 8, cellPadding: 2, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         // minCellWidth nas colunas de valor: evita que um valor grande (ex.: R$ 254.579,61) quebre os centavos pra linha de baixo
-        columnStyles: { 0: { cellWidth: 15 }, 3: { minCellWidth: 28 }, 5: { minCellWidth: 32 } },
+        columnStyles: temPeriodoValido
+            ? { 0: { cellWidth: 12 }, 3: { minCellWidth: 24 }, 5: { minCellWidth: 26 }, 6: { cellWidth: 20 }, 7: { minCellWidth: 28 } }
+            : { 0: { cellWidth: 15 }, 3: { minCellWidth: 28 }, 5: { minCellWidth: 32 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,

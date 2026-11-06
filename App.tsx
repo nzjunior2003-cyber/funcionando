@@ -292,6 +292,8 @@ const initialTrServicosState: TrServicosData = {
     possibilidadeProrrogacao: '',
     prorrogacaoFundamento: '',
     pagamentoPrazoDias: '30 (trinta)',
+    pagamentoOpcoes: ['ordem_bancaria', 'banpara', 'prazo_NF', 'regularidade'],
+    pagamentoRegularidade: `1- Por consulta ao SICAF ou Cadastramento Unificado de Licitante.\nou\n2- Pela apresentação dos documentos constantes no art. 68 da Lei Federal nº 14.133/21, quando não for possível consultar aos sistemas oficiais.`,
     pagamentoPeriodicidade: '',
     garantiaContratoTipo: '',
     garantiaContratoPorcentagem: '',

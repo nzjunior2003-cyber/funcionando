@@ -4,7 +4,7 @@ import {
     generateTrPdf, TrPdfCtx,
     pushAgrupamentoEDescricao, pushCriteriosSelecaoComuns, pushHabilitacoes,
     pushQualificacaoTecnica, pushSustentabilidadeRiscosConsorcio,
-    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria
+    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria, textoPagamento
 } from './trCommonGenerator';
 
 export const TITULO_SERVICO_NAO_CONTINUADO = 'TERMO DE REFERÊNCIA DE SERVIÇOS SEM MÃO-DE-OBRA';
@@ -61,7 +61,9 @@ export const generateTrServicosPdf = (doc: jsPDF, d: TrServicosData) => {
                 `${radio(fC.includes('inexigibilidade'))} Inexigibilidade de licitação, com fundamento no art. 74, ${d.inexigibilidadeInciso ? `inciso ${d.inexigibilidadeInciso}` : '...'}, da Lei Federal nº 14.133/21.`,
                 `${radio(fC.includes('dispensa_valor'))} Dispensa de licitação em razão do valor*, com fundamento no art. 75, II, da Lei Federal nº 14.133/21.\n* Nesta hipótese, deve-se utilizar preferencialmente a dispensa eletrônica.`,
                 `${radio(fC.includes('dispensa_art75'))} Dispensa de licitação, com fundamento no art. 75, ${d.dispensaInciso ? `inciso ${d.dispensaInciso}` : '...'}, da Lei Federal nº 14.133/21.`,
-                `${radio(fC.includes('pregao'))} Pregão eletrônico.`
+                `${radio(fC.includes('pregao'))} Pregão eletrônico.`,
+                `${radio(fC.includes('pregao_rp'))} Pregão eletrônico para Registro de Preços.`,
+                `${radio(fC.includes('adesao_ata'))} Adesão à Ata de Registro de Preços.`
             ].join('\n\n'), true);
             pushCriteriosSelecaoComuns(c, 5);
 
@@ -93,9 +95,9 @@ export const generateTrServicosPdf = (doc: jsPDF, d: TrServicosData) => {
                 `${radio(d.possibilidadeProrrogacao === 'nao')} Não.`
             ].join('\n\n'), true);
             const periodicidadePg = continuado
-                ? `\nPeriodicidade: ${d.pagamentoPeriodicidade === 'ordem_servico' ? 'por ordem de serviço' : d.pagamentoPeriodicidade === 'mensal' ? 'mensal' : '-'}.`
+                ? `\n• Periodicidade do pagamento: ${d.pagamentoPeriodicidade === 'ordem_servico' ? 'por ordem de serviço' : d.pagamentoPeriodicidade === 'mensal' ? 'mensal' : '-'}.`
                 : '';
-            pushRow('8.3. FORMA DE PAGAMENTO', `Meio: Ordem bancária.\nOnde: Conta corrente da contratada no Banco do Estado do Pará.\nQual o prazo: Até ${d.pagamentoPrazoDias || 'X'} dias corridos, a contar do recebimento da nota fiscal (ou fatura) com o comprovante de regularidade fiscal da contratada.${periodicidadePg}\nProva da regularidade fiscal: A regularidade fiscal pode ser provada:\n1. por consulta ao SICAF ou Cadastramento Unificado de Licitante; ou\n2. pela apresentação dos documentos constantes no art. 68 da Lei Federal nº 14.133/21, quando não for possível consultar aos sistemas oficiais.`, true);
+            pushRow('8.3. FORMA DE PAGAMENTO', `${textoPagamento(d).replace(/\n$/, '')}${periodicidadePg}`, true);
             pushRow('8.4. GARANTIA DE CONTRATO', textoGarantiaContrato(c), true);
 
             let textoReaj: string;

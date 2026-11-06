@@ -83,7 +83,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     const s1Body: any[] = data.itemGroups.map((g) => {
         return [
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
-            { content: g.descricao, styles: { halign: 'justify' } }, g.codigoSimas || '-', g.unidade, g.quantidadeTotal
+            { content: (g as any).periodoContratacao ? `${g.descricao}\n(Período de contratação: ${(g as any).periodoContratacao})` : g.descricao, styles: { halign: 'justify' } }, g.codigoSimas || '-', g.unidade, g.quantidadeTotal
         ];
     });
     autoTable(doc, {
@@ -291,7 +291,17 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
     // erros de ponto flutuante na soma de múltiplas parcelas.
     let totalCentavos = 0;
+    let totalMensalCentavos = 0;
     const fb: any[] = [];
+    // Período de contratação por item (ex.: "12 meses" -> 12; vazio -> 1).
+    const getPeriodMultiplier = (g: any): number => {
+        const m = String(g.periodoContratacao || '').match(/\d+/);
+        return m ? parseInt(m[0], 10) : 1;
+    };
+    const temPeriodoValido = data.itemGroups.some(g => String((g as any).periodoContratacao || '').trim() !== '');
+    const stringPeriodoGlobal = String(((data.itemGroups.find(g => (g as any).periodoContratacao) as any)?.periodoContratacao) || '');
+    // Itens com períodos diferentes (ou parte deles sem período): o total final não cita um único prazo.
+    const periodosDistintos = new Set(data.itemGroups.map(g => String((g as any).periodoContratacao || '').trim().toLowerCase())).size > 1;
     data.itemGroups.forEach(g => {
         const adotadoFinal = itensAdotados.get(g.id) || 0;
         
@@ -301,28 +311,45 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
         const qtdTotal = Number(g.quantidadeTotal) || 0;
         const t = Math.round(adotadoArredondado * qtdTotal * 100) / 100;
         
+        // Total no período = valor do item x período (1 quando o item não tem período).
+        const tPeriodo = Math.round(t * getPeriodMultiplier(g) * 100) / 100;
+
         // Acumula em centavos para evitar drift de ponto flutuante
-        totalCentavos += Math.round(t * 100);
+        totalMensalCentavos += Math.round(t * 100);
+        totalCentavos += Math.round((temPeriodoValido ? tPeriodo : t) * 100);
         
         fb.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center' } },
             { content: g.descricao, styles: { halign: 'justify' } },
             formatValue(adotadoArredondado, g.tipoValor),
             qtdTotal,
-            formatValue(t, g.tipoValor)
+            formatValue(t, g.tipoValor),
+            ...(temPeriodoValido ? [String((g as any).periodoContratacao || '').trim() || '-', formatValue(tPeriodo, g.tipoValor)] : [])
         ]);
     });
 
     // Converte centavos de volta para reais com precisão exata
     const total = totalCentavos / 100;
 
-    fb.push([{ content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
+    if (temPeriodoValido) {
+        fb.push([
+            { content: 'TOTAL MENSAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: ZEBRA_BLUE } },
+            { content: formatValue(totalMensalCentavos / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: ZEBRA_BLUE } },
+            { content: '', colSpan: 2, styles: { fillColor: ZEBRA_BLUE } }
+        ]);
+        fb.push([
+            { content: periodosDistintos ? 'TOTAL GLOBAL' : `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})`, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+            { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }
+        ]);
+    } else {
+        fb.push([{ content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }])
+    };
 
     autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
+        startY: y, head: [temPeriodoValido ? ['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Valor Mensal', 'Período', 'Total no Período'] : ['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 15 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        columnStyles: temPeriodoValido ? { 0: { cellWidth: 12 }, 2: { minCellWidth: 24 }, 4: { minCellWidth: 26 }, 5: { cellWidth: 20 }, 6: { minCellWidth: 28 } } : { 0: { cellWidth: 15 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
         didDrawCell: justifyDrawCell

@@ -6,7 +6,7 @@ import { RadioGroup, useTrHandlers } from './trCommon/common';
 import { ItensSection } from './trCommon/ItensSection';
 import { FormaContratacaoField, CriteriosSelecaoFields } from './trCommon/SelecaoFields';
 import { HabilitacoesFields, QualificacaoTecnicaFields, SustentabilidadeRiscosFields, ConsorcioSubcontratacaoFields } from './trCommon/RequisitosFields';
-import { GarantiaContratoField, ReajusteCampos, PrevisaoOrcamentariaSection, AssinaturaSection } from './trCommon/ContratoFields';
+import { PagamentoField, GarantiaContratoField, ReajusteCampos, PrevisaoOrcamentariaSection, AssinaturaSection } from './trCommon/ContratoFields';
 
 interface TrServicosFormProps {
   data: TrServicosData;
@@ -102,7 +102,7 @@ export const TrServicosForm: React.FC<TrServicosFormProps> = ({ data, setData })
       </Section>
 
       <Section title="5. CRITÉRIOS DE SELEÇÃO" instruction="Formas de contratação e julgamento baseados na Lei Federal nº 14.133/21.">
-        <FormaContratacaoField {...shared} sec={5} />
+        <FormaContratacaoField {...shared} sec={5} srp />
         <CriteriosSelecaoFields {...shared} sec={5} />
       </Section>
 
@@ -162,22 +162,12 @@ export const TrServicosForm: React.FC<TrServicosFormProps> = ({ data, setData })
                 </div>
             )}
         </Field>
-        <Field label="8.3 Forma de pagamento" required>
-            <div className="bg-white dark:bg-gray-800 p-4 border rounded-md shadow-inner space-y-3 dark:text-gray-300 text-sm">
-                <p>Meio: ordem bancária, em conta corrente da contratada no Banco do Estado do Pará.</p>
-                <div className="flex flex-wrap items-center gap-1">
-                    Prazo de pagamento: até
-                    <input type="text" name="pagamentoPrazoDias" value={data.pagamentoPrazoDias} onChange={handleChange} className="w-28 border-b border-gray-400 bg-transparent text-center outline-none px-1" placeholder="30 (trinta)" />
-                    dias corridos, a contar do recebimento da nota fiscal (ou fatura) com o comprovante de regularidade fiscal da contratada.
-                </div>
-                <p>Regularidade fiscal: consulta ao SICAF/Cadastramento Unificado de Licitante ou, quando não for possível, documentos do art. 68 da Lei nº 14.133/21.</p>
-                {continuado && (
-                    <Field label="Periodicidade do pagamento">
-                        <RadioGroup name="pagamentoPeriodicidade" value={data.pagamentoPeriodicidade} options={[{val: 'mensal', label: 'Mensal.'}, {val: 'ordem_servico', label: 'Por ordem de serviço.'}]} onChange={handleChange} />
-                    </Field>
-                )}
-            </div>
-        </Field>
+        <PagamentoField {...shared} sec={8} n={3} />
+        {continuado && (
+            <Field label="Periodicidade do pagamento">
+                <RadioGroup name="pagamentoPeriodicidade" value={data.pagamentoPeriodicidade} options={[{val: 'mensal', label: 'Mensal.'}, {val: 'ordem_servico', label: 'Por ordem de serviço.'}]} onChange={handleChange} />
+            </Field>
+        )}
         <GarantiaContratoField {...shared} sec={8} n={4} naoHaJustificativa />
         <Field label="8.5 Reajuste" required={continuado}>
             {continuado ? (
