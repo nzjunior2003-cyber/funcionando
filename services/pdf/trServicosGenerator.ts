@@ -4,7 +4,7 @@ import {
     generateTrPdf, TrPdfCtx,
     pushAgrupamentoEDescricao, pushCriteriosSelecaoComuns, pushHabilitacoes,
     pushQualificacaoTecnica, pushSustentabilidadeRiscosConsorcio,
-    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria
+    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria, textoPagamento
 } from './trCommonGenerator';
 
 export const TITULO_SERVICO_NAO_CONTINUADO = 'TERMO DE REFERÊNCIA DE SERVIÇOS SEM MÃO-DE-OBRA';
@@ -95,9 +95,9 @@ export const generateTrServicosPdf = (doc: jsPDF, d: TrServicosData) => {
                 `${radio(d.possibilidadeProrrogacao === 'nao')} Não.`
             ].join('\n\n'), true);
             const periodicidadePg = continuado
-                ? `\nPeriodicidade: ${d.pagamentoPeriodicidade === 'ordem_servico' ? 'por ordem de serviço' : d.pagamentoPeriodicidade === 'mensal' ? 'mensal' : '-'}.`
+                ? `\n• Periodicidade do pagamento: ${d.pagamentoPeriodicidade === 'ordem_servico' ? 'por ordem de serviço' : d.pagamentoPeriodicidade === 'mensal' ? 'mensal' : '-'}.`
                 : '';
-            pushRow('8.3. FORMA DE PAGAMENTO', `Meio: Ordem bancária.\nOnde: Conta corrente da contratada no Banco do Estado do Pará.\nQual o prazo: Até ${d.pagamentoPrazoDias || 'X'} dias corridos, a contar do recebimento da nota fiscal (ou fatura) com o comprovante de regularidade fiscal da contratada.${periodicidadePg}\nProva da regularidade fiscal: A regularidade fiscal pode ser provada:\n1. por consulta ao SICAF ou Cadastramento Unificado de Licitante; ou\n2. pela apresentação dos documentos constantes no art. 68 da Lei Federal nº 14.133/21, quando não for possível consultar aos sistemas oficiais.`, true);
+            pushRow('8.3. FORMA DE PAGAMENTO', `${textoPagamento(d).replace(/\n$/, '')}${periodicidadePg}`, true);
             pushRow('8.4. GARANTIA DE CONTRATO', textoGarantiaContrato(c), true);
 
             let textoReaj: string;

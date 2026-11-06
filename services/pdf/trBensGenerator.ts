@@ -5,7 +5,7 @@ import {
     generateTrPdf, TrPdfCtx, mapQualificacaoTecnica,
     pushAgrupamentoEDescricao, pushCriteriosSelecaoComuns, pushHabilitacoes,
     pushQualificacaoTecnica, pushSustentabilidadeRiscosConsorcio,
-    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria
+    textoReajuste, textoGarantiaContrato, pushPrevisaoOrcamentaria, textoPagamento
 } from './trCommonGenerator';
 
 export const generateTrBensPdf = (doc: jsPDF, bens: TrBensData) => {
@@ -69,14 +69,7 @@ export const generateTrBensPdf = (doc: jsPDF, bens: TrBensData) => {
     pushRow('9.2. HAVERÁ POSSIBILIDADE DE PRORROGAÇÃO?', data.possibilidadeProrrogacao === 'sim' ? 'Sim, nas hipóteses do art. 111 da Lei Federal nº 14.133/21.' : 'Não.');
 
 
-    const pgOpts = data.pagamentoOpcoes || [];
-    let pgText = '';
-    if(pgOpts.includes('ordem_bancaria')) pgText += '• O pagamento será realizado por ordem bancária creditada em conta corrente.\n';
-    if(pgOpts.includes('banpara')) pgText += '• Banco do Estado do Pará - BANPARÁ.\n';
-    if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
-    if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${data.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
-    if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${data.pagamentoRegularidade || 'Conforme Edital'}\n`;
-    pushRow('9.3. PAGAMENTO', pgText || 'Conforme Edital.', true);
+    pushRow('9.3. PAGAMENTO', textoPagamento(data), true);
 
     pushRow('9.4. GARANTIA DE CONTRATO', textoGarantiaContrato(c), true);
     pushRow('9.5. REAJUSTE', textoReajuste(data));

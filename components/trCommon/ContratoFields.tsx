@@ -1,6 +1,6 @@
 import React from 'react';
 import { cargoOptions, inputClasses, Field, SectionWithHelp as Section } from '../formCommon';
-import { RadioGroup, TrFormProps } from './common';
+import { Checkbox, RadioGroup, TrFormProps } from './common';
 
 // Garantia do contrato (art. 96). `naoHaJustificativa` exige a justificativa quando "Não há".
 export const GarantiaContratoField: React.FC<TrFormProps & { sec: number; n: number; naoHaJustificativa?: boolean }> = ({ data, h, sec, n, naoHaJustificativa = false }) => (
@@ -80,4 +80,83 @@ export const AssinaturaSection: React.FC<TrFormProps> = ({ data, setData, h }) =
           </div>
         </div>
       </Section>
+);
+
+// Forma de pagamento: cláusulas marcáveis (ordem bancária, banco, prazo e prova de regularidade fiscal).
+export const PagamentoField: React.FC<TrFormProps & { sec: number; n: number }> = ({ data, h, sec, n }) => (
+          <Field label={`${sec}.${n} Forma de Pagamento`} required>
+              <div className="bg-white dark:bg-gray-800 p-4 border rounded-md shadow-inner space-y-4">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1 mb-2">Selecione as cláusulas aplicáveis:</p>
+                  <div className="space-y-3">
+                      <Checkbox 
+                        name="pagamentoOpcoes" 
+                        value="ordem_bancaria" 
+                        checked={data.pagamentoOpcoes.includes('ordem_bancaria')} 
+                        onChange={h.handleCheckboxChange}
+                      >
+                        O pagamento será realizado por meio de ordem bancária creditada em conta corrente.
+                      </Checkbox>
+                      
+                      <Checkbox 
+                        name="pagamentoOpcoes" 
+                        value="banpara" 
+                        checked={data.pagamentoOpcoes.includes('banpara')} 
+                        onChange={h.handleCheckboxChange}
+                      >
+                        Banco do Estado do Pará - BANPARÁ.
+                      </Checkbox>
+
+                      <Checkbox 
+                        name="pagamentoOpcoes" 
+                        value="qualquer_banco" 
+                        checked={data.pagamentoOpcoes.includes('qualquer_banco')} 
+                        onChange={h.handleCheckboxChange}
+                      >
+                        Qualquer instituição bancária indicada pela contratada.
+                      </Checkbox>
+
+                      <div className="border-t pt-2 mt-2">
+                          <Checkbox 
+                            name="pagamentoOpcoes" 
+                            value="prazo_NF" 
+                            checked={data.pagamentoOpcoes.includes('prazo_NF')} 
+                            onChange={h.handleCheckboxChange}
+                          >
+                            <div className="inline-flex flex-wrap items-center gap-1">
+                                O prazo para pagamento será de até 
+                                <input 
+                                    type="text" 
+                                    name="pagamentoPrazoDias" 
+                                    value={data.pagamentoPrazoDias} 
+                                    onChange={h.handleChange}
+                                    className="w-24 border-b border-gray-400 bg-transparent text-center focus:border-cbmpa-red outline-none px-1"
+                                    placeholder="30 (trinta)"
+                                />
+                                dias corridos, a contar do recebimento da nota fiscal/fatura.
+                            </div>
+                          </Checkbox>
+                      </div>
+
+                      <div className="border-t pt-2 mt-2">
+                        <Checkbox 
+                            name="pagamentoOpcoes" 
+                            value="regularidade" 
+                            checked={data.pagamentoOpcoes.includes('regularidade')} 
+                            onChange={h.handleCheckboxChange}
+                        >
+                            Prova da Regularidade Fiscal:
+                        </Checkbox>
+                        {data.pagamentoOpcoes.includes('regularidade') && (
+                            <textarea 
+                                name="pagamentoRegularidade" 
+                                value={data.pagamentoRegularidade} 
+                                onChange={h.handleChange} 
+                                className={`${inputClasses} mt-2 text-xs font-mono h-28`} 
+                                placeholder="Insira o texto sobre regularidade fiscal..."
+                            />
+                        )}
+                      </div>
+                  </div>
+              </div>
+          </Field>
 );

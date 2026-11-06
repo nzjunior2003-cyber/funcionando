@@ -6,7 +6,7 @@ import { Checkbox, RadioGroup, useTrHandlers } from './trCommon/common';
 import { ItensSection } from './trCommon/ItensSection';
 import { FormaContratacaoField, CriteriosSelecaoFields } from './trCommon/SelecaoFields';
 import { HabilitacoesFields, QualificacaoTecnicaFields, SustentabilidadeRiscosFields, ConsorcioSubcontratacaoFields } from './trCommon/RequisitosFields';
-import { GarantiaContratoField, ReajusteCampos, PrevisaoOrcamentariaSection, AssinaturaSection } from './trCommon/ContratoFields';
+import { PagamentoField, GarantiaContratoField, ReajusteCampos, PrevisaoOrcamentariaSection, AssinaturaSection } from './trCommon/ContratoFields';
 
 interface TrBensFormProps {
   data: TrBensData;
@@ -190,81 +190,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
           <Field label="9.2 Haverá possibilidade de prorrogação?">
               <RadioGroup name="possibilidadeProrrogacao" value={data.possibilidadeProrrogacao} options={[{val: 'sim', label: 'Sim, nas hipóteses do art. 111 da Lei Federal nº 14.133/21.'}, {val: 'nao', label: 'Não.'}]} onChange={handleChange} />
           </Field>
-          <Field label="9.3 Forma de Pagamento" required>
-              <div className="bg-white dark:bg-gray-800 p-4 border rounded-md shadow-inner space-y-4">
-                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 border-b pb-1 mb-2">Selecione as cláusulas aplicáveis:</p>
-                  <div className="space-y-3">
-                      <Checkbox 
-                        name="pagamentoOpcoes" 
-                        value="ordem_bancaria" 
-                        checked={data.pagamentoOpcoes.includes('ordem_bancaria')} 
-                        onChange={handleCheckboxChange}
-                      >
-                        O pagamento será realizado por meio de ordem bancária creditada em conta corrente.
-                      </Checkbox>
-                      
-                      <Checkbox 
-                        name="pagamentoOpcoes" 
-                        value="banpara" 
-                        checked={data.pagamentoOpcoes.includes('banpara')} 
-                        onChange={handleCheckboxChange}
-                      >
-                        Banco do Estado do Pará - BANPARÁ.
-                      </Checkbox>
-
-                      <Checkbox 
-                        name="pagamentoOpcoes" 
-                        value="qualquer_banco" 
-                        checked={data.pagamentoOpcoes.includes('qualquer_banco')} 
-                        onChange={handleCheckboxChange}
-                      >
-                        Qualquer instituição bancária indicada pela contratada.
-                      </Checkbox>
-
-                      <div className="border-t pt-2 mt-2">
-                          <Checkbox 
-                            name="pagamentoOpcoes" 
-                            value="prazo_NF" 
-                            checked={data.pagamentoOpcoes.includes('prazo_NF')} 
-                            onChange={handleCheckboxChange}
-                          >
-                            <div className="inline-flex flex-wrap items-center gap-1">
-                                O prazo para pagamento será de até 
-                                <input 
-                                    type="text" 
-                                    name="pagamentoPrazoDias" 
-                                    value={data.pagamentoPrazoDias} 
-                                    onChange={handleChange}
-                                    className="w-24 border-b border-gray-400 bg-transparent text-center focus:border-cbmpa-red outline-none px-1"
-                                    placeholder="30 (trinta)"
-                                />
-                                dias corridos, a contar do recebimento da nota fiscal/fatura.
-                            </div>
-                          </Checkbox>
-                      </div>
-
-                      <div className="border-t pt-2 mt-2">
-                        <Checkbox 
-                            name="pagamentoOpcoes" 
-                            value="regularidade" 
-                            checked={data.pagamentoOpcoes.includes('regularidade')} 
-                            onChange={handleCheckboxChange}
-                        >
-                            Prova da Regularidade Fiscal:
-                        </Checkbox>
-                        {data.pagamentoOpcoes.includes('regularidade') && (
-                            <textarea 
-                                name="pagamentoRegularidade" 
-                                value={data.pagamentoRegularidade} 
-                                onChange={handleChange} 
-                                className={`${inputClasses} mt-2 text-xs font-mono h-28`} 
-                                placeholder="Insira o texto sobre regularidade fiscal..."
-                            />
-                        )}
-                      </div>
-                  </div>
-              </div>
-          </Field>
+          <PagamentoField {...shared} sec={9} n={3} />
           <GarantiaContratoField {...shared} sec={9} n={4} />
           <Field label="9.5 Reajuste">
               <ReajusteCampos {...shared} />

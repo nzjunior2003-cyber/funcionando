@@ -316,6 +316,8 @@ export interface TrCommonData extends Signatory {
   prazoContrato: string;
   possibilidadeProrrogacao: string;
   pagamentoPrazoDias: string;
+  pagamentoOpcoes: string[];
+  pagamentoRegularidade: string;
   garantiaContratoTipo: string;
   garantiaContratoPorcentagem: string;
   garantiaContratoJustificativa: string;

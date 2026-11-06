@@ -793,3 +793,15 @@ export const pushPrevisaoOrcamentaria = (c: TrPdfCtx, sec: number) => {
     c.pushRow('FUNCIONAL', d.dadosOrcamentariosFuncional || '-');
     c.pushRow('ELEMENTO E FONTE', `Elemento: ${d.dadosOrcamentariosElemento || '-'}   |   Fonte: ${d.dadosOrcamentariosFonte || '-'}`);
 };
+
+// Cláusulas de pagamento marcadas no formulário (mesmo texto no TR Bens e no TR Serviços).
+export const textoPagamento = (d: TrCommonData): string => {
+    const pgOpts = d.pagamentoOpcoes || [];
+    let pgText = '';
+    if(pgOpts.includes('ordem_bancaria')) pgText += '• O pagamento será realizado por ordem bancária creditada em conta corrente.\n';
+    if(pgOpts.includes('banpara')) pgText += '• Banco do Estado do Pará - BANPARÁ.\n';
+    if(pgOpts.includes('qualquer_banco')) pgText += '• Qualquer instituição bancária indicada pela contratada.\n';
+    if(pgOpts.includes('prazo_NF')) pgText += `• O prazo para pagamento será de até ${d.pagamentoPrazoDias || '30'} dias corridos após o recebimento da nota fiscal.\n`;
+    if(pgOpts.includes('regularidade')) pgText += `• Prova da Regularidade Fiscal: ${d.pagamentoRegularidade || 'Conforme Edital'}\n`;
+    return pgText || 'Conforme Edital.';
+};
