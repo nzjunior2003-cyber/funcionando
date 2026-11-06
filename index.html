@@ -10,37 +10,6 @@
   <meta name="theme-color" content="#c0392b" />
   <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            'cbmpa-red': '#c0392b',
-            'cbmpa-purple': '#8e44ad',
-            'cbmpa-blue-start': '#667eea',
-            'cbmpa-blue-end': '#764ba2',
-          },
-          keyframes: {
-            'fade-in-down': {
-              '0%': {
-                opacity: '0',
-                transform: 'translateY(-20px)'
-              },
-              '100%': {
-                opacity: '1',
-                transform: 'translateY(0)'
-              },
-            }
-          },
-          animation: {
-            'fade-in-down': 'fade-in-down 0.5s ease-out forwards'
-          }
-        },
-      },
-    }
-  </script>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900">
   <div id="root"></div>
