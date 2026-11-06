@@ -276,7 +276,12 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     const somaPeriodoReais = somaPeriodoCentavos / 100;
 
     const temPeriodoValido = (data.itemGroups || []).some(g => (g as any).periodoContratacao && String((g as any).periodoContratacao).trim() !== '');
-    const stringPeriodoGlobal = ((data.itemGroups || []).find(g => (g as any).periodoContratacao) as any)?.periodoContratacao || '';
+    // No aditivo o prazo é único (quantidade e unidade informadas no aditivo), não o texto do primeiro item.
+    const qtdTempoAditivo = Number(data.aditivoTempoQuantidade) || 1;
+    const unidadeTempoAditivo = data.aditivoTempoUnidade === 'anos'
+        ? (qtdTempoAditivo === 1 ? 'ano' : 'anos')
+        : (qtdTempoAditivo === 1 ? 'mês' : 'meses');
+    const stringPeriodoGlobal = `${data.aditivoTempoQuantidade || 1} ${unidadeTempoAditivo}`;
     const renderTotalFinal = (valorMoeda: number) => temTaxaGlobal ? `${taxaReferenciaGlobal.toLocaleString('pt-BR', {minimumFractionDigits: 2, maximumFractionDigits: 4})}%` : formatValue(valorMoeda, 'moeda');
 
     if (isAditivoTempo) {
