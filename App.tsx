@@ -372,7 +372,7 @@ const DocumentSelector: React.FC<{onSelect: (docType: DocumentType) => void}> = 
             <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-semibold uppercase tracking-wide">Diretoria de Apoio Logístico</p>
         </div>
         <div className="mb-5">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">Gerador de Documentos RLC</h1>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-800 dark:text-gray-100 tracking-wide">InstruçãoDocs</h1>
             <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium tracking-wider mt-1">Sistema de Elaboração de Documentos de Contratação</p>
         </div>
         <h2 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-1">Selecione o Tipo de Documento</h2>
