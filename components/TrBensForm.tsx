@@ -1,6 +1,5 @@
 import React from 'react';
 import { TrBensData } from '../types';
-import { AiAssistant } from './AiAssistant';
 import { inputClasses, Field, SectionWithHelp as Section } from './formCommon';
 import { Checkbox, RadioGroup, useTrHandlers } from './trCommon/common';
 import { ItensSection } from './trCommon/ItensSection';
@@ -55,8 +54,7 @@ export const TrBensForm: React.FC<TrBensFormProps> = ({ data, setData }) => {
       <Section title="3. DESCRIÇÃO DA SOLUÇÃO" instruction="Resumir a solução escolhida pelo estudo técnico preliminar, a partir da demanda.">
         <Field label="3.1 Qual o motivo da contratação?" note="Descrição detalhada de como os bens suprem a demanda.">
             <div className="relative">
-                <textarea name="motivoContratacao" value={data.motivoContratacao} onChange={handleChange} className={`${inputClasses} h-32 pr-10`} />
-                <AiAssistant fieldName="Motivo da Contratação (Resumo ETP)" onGeneratedText={(t) => setData(prev => ({...prev, motivoContratacao: t}))} />
+                <textarea name="motivoContratacao" value={data.motivoContratacao} onChange={handleChange} className={`${inputClasses} h-32`} />
             </div>
         </Field>
       </Section>

@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { TrBensItem } from '../../types';
-import { AiAssistant } from '../AiAssistant';
 import { parseCurrency, formatCurrencyInput, Field, SectionWithHelp as Section, inputClasses } from '../formCommon';
 import { TrFormProps } from './common';
 
@@ -357,8 +356,7 @@ export const ItensSection: React.FC<TrFormProps & { objeto: string }> = ({ data,
         <Section title="2. JUSTIFICATIVA PARA O AGRUPAMENTO" instruction="Justificar como foi formado o grupo, indicando as razões técnicas que justificam o agrupamento ou a economia de escala que se espera obter.">
           <Field label="Justificativa" note="Se a licitação for apenas por item(ns), preencha com 'não se aplica'.">
               <div className="relative">
-                  <textarea name="justificativaAgrupamento" value={data.justificativaAgrupamento} onChange={h.handleChange} className={`${inputClasses} h-24 pr-10`} />
-                  <AiAssistant fieldName="Justificativa para Agrupamento de Itens" onGeneratedText={(t) => setData((prev: any) => ({...prev, justificativaAgrupamento: t}))} />
+                  <textarea name="justificativaAgrupamento" value={data.justificativaAgrupamento} onChange={h.handleChange} className={`${inputClasses} h-24`} />
               </div>
           </Field>
         </Section>

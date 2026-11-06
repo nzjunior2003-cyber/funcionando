@@ -1,7 +1,6 @@
 
 import React, { useState } from 'react';
 import { EtpData, EtpItem, EtpQualidadeItem } from '../types';
-import { AiAssistant } from './AiAssistant';
 import { cargoOptions, inputClasses, parseCurrency, formatCurrencyInput, Field, SectionWithHelp as Section } from './formCommon';
 
 interface EtpFormProps {
@@ -113,8 +112,7 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
       <Section title="1 – DESCRIÇÃO DA NECESSIDADE" instruction="Descrever a necessidade da contratação do bem ou serviço, a partir da identificação do que o órgão realmente precisa, considerando o problema exposto no documento de formalização de demanda.">
         <Field label="1.1. Qual a necessidade a ser atendida?" required>
           <div className="relative">
-            <textarea name="necessidade" value={data.necessidade} onChange={handleChange} required className={`${inputClasses} h-24 pr-10`} />
-            <AiAssistant fieldName="Necessidade a ser Atendida" onGeneratedText={(text) => setData(prev => ({ ...prev, necessidade: text }))} />
+            <textarea name="necessidade" value={data.necessidade} onChange={handleChange} required className={`${inputClasses} h-24`} />
           </div>
         </Field>
       </Section>
@@ -128,8 +126,7 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
         </Field>
         <Field label="2.2. Justificativa técnica e econômica para a escolha da melhor solução" required>
             <div className="relative">
-                <textarea name="justificativaTecnica" value={data.justificativaTecnica} onChange={handleChange} required className={`${inputClasses} h-24 pr-10`} />
-                <AiAssistant fieldName="Justificativa Técnica e Econômica" onGeneratedText={(text) => setData(prev => ({ ...prev, justificativaTecnica: text }))} />
+                <textarea name="justificativaTecnica" value={data.justificativaTecnica} onChange={handleChange} required className={`${inputClasses} h-24`} />
             </div>
         </Field>
         <Field label="2.3. Há restrição de fornecedores?" required><RadioGroup name="restricaoFornecedores" value={data.restricaoFornecedores} options={[{val: 'sim', label: 'Sim'}, {val: 'nao', label: 'Não'}]} onChange={handleChange} /></Field>
@@ -176,8 +173,7 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
       <Section title="4 – DESCRIÇÃO DA SOLUÇÃO" instruction="Indicar o conjunto de todos os elementos (bens, serviços e outros) necessários para, de forma integrada, gerar os resultados que atendam à necessidade que gerou a contratação, bem como informar necessidades relacionadas à manutenção, assistência técnica e garantia, quando for o caso.">
          <Field label="4.1. O que será contratado?">
             <div className="relative">
-                <textarea name="solucaoContratacao" value={data.solucaoContratacao} onChange={handleChange} className={`${inputClasses} h-24 pr-10`}/>
-                <AiAssistant fieldName="Solução a ser Contratada" onGeneratedText={(text) => setData(prev => ({ ...prev, solucaoContratacao: text }))} />
+                <textarea name="solucaoContratacao" value={data.solucaoContratacao} onChange={handleChange} className={`${inputClasses} h-24`}/>
             </div>
          </Field>
          <Field label="4.2. Qual o prazo da garantia contratual?">
@@ -214,8 +210,7 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
         </Field>
         <Field label="5.2. Descrição do Quantitativo" required>
             <div className="relative">
-                <textarea name="descricaoQuantitativo" value={data.descricaoQuantitativo} onChange={handleChange} required className={`${inputClasses} h-24 pr-10`}/>
-                <AiAssistant fieldName="Descrição do Quantitativo" onGeneratedText={(text) => setData(prev => ({ ...prev, descricaoQuantitativo: text }))} />
+                <textarea name="descricaoQuantitativo" value={data.descricaoQuantitativo} onChange={handleChange} required className={`${inputClasses} h-24`}/>
             </div>
         </Field>
         <div className="mt-4">

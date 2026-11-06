@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { OrcamentoData, OrcamentoItemGroup } from '../types';
-import { AiAssistant } from './AiAssistant';
 import { inputClasses, Field } from './formCommon';
 
 interface OrcamentoFormProps {
@@ -175,8 +174,7 @@ const ItemForm: React.FC<{
                     <div className="col-span-1">
                         <label className="block text-sm font-medium mb-1 dark:text-gray-300">Descrição Detalhada</label>
                         <div className="relative">
-                            <textarea value={group.descricao} onChange={(e) => onGroupChange(group.id, 'descricao', e.target.value)} className={`${inputClasses} min-h-[80px] pr-10`} />
-                            <AiAssistant fieldName={`Descrição do Item ${group.itemTR}`} onGeneratedText={(text) => onGroupChange(group.id, 'descricao', text)} />
+                            <textarea value={group.descricao} onChange={(e) => onGroupChange(group.id, 'descricao', e.target.value)} className={`${inputClasses} min-h-[80px]`} />
                         </div>
                     </div>
                     <div className="grid grid-cols-2 gap-3">

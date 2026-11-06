@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { DfdData } from '../types';
-import { AiAssistant } from './AiAssistant';
 import { cargoOptions, inputClasses, Field, SectionSimple as Section } from './formCommon';
 
 interface DfdFormProps {
@@ -37,20 +36,12 @@ export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
       <Section title="Conteúdo da Solicitação">
         <Field label="Problema a ser Solucionado" required note="Não indicar o bem ou serviço, mas o que se espera resolver.">
           <div className="relative">
-            <textarea name="problema" value={data.problema} onChange={handleChange} required minLength={100} className={`${inputClasses} h-24 pr-10`}></textarea>
-            <AiAssistant
-                fieldName="Problema a ser Solucionado"
-                onGeneratedText={(text) => setData(prev => ({ ...prev, problema: text }))}
-            />
+            <textarea name="problema" value={data.problema} onChange={handleChange} required minLength={100} className={`${inputClasses} h-24`}></textarea>
           </div>
         </Field>
         <Field label="Quantitativo Necessário" required note="Indicar quantidade e periodicidade estimada.">
           <div className="relative">
-            <textarea name="quantitativo" value={data.quantitativo} onChange={handleChange} required className={`${inputClasses} h-20 pr-10`}></textarea>
-            <AiAssistant
-                fieldName="Quantitativo Necessário"
-                onGeneratedText={(text) => setData(prev => ({ ...prev, quantitativo: text }))}
-            />
+            <textarea name="quantitativo" value={data.quantitativo} onChange={handleChange} required className={`${inputClasses} h-20`}></textarea>
           </div>
         </Field>
         <div className="grid md:grid-cols-2 gap-6">
@@ -59,11 +50,7 @@ export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
             </Field>
             <Field label="Justificativa do Prazo" required>
                 <div className="relative">
-                  <input type="text" name="justificativaPrazo" value={data.justificativaPrazo} onChange={handleChange} required className={`${inputClasses} pr-10`} />
-                  <AiAssistant
-                      fieldName="Justificativa do Prazo"
-                      onGeneratedText={(text) => setData(prev => ({ ...prev, justificativaPrazo: text }))}
-                  />
+                  <input type="text" name="justificativaPrazo" value={data.justificativaPrazo} onChange={handleChange} required className={`${inputClasses}`} />
                 </div>
             </Field>
         </div>
