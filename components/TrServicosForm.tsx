@@ -102,7 +102,7 @@ export const TrServicosForm: React.FC<TrServicosFormProps> = ({ data, setData })
       </Section>
 
       <Section title="5. CRITÉRIOS DE SELEÇÃO" instruction="Formas de contratação e julgamento baseados na Lei Federal nº 14.133/21.">
-        <FormaContratacaoField {...shared} sec={5} />
+        <FormaContratacaoField {...shared} sec={5} srp />
         <CriteriosSelecaoFields {...shared} sec={5} />
       </Section>
 

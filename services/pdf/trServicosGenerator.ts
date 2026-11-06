@@ -61,7 +61,9 @@ export const generateTrServicosPdf = (doc: jsPDF, d: TrServicosData) => {
                 `${radio(fC.includes('inexigibilidade'))} Inexigibilidade de licitação, com fundamento no art. 74, ${d.inexigibilidadeInciso ? `inciso ${d.inexigibilidadeInciso}` : '...'}, da Lei Federal nº 14.133/21.`,
                 `${radio(fC.includes('dispensa_valor'))} Dispensa de licitação em razão do valor*, com fundamento no art. 75, II, da Lei Federal nº 14.133/21.\n* Nesta hipótese, deve-se utilizar preferencialmente a dispensa eletrônica.`,
                 `${radio(fC.includes('dispensa_art75'))} Dispensa de licitação, com fundamento no art. 75, ${d.dispensaInciso ? `inciso ${d.dispensaInciso}` : '...'}, da Lei Federal nº 14.133/21.`,
-                `${radio(fC.includes('pregao'))} Pregão eletrônico.`
+                `${radio(fC.includes('pregao'))} Pregão eletrônico.`,
+                `${radio(fC.includes('pregao_rp'))} Pregão eletrônico para Registro de Preços.`,
+                `${radio(fC.includes('adesao_ata'))} Adesão à Ata de Registro de Preços.`
             ].join('\n\n'), true);
             pushCriteriosSelecaoComuns(c, 5);
 
