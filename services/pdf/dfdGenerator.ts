@@ -33,9 +33,8 @@ const getArticleForUnit = (unit: string): string => {
 
 export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     // 1. Cabeçalho Institucional Padronizado
-    // Nota: Como o formulário do DFD ainda não tem o campo "setor", estou passando uma string vazia ''.
-    // O pdfUtils vai automaticamente usar a palavra "SETOR" no lugar.
-    let yPos = drawInstitutionalHeader(doc, '', 'DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA');
+    // O setor solicitante vem do formulário; sem ele, o cabeçalho usa a palavra "SETOR".
+    let yPos = drawInstitutionalHeader(doc, data.setor || '', 'DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA');
     
     setDefaultFont(doc);
     
@@ -63,8 +62,8 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     yPos = drawJustifiedText(doc, p2, MARGIN_LEFT, yPos, TEXT_WIDTH);
 
     // Parágrafo 3: Prazo e Justificativa
-    const formattedPrazo = data.prazo ? new Date(data.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : '... (indicar prazo para o término do processo de compra)';
-    const p3 = `Informo que a aquisição deve ser feita até ${formattedPrazo}, considerando que ${data.justificativaPrazo || '... (justificar o prazo indicado)'}.`;
+    const formattedPrazo = data.prazo ? new Date(data.prazo + 'T00:00:00').toLocaleDateString('pt-BR') : '... (indicar o prazo limite para o atendimento da necessidade)';
+    const p3 = `Informo que a solução deve ser providenciada até ${formattedPrazo}, considerando que ${data.justificativaPrazo || '... (justificar o prazo indicado)'}.`;
     yPos = drawJustifiedText(doc, p3, MARGIN_LEFT, yPos, TEXT_WIDTH);
     yPos += 6;
 

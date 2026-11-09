@@ -28,13 +28,16 @@ export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
             <input type="text" name="ano" value={data.ano} onChange={handleChange} required className={inputClasses} />
           </Field>
         </div>
+        <Field label="Setor" required note="Nome do setor que faz a solicitação. Aparece no cabeçalho do documento.">
+          <input type="text" name="setor" value={data.setor} onChange={handleChange} required placeholder="Ex: Seção de Almoxarifado" className={inputClasses} />
+        </Field>
         <Field label="Unidade de Compras (Destinatário)" required>
           <input type="text" name="unidade" value={data.unidade} onChange={handleChange} required className={inputClasses} />
         </Field>
       </Section>
 
       <Section title="Conteúdo da Solicitação">
-        <Field label="Problema a ser Solucionado" required note="Não indicar o bem ou serviço, mas o que se espera resolver.">
+        <Field label="Problema a ser Solucionado" required note="Não indicar o bem ou serviço, nem a forma de contratação (que será indicada no ETP), mas o que se espera resolver.">
           <div className="relative">
             <textarea name="problema" value={data.problema} onChange={handleChange} required minLength={100} className={`${inputClasses} h-24`}></textarea>
           </div>

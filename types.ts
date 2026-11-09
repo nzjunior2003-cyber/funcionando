@@ -21,6 +21,7 @@ export interface Signatory {
 }
 
 export interface DfdData extends Signatory {
+  setor: string;
   numeroMemo: string;
   ano: string;
   unidade: string;

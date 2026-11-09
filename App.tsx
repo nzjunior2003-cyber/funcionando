@@ -40,6 +40,7 @@ const initialSignatory = {
 
 const initialDfdState: DfdData = {
   ...initialSignatory,
+  setor: '',
   numeroMemo: '',
   ano: new Date().getFullYear().toString(),
   unidade: '',
@@ -566,7 +567,7 @@ function App() {
               setDocType(parsed.type);
 
               switch(parsed.type) {
-                  case DocumentType.DFD: resetDfdData(parsed.data); break;
+                  case DocumentType.DFD: resetDfdData({ ...initialDfdState, ...parsed.data }); break;
                   case DocumentType.ETP:
                       resetEtpData({
                           ...parsed.data,
