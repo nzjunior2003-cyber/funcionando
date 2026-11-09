@@ -54,8 +54,7 @@ export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     doc.setFont('helvetica', 'normal');
     
     // Parágrafo 1: Problema
-    const setorSolicitante = (data.setor || '').trim();
-    const p1 = `Solicito${setorSolicitante ? `, em nome do setor ${setorSolicitante},` : ''} que seja providenciada a solução para ${data.problema || '... (expor o problema a ser solucionado)'}.`;
+    const p1 = `Solicito que seja providenciada a solução para ${data.problema || '... (expor o problema a ser solucionado)'}.`;
     yPos = drawJustifiedText(doc, p1, MARGIN_LEFT, yPos, TEXT_WIDTH);
 
     // Parágrafo 2: Quantitativo
