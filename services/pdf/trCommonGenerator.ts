@@ -589,7 +589,8 @@ export const generateTrPdf = (doc: jsPDF, data: TrCommonData, opts: TrPdfOptions
     // se não couber mas um espaçamento mais compacto (ainda legível)
     // couber, usa o compacto em vez de jogar tudo pra uma página nova
     // e desperdiçar o espaço que sobrou na página atual.
-    const idealGap = 38, compactGap = 18;
+    // Mínimo de 24 mm entre a data e a linha da assinatura, para caber uma assinatura digital.
+    const idealGap = 38, compactGap = 24;
     const sigFootprint = 10; // altura ocupada abaixo da linha de assinatura (nome + função)
     const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - finalY;
 

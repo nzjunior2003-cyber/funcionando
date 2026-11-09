@@ -778,7 +778,8 @@ const normalizaNome = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]
  * 1) Se o nome de guerra aparece inteiro dentro do nome completo, destaca esse trecho.
  * 2) Se for abreviado (ex.: "L. Rodrigues" em "Emanuel Lobato Rodrigues"), cada parte do
  *    nome de guerra é procurada, em ordem, nas palavras do nome: a inicial ("L.") casa com a
- *    palavra que começa com aquela letra ("Lobato") e as palavras inteiras casam com elas mesmas.
+ *    palavra que começa com aquela letra ("Lobato") e só a letra inicial fica em negrito; as
+ *    palavras inteiras ("Rodrigues") casam com elas mesmas e ficam inteiras em negrito.
  * 3) Se nada casar, o nome inteiro fica em texto normal.
  */
 export const splitNameByGuerra = (nomeCompleto: string, nomeGuerra: string): { text: string; bold: boolean }[] => {
@@ -799,7 +800,8 @@ export const splitNameByGuerra = (nomeCompleto: string, nomeGuerra: string): { t
     const tokens = nome.split(/(\s+)/); // palavras e espaços intercalados
     const wordIdx = tokens.map((t, i) => (/^\s+$/.test(t) || t === '' ? -1 : i)).filter(i => i >= 0);
     const guerraTokens = guerra.split(/\s+/).filter(Boolean);
-    const matched = new Set<number>();
+    // índice do token -> quantos caracteres iniciais ficam em negrito (inicial: 1; palavra inteira: tamanho dela)
+    const boldChars = new Map<number, number>();
     let cursor = 0;
     for (const g of guerraTokens) {
         const gn = normalizaNome(g);
@@ -810,21 +812,27 @@ export const splitNameByGuerra = (nomeCompleto: string, nomeGuerra: string): { t
             if (isInitial ? wn.startsWith(gn) : wn === gn) { found = k; break; }
         }
         if (found < 0) return [{ text: nome, bold: false }];
-        matched.add(wordIdx[found]);
+        boldChars.set(wordIdx[found], isInitial ? 1 : tokens[wordIdx[found]].length);
         cursor = found + 1;
     }
 
     const segs: { text: string; bold: boolean }[] = [];
     const push = (text: string, bold: boolean) => {
+        if (text === '') return;
         const last = segs[segs.length - 1];
         if (last && last.bold === bold) last.text += text; else segs.push({ text, bold });
     };
+    const inteira = (i: number) => boldChars.get(i) === (tokens[i] || '').length;
     tokens.forEach((t, i) => {
         if (t === '') return;
-        const isSpace = /^\s+$/.test(t);
-        // O espaço entre duas palavras destacadas também fica em negrito.
-        const entreDestacadas = isSpace && matched.has(i - 1) && matched.has(i + 1);
-        push(t, matched.has(i) || entreDestacadas);
+        if (/^\s+$/.test(t)) {
+            // O espaço entre duas palavras totalmente destacadas também fica em negrito.
+            push(t, inteira(i - 1) && inteira(i + 1));
+            return;
+        }
+        const n = boldChars.get(i) || 0;
+        push(t.slice(0, n), true);
+        push(t.slice(n), false);
     });
     return segs;
 };

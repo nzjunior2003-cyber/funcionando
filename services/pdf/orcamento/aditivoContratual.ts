@@ -323,8 +323,9 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     // sobra no fim da página anterior não é jogada fora à toa, e a
     // data e a(s) assinatura(s) continuam sempre juntas.
     const hasSig2 = !!data.assinante2Nome;
-    const idealGapAfterDate = 30, compactGapAfterDate = 15;
-    const idealGapEntreAssinantes = 40, compactGapEntreAssinantes = 20;
+    // Mínimo de 24 mm acima de cada linha de assinatura (34 mm entre assinantes, contando o bloco do nome), para caber uma assinatura digital.
+    const idealGapAfterDate = 30, compactGapAfterDate = 24;
+    const idealGapEntreAssinantes = 40, compactGapEntreAssinantes = 34;
     const sigLineHeight = 15;
     const idealHeight = idealGapAfterDate + sigLineHeight + (hasSig2 ? idealGapEntreAssinantes + sigLineHeight : 0);
     const compactHeight = compactGapAfterDate + sigLineHeight + (hasSig2 ? compactGapEntreAssinantes + sigLineHeight : 0);
