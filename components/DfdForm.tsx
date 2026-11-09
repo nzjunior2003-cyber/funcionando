@@ -28,6 +28,9 @@ export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
             <input type="text" name="ano" value={data.ano} onChange={handleChange} required className={inputClasses} />
           </Field>
         </div>
+        <Field label="Setor Solicitante" required note="Setor que solicita o atendimento da necessidade. Aparece no cabeçalho do documento.">
+          <input type="text" name="setor" value={data.setor} onChange={handleChange} required placeholder="Ex: DL/DAL" className={inputClasses} />
+        </Field>
         <Field label="Unidade de Compras (Destinatário)" required>
           <input type="text" name="unidade" value={data.unidade} onChange={handleChange} required className={inputClasses} />
         </Field>

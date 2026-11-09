@@ -33,9 +33,8 @@ const getArticleForUnit = (unit: string): string => {
 
 export const generateDfdPdf = (doc: jsPDF, data: DfdData) => {
     // 1. Cabeçalho Institucional Padronizado
-    // Nota: Como o formulário do DFD ainda não tem o campo "setor", estou passando uma string vazia ''.
-    // O pdfUtils vai automaticamente usar a palavra "SETOR" no lugar.
-    let yPos = drawInstitutionalHeader(doc, '', 'DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA');
+    // O setor solicitante vem do formulário; sem ele, o cabeçalho usa a palavra "SETOR".
+    let yPos = drawInstitutionalHeader(doc, data.setor || '', 'DOCUMENTO DE FORMALIZAÇÃO DA DEMANDA');
     
     setDefaultFont(doc);
     
