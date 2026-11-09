@@ -9,7 +9,8 @@ import {
     drawInstitutionalFooter,
     sanitizeText,
     expandLongTextRows,
-    drawPaeSignatureMark
+    drawPaeSignatureMark,
+    splitNameByGuerra
 } from './pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_TOP, MARGIN_BOTTOM } from './pdfConstants';
 
@@ -631,22 +632,7 @@ export const generateTrPdf = (doc: jsPDF, data: TrCommonData, opts: TrPdfOptions
 
         if (!fullName) return;
 
-        const parts: { text: string; bold?: boolean }[] = [];
-        const lowerFull = fullName.toLowerCase();
-        const lowerGuerra = guerra.toLowerCase();
-
-        if (guerra && lowerFull.includes(lowerGuerra)) {
-            const idx = lowerFull.indexOf(lowerGuerra);
-            const before = fullName.slice(0, idx).trimEnd();
-            const boldPart = fullName.slice(idx, idx + guerra.length).trim();
-            const after = fullName.slice(idx + guerra.length).trimStart();
-
-            if (before) parts.push({ text: before });
-            if (boldPart) parts.push({ text: ` ${boldPart} `, bold: true });
-            if (after) parts.push({ text: after });
-        } else {
-            parts.push({ text: fullName });
-        }
+        const parts: { text: string; bold?: boolean }[] = splitNameByGuerra(fullName, guerra);
 
         if (cargoTexto) {
             parts.push({ text: ` - ${cargoTexto}`, bold: true });

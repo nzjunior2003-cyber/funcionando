@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawPaeSignatureMark, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawPaeSignatureMark, splitNameByGuerra, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -354,14 +354,7 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
         doc.setLineWidth(0.1); doc.setDrawColor(120); doc.line(xPos - 40, yPos, xPos + 40, yPos);
         const fullName = (nomeCompleto || '').trim(); const guerra = (nomeGuerra || '').trim(); const cargoTexto = (cargo || '').trim();
         doc.setFontSize(10);
-        const idx = guerra ? fullName.toLowerCase().indexOf(guerra.toLowerCase()) : -1;
-        
-        let before = '', boldGuerra = '', after = '';
-        if (idx >= 0) {
-            before = fullName.slice(0, idx); boldGuerra = fullName.slice(idx, idx + guerra.length); after = fullName.slice(idx + guerra.length);
-        } else { before = fullName; }
-
-        const parts = [{ text: before, bold: false }, { text: boldGuerra, bold: true }, { text: after, bold: false }, { text: ` - ${cargoTexto}`, bold: true }];
+        const parts = [...splitNameByGuerra(fullName, guerra), { text: ` - ${cargoTexto}`, bold: true }];
         const totalW = parts.reduce((acc, p) => { doc.setFont('helvetica', p.bold ? 'bold' : 'normal'); return acc + doc.getTextWidth(p.text); }, 0);
         let currentX = xPos - (totalW / 2);
 

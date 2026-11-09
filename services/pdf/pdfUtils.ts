@@ -770,6 +770,65 @@ export const drawPaeSignatureMark = (doc: jsPDF, sx: number, y: number) => {
     doc.text(PAE_SIGNATURE_TEXT, sx, y - 2, { align: 'center' });
 };
 
+// Normaliza para comparar nomes: sem acento, minúsculo, sem ponto final ("L." -> "l").
+const normalizaNome = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\.+$/, '');
+
+/**
+ * Separa o nome completo em trechos (normal/negrito) para destacar o nome de guerra.
+ * 1) Se o nome de guerra aparece inteiro dentro do nome completo, destaca esse trecho.
+ * 2) Se for abreviado (ex.: "L. Rodrigues" em "Emanuel Lobato Rodrigues"), cada parte do
+ *    nome de guerra é procurada, em ordem, nas palavras do nome: a inicial ("L.") casa com a
+ *    palavra que começa com aquela letra ("Lobato") e as palavras inteiras casam com elas mesmas.
+ * 3) Se nada casar, o nome inteiro fica em texto normal.
+ */
+export const splitNameByGuerra = (nomeCompleto: string, nomeGuerra: string): { text: string; bold: boolean }[] => {
+    const nome = (nomeCompleto || '').trim();
+    const guerra = (nomeGuerra || '').trim();
+    if (!nome) return [];
+    if (!guerra) return [{ text: nome, bold: false }];
+
+    const idx = nome.toLowerCase().indexOf(guerra.toLowerCase());
+    if (idx >= 0) {
+        return [
+            { text: nome.slice(0, idx), bold: false },
+            { text: nome.slice(idx, idx + guerra.length), bold: true },
+            { text: nome.slice(idx + guerra.length), bold: false }
+        ].filter(seg => seg.text !== '');
+    }
+
+    const tokens = nome.split(/(\s+)/); // palavras e espaços intercalados
+    const wordIdx = tokens.map((t, i) => (/^\s+$/.test(t) || t === '' ? -1 : i)).filter(i => i >= 0);
+    const guerraTokens = guerra.split(/\s+/).filter(Boolean);
+    const matched = new Set<number>();
+    let cursor = 0;
+    for (const g of guerraTokens) {
+        const gn = normalizaNome(g);
+        const isInitial = gn.length === 1;
+        let found = -1;
+        for (let k = cursor; k < wordIdx.length; k++) {
+            const wn = normalizaNome(tokens[wordIdx[k]]);
+            if (isInitial ? wn.startsWith(gn) : wn === gn) { found = k; break; }
+        }
+        if (found < 0) return [{ text: nome, bold: false }];
+        matched.add(wordIdx[found]);
+        cursor = found + 1;
+    }
+
+    const segs: { text: string; bold: boolean }[] = [];
+    const push = (text: string, bold: boolean) => {
+        const last = segs[segs.length - 1];
+        if (last && last.bold === bold) last.text += text; else segs.push({ text, bold });
+    };
+    tokens.forEach((t, i) => {
+        if (t === '') return;
+        const isSpace = /^\s+$/.test(t);
+        // O espaço entre duas palavras destacadas também fica em negrito.
+        const entreDestacadas = isSpace && matched.has(i - 1) && matched.has(i + 1);
+        push(t, matched.has(i) || entreDestacadas);
+    });
+    return segs;
+};
+
 export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: string, f: string, sx: number, y: number, assinadoPae: boolean = false) => {
     if (assinadoPae) drawPaeSignatureMark(doc, sx, y);
     doc.setDrawColor(0);
@@ -779,50 +838,15 @@ export const drawFormattedSignature = (doc: jsPDF, n: string, ng: string, c: str
     let cy = y + 5;
     doc.setFontSize(10);
 
-    const nameStr = (n || '').trim();
     const cargoStr = c ? ` - ${c}` : '';
-
-    let pre = nameStr;
-    let match = '';
-    let post = '';
-
-    if (ng && nameStr.toLowerCase().includes(ng.toLowerCase())) {
-        const idx = nameStr.toLowerCase().indexOf(ng.toLowerCase());
-        pre = nameStr.substring(0, idx);
-        match = nameStr.substring(idx, idx + ng.length);
-        post = nameStr.substring(idx + ng.length);
-    }
-
-    doc.setFont('helvetica', 'normal');
-    const wPre = pre ? doc.getTextWidth(pre) : 0;
-    const wPost = post ? doc.getTextWidth(post) : 0;
-    const wCargo = cargoStr ? (() => { doc.setFont('helvetica', 'bold'); return doc.getTextWidth(cargoStr); })() : 0;
-
-    doc.setFont('helvetica', 'bold');
-    const wMatch = match ? doc.getTextWidth(match) : 0;
-
-    const totalWidth = wPre + wMatch + wPost + wCargo;
-    let cx = sx - (totalWidth / 2);
-
-    if (pre) {
-        doc.setFont('helvetica', 'normal');
-        doc.text(pre, cx, cy);
-        cx += wPre;
-    }
-    if (match) {
-        doc.setFont('helvetica', 'bold');
-        doc.text(match, cx, cy);
-        cx += wMatch;
-    }
-    if (post) {
-        doc.setFont('helvetica', 'normal');
-        doc.text(post, cx, cy);
-        cx += wPost;
-    }
-    if (cargoStr) {
-        doc.setFont('helvetica', 'bold');
-        doc.text(cargoStr, cx, cy);
-    }
+    const parts = [...splitNameByGuerra(n, ng), ...(cargoStr ? [{ text: cargoStr, bold: true }] : [])];
+    const widths = parts.map(pt => { doc.setFont('helvetica', pt.bold ? 'bold' : 'normal'); return doc.getTextWidth(pt.text); });
+    let cx = sx - (widths.reduce((sum, w) => sum + w, 0) / 2);
+    parts.forEach((pt, i) => {
+        doc.setFont('helvetica', pt.bold ? 'bold' : 'normal');
+        doc.text(pt.text, cx, cy);
+        cx += widths[i];
+    });
 
     if (f) {
         cy += 5;
