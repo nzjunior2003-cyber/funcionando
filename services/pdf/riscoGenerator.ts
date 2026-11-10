@@ -57,7 +57,8 @@ export const generateRiscoPdf = (doc: jsPDF, data: RiscoData) => {
     // couber mas um espaçamento mais compacto (ainda legível) couber, usa o
     // compacto em vez de jogar tudo pra uma página nova — data e assinatura
     // nunca ficam separadas, mas o espaço que sobra não é desperdiçado.
-    const preDateGap = 10, idealGap = 20, compactGap = 10, sigFootprint = 10;
+    // Mínimo de 24 mm entre a data e a linha da assinatura, para caber uma assinatura digital.
+    const preDateGap = 10, idealGap = 28, compactGap = 24, sigFootprint = 10;
     const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - finalY;
     let gap = idealGap;
     if (remaining < preDateGap + idealGap + sigFootprint) {

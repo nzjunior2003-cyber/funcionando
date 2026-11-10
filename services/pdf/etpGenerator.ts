@@ -554,7 +554,8 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     // compacto em vez de jogar tudo pra uma página nova — data e assinatura
     // nunca ficam separadas, mas o espaço que sobra não é desperdiçado.
     let lastY = (doc as any).lastAutoTable.finalY + 15;
-    const idealGap = 28, compactGap = 14, sigFootprint = 10;
+    // Mínimo de 24 mm entre a data e a linha da assinatura, para caber uma assinatura digital.
+    const idealGap = 28, compactGap = 24, sigFootprint = 10;
     const remaining = (PAGE_HEIGHT - MARGIN_BOTTOM) - lastY;
     let gap = idealGap;
     if (remaining < idealGap + sigFootprint) {
