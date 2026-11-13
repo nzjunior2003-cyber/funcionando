@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, drawFormattedSignature, createJustifiedCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, drawFormattedSignature, createJustifiedCellHooks, isSoPesquisaDireta } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -184,7 +184,7 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
 
     // Sec 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[{ content: data.justificativaAusenciaFonte?.trim() || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
+    autoTable(doc, { startY: y, body: [[{ content: (isSoPesquisaDireta(data.fontesPesquisa) ? data.justificativaAusenciaFonte?.trim() : '') || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sec 4
@@ -193,9 +193,9 @@ export const generateOrcamentoLicitacaoPdf = (doc: jsPDF, data: OrcamentoData) =
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
         { content: `      Sim\n      Não`, hasCheckboxes: true, checkboxStates: [isDir, !isDir], styles: { halign: 'left' } },
-        { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }
+        { content: `Justificativa: ${isSoPesquisaDireta(data.fontesPesquisa) ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }
     ]];
-    if (isDir && data.fornecedoresDiretos?.length) {
+    if (isSoPesquisaDireta(data.fontesPesquisa) && data.fornecedoresDiretos?.length) {
         // Com rowSpan, a coluna mesclada só entra na primeira linha do grupo —
         // nas linhas seguintes ela não deve ter célula nenhuma (nem vazia),
         // senão o autoTable desloca as colunas seguintes (o nome acaba indo

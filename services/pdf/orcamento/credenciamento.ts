@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable, { RowInput } from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter } from '../pdfUtils';
+import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, isSoPesquisaDireta } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -72,7 +72,7 @@ export const generateOrcamentoCredenciamentoPdf = (doc: jsPDF, data: OrcamentoDa
 
     // Sec 3
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[data.justificativaAusenciaFonte?.trim() || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
+    autoTable(doc, { startY: y, body: [[(isSoPesquisaDireta(data.fontesPesquisa) ? data.justificativaAusenciaFonte?.trim() : '') || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sec 4
@@ -84,9 +84,9 @@ export const generateOrcamentoCredenciamentoPdf = (doc: jsPDF, data: OrcamentoDa
     const s4b: any[] = [[
         { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
         { content: `${boxDirSim} Sim\n${boxDirNao} Não`, styles: { halign: 'center' } },
-        { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
+        { content: `Justificativa: ${isSoPesquisaDireta(data.fontesPesquisa) ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
     ]];
-    if (isDir && data.fornecedoresDiretos?.length) {
+    if (isSoPesquisaDireta(data.fontesPesquisa) && data.fornecedoresDiretos?.length) {
         data.fornecedoresDiretos.forEach((f, i) => {
             s4b.push([
                 i === 0 ? { content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length } : '',
