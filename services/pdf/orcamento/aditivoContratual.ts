@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawPaeSignatureMark, splitNameByGuerra, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, formatValue, drawInstitutionalHeader, drawPaeSignatureMark, splitNameByGuerra, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks, isSoPesquisaDireta } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -93,12 +93,12 @@ export const generateOrcamentoAditivoPdf = (doc: jsPDF, data: OrcamentoData) => 
     y += 22;
 
     drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[{ content: data.justificativaAusenciaFonte?.trim() || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
+    autoTable(doc, { startY: y, body: [[{ content: (isSoPesquisaDireta(data.fontesPesquisa) ? data.justificativaAusenciaFonte?.trim() : '') || 'Não se aplica.', styles: { halign: 'justify' } }]], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, rowPageBreak: 'avoid', willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 
     drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
     const isDir = (data.fontesPesquisa || []).includes('direta');
-    const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isDir ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }]];
+    const s4b: any[] = [[{ content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } }, { content: `${isDir ? '[ X ]' : '[   ]'} Sim\n${!isDir ? '[ X ]' : '[   ]'} Não`, styles: { halign: 'center' } }, { content: `Justificativa: ${isSoPesquisaDireta(data.fontesPesquisa) ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'justify' } }]];
     autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, rowPageBreak: 'avoid', willDrawCell: combinedWillDrawCell, didDrawCell: combinedCheckboxJustifyDidDrawCell });
     y = (doc as any).lastAutoTable.finalY + 8;
 

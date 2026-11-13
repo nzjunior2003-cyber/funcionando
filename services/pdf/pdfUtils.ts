@@ -896,3 +896,7 @@ export const printSection = (doc: jsPDF, title: string, content: string | undefi
     }
     return y + 4;
 };
+// "Pesquisa direta com fornecedores" como ÚNICA fonte consultada: só nesse caso o orçamento traz
+// a justificativa da ausência de pesquisa em outras fontes e o detalhamento dos fornecedores cotados.
+export const isSoPesquisaDireta = (fontes?: string[]): boolean =>
+    (fontes || []).length === 1 && (fontes || []).includes('direta');
