@@ -51,8 +51,12 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         ? `ARP nº ${numAta}/${anoAta} — Órgão gerenciador: ${data.orgaoAta || 'ÓRGÃO'}/${data.estadoAta || 'UF'} — participação como partícipe`
         : `ARP nº ${numAta}/${anoAta} — ata própria (órgão gerenciador: CBMPA)`;
     const fornecedor = (data.fornecedorAta || '').trim();
+    const cnpj = (data.cnpjFornecedorAta || '').trim();
     const linhasAta: any[] = [[{ content: textoAta, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]];
-    if (fornecedor) linhasAta.push([{ content: `Fornecedor registrado na ata: ${fornecedor}`, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]);
+    if (fornecedor || cnpj) {
+        const textoFornecedor = fornecedor && cnpj ? `${fornecedor} — CNPJ ${cnpj}` : (fornecedor || `CNPJ ${cnpj}`);
+        linhasAta.push([{ content: `Fornecedor registrado na ata: ${textoFornecedor}`, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]);
+    }
     autoTable(doc, {
         startY: y,
         body: linhasAta,
