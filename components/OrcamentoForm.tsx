@@ -730,6 +730,11 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                  <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                               </select>
                           </Field>
+                          <div className="md:col-span-2">
+                              <Field label="Fornecedor da Ata" note="Empresa detentora do registro de preços nesta ata.">
+                                  <input type="text" name="fornecedorAta" value={data.fornecedorAta || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: Razão social da empresa registrada" />
+                              </Field>
+                          </div>
                       </div>
                   </div>
               )}

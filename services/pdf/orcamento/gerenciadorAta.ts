@@ -50,9 +50,12 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
     const textoAta = data.participacaoAta === 'participe'
         ? `ARP nº ${numAta}/${anoAta} — Órgão gerenciador: ${data.orgaoAta || 'ÓRGÃO'}/${data.estadoAta || 'UF'} — participação como partícipe`
         : `ARP nº ${numAta}/${anoAta} — ata própria (órgão gerenciador: CBMPA)`;
+    const fornecedor = (data.fornecedorAta || '').trim();
+    const linhasAta: any[] = [[{ content: textoAta, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]];
+    if (fornecedor) linhasAta.push([{ content: `Fornecedor registrado na ata: ${fornecedor}`, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]);
     autoTable(doc, {
         startY: y,
-        body: [[{ content: textoAta, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]],
+        body: linhasAta,
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 2.5, lineColor: 0, lineWidth: 0.1 },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
