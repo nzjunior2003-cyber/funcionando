@@ -127,6 +127,8 @@ const initialOrcamentoState: OrcamentoData = {
     orgaoAta: '',
     estadoAta: '',
     participacaoAta: 'propria',
+    fornecedorAta: '',
+    cnpjFornecedorAta: '',
     modalidadeLicitacao: 'pregao_eletronico_comum',
     tipoObjetoOrcamento: 'bem_divisivel',
     itemGroups: [],

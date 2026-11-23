@@ -2,6 +2,16 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { OrcamentoData, OrcamentoItemGroup } from '../types';
 import { inputClasses, Field } from './formCommon';
 
+// Máscara de CNPJ: 00.000.000/0000-00 (aceita colar com ou sem pontuação).
+const formatCnpj = (valor: string): string => {
+    const d = valor.replace(/\D/g, '').slice(0, 14);
+    return d
+        .replace(/^(\d{2})(\d)/, '$1.$2')
+        .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
+        .replace(/\.(\d{3})(\d)/, '.$1/$2')
+        .replace(/(\d{4})(\d)/, '$1-$2');
+};
+
 interface OrcamentoFormProps {
   data: OrcamentoData;
   setData: React.Dispatch<React.SetStateAction<OrcamentoData>>;
@@ -729,6 +739,12 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                               <select name="anoAta" value={data.anoAta} onChange={handleChange} className={inputClasses}>
                                  <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                               </select>
+                          </Field>
+                          <Field label="Fornecedor da Ata" note="Empresa detentora do registro de preços nesta ata.">
+                              <input type="text" name="fornecedorAta" value={data.fornecedorAta || ''} onChange={handleChange} className={inputClasses} placeholder="Razão social da empresa registrada" />
+                          </Field>
+                          <Field label="CNPJ do Fornecedor">
+                              <input type="text" inputMode="numeric" value={data.cnpjFornecedorAta || ''} onChange={(e) => setData(prev => ({ ...prev, cnpjFornecedorAta: formatCnpj(e.target.value) }))} className={inputClasses} placeholder="00.000.000/0000-00" maxLength={18} />
                           </Field>
                       </div>
                   </div>

@@ -218,6 +218,8 @@ export interface OrcamentoData {
   anoAta: string;
   orgaoAta: string;
   estadoAta: string;
+  fornecedorAta?: string; // Gerenciador/Partícipe: fornecedor registrado na ata
+  cnpjFornecedorAta?: string; // CNPJ do fornecedor registrado na ata
   participacaoAta?: 'propria' | 'participe'; // Gerenciador/Partícipe: ata própria ou partícipe de ata de outro órgão
   modalidadeLicitacao: 'pregao_eletronico_comum' | 'pregao_eletronico_rp' | 'outra';
   tipoObjetoOrcamento?: 'bem_divisivel' | 'bem_nao_divisivel' | 'servico';
