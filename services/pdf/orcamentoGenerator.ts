@@ -5,11 +5,15 @@ import { OrcamentoData } from '../../types';
 import { generateOrcamentoLicitacaoPdf } from './orcamento/licitacao';
 import { generateOrcamentoAdesaoAtaPdf } from './orcamento/adesaoAta';
 import { generateOrcamentoAditivoPdf } from './orcamento/aditivoContratual';
+import { generateOrcamentoGerenciadorAtaPdf } from './orcamento/gerenciadorAta';
 
 export const generateOrcamentoPdf = (doc: jsPDF, data: OrcamentoData) => {
     switch (data.tipoOrcamento) {
         case 'adesao_ata':
             generateOrcamentoAdesaoAtaPdf(doc, data);
+            break;
+        case 'gerenciador_ata':
+            generateOrcamentoGerenciadorAtaPdf(doc, data);
             break;
         case 'aditivo_contratual':
             generateOrcamentoAditivoPdf(doc, data);
