@@ -124,6 +124,15 @@ const ItemForm: React.FC<{
     useEffect(() => { setLocalPrice(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : ''); }, [group.estimativaUnitaria]);
     useEffect(() => { setContractPrice(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : ''); }, [group.valorUnitarioContrato]);
 
+    // Número do item (Gerenciador/Partícipe): só é gravado ao sair do campo, para a lista não se reordenar enquanto se digita.
+    const [localNumero, setLocalNumero] = useState(group.itemTR || '');
+    useEffect(() => { setLocalNumero(group.itemTR || ''); }, [group.itemTR]);
+    const commitNumero = () => {
+        const novo = localNumero.trim();
+        if (!novo) { setLocalNumero(group.itemTR || ''); return; }
+        if (novo !== group.itemTR) onGroupChange(group.id, 'itemTR', novo);
+    };
+
     const handlePriceBlur = () => {
         const numericVal = parseValue(localPrice, group.tipoValor) || 0;
         onGroupChange(group.id, 'estimativaUnitaria', numericVal);
@@ -163,7 +172,23 @@ const ItemForm: React.FC<{
                         {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
                             <input type="checkbox" checked={isSelected} onChange={() => onToggleSelect(group.id)} className="h-5 w-5 rounded border-gray-300 text-cbmpa-blue-start focus:ring-cbmpa-blue-start cursor-pointer" title="Selecionar para agrupar"/>
                         )}
-                        <span className="font-bold text-gray-700 dark:text-gray-300 text-lg">Item {group.itemTR}</span>
+                        {tipoOrcamento === 'gerenciador_ata' ? (
+                            <label className="flex items-center gap-2 font-bold text-gray-700 dark:text-gray-300 text-lg">
+                                Item nº
+                                <input
+                                    type="text"
+                                    value={localNumero}
+                                    onChange={(e) => setLocalNumero(e.target.value)}
+                                    onBlur={commitNumero}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                    title="Número do item conforme a ata de registro de preços"
+                                    className="w-20 p-1 text-center border border-gray-300 rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                />
+                                <span className="text-xs font-normal text-gray-500 dark:text-gray-400">(número na ata)</span>
+                            </label>
+                        ) : (
+                            <span className="font-bold text-gray-700 dark:text-gray-300 text-lg">Item {group.itemTR}</span>
+                        )}
                         {group.loteId && !isLoteItem && tipoOrcamento !== 'aditivo_contratual' && <span className="bg-cbmpa-blue-end text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">Lote: {group.loteId}</span>}
                     </div>
                     <button onClick={() => onRemove(group.id)} className="text-red-600 hover:text-red-800 text-sm font-bold flex items-center gap-1 bg-red-50 dark:bg-red-900/20 px-3 py-1 rounded-md">
@@ -186,12 +211,26 @@ const ItemForm: React.FC<{
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Unidade</label>
                             <input type="text" value={group.unidade} onChange={(e) => onGroupChange(group.id, 'unidade', e.target.value)} className={inputClasses} placeholder="Ex: UN, CX, KG" />
                         </div>
+                        {tipoOrcamento === 'gerenciador_ata' ? (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Quantidade Registrada na Ata</label>
+                                    <input type="number" min="0" value={group.quantidadeRegistrada || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeRegistrada', parseFloat(e.target.value) || 0)} className={inputClasses} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Quantidade Solicitada</label>
+                                    <input type="number" min="0" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
+                                </div>
+                                {(Number(group.quantidadeRegistrada) || 0) > 0 && (Number(group.quantidadeTotal) || 0) > (Number(group.quantidadeRegistrada) || 0) && (
+                                    <p className="col-span-2 text-xs font-semibold text-red-600 dark:text-red-400">Atenção: a quantidade solicitada é maior que a registrada na ata.</p>
+                                )}
+                            </>
+                        ) : (
                         <div className="col-span-2">
-                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">
-                                {tipoOrcamento === 'gerenciador_ata' ? 'Quantidade Solicitada' : 'Quantidade Original (Contrato)'}
-                            </label>
+                            <label className="block text-sm font-medium mb-1 dark:text-gray-300">Quantidade Original (Contrato)</label>
                             <input type="number" min="0" value={group.quantidadeTotal || ''} onChange={(e) => onGroupChange(group.id, 'quantidadeTotal', parseFloat(e.target.value) || 0)} className={inputClasses} />
                         </div>
+                        )}
 
                         {tipoOrcamento !== 'gerenciador_ata' && tipoOrcamento !== 'adesao_ata' && tipoOrcamento !== 'aditivo_contratual' && (
                             <div className={`col-span-2 mt-1 mb-1 p-2 rounded border ${isAboveTeto ? 'bg-red-50 border-red-200 text-red-700' : 'bg-yellow-50 border-yellow-200 dark:bg-yellow-900/20 dark:border-yellow-700/50'}`}>
@@ -216,7 +255,7 @@ const ItemForm: React.FC<{
                             </select>
                         </div>
 
-                        {tipoOrcamento !== 'aditivo_contratual' && (
+                        {tipoOrcamento !== 'aditivo_contratual' && tipoOrcamento !== 'gerenciador_ata' && (
                         <div>
                             <label className="block text-sm font-medium mb-1 dark:text-gray-300">Período de Contratação</label>
                             <input 
@@ -524,7 +563,9 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
   const addGroup = () => {
       const newId = Date.now().toString() + Math.random().toString(36).substring(2,9);
       const newItem: OrcamentoItemGroup = { 
-          id: newId, itemTR: ((data.itemGroups || []).length + 1).toString(), descricao: '', estimativaUnitaria: 0, codigoSimas: '', unidade: '', quantidadeTotal: 0, cotas: [], aplicarCotaMeEpp: true 
+          id: newId, itemTR: (data.tipoOrcamento === 'gerenciador_ata'
+              ? Math.max(0, ...(data.itemGroups || []).map(g => parseInt(g.itemTR) || 0)) + 1
+              : (data.itemGroups || []).length + 1).toString(), descricao: '', estimativaUnitaria: 0, codigoSimas: '', unidade: '', quantidadeTotal: 0, cotas: [], aplicarCotaMeEpp: true 
       };
       setData(prev => {
           const initialPrices = (prev.fontesPesquisa || []).map(source => ({ id: Date.now().toString() + Math.random().toString(36).substring(2,9), source, value: '' }));
@@ -596,7 +637,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   <select name="tipoOrcamento" value={data.tipoOrcamento} onChange={handleChange} className={inputClasses}>
                       <option value="licitacao">Licitação</option>
                       <option value="adesao_ata">Adesão à Ata de Registro de Preços</option>
-                      <option value="gerenciador_ata">Gerenciador da Ata</option>
+                      <option value="gerenciador_ata">Gerenciador/Partícipe da Ata</option>
                       <option value="dispensa_licitacao">Dispensa de Licitação</option>
                       <option value="aditivo_contratual">Aditivo Contratual</option>
                   </select>
@@ -660,10 +701,31 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
               )}
               {data.tipoOrcamento === 'gerenciador_ata' && (
                   <div className="md:col-span-2 mt-4 p-4 border rounded-lg bg-white dark:bg-gray-800 dark:border-gray-600 animate-fade-in-down">
-                      <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Dados da Ata Própria</h3>
+                      <h3 className="font-bold text-gray-700 dark:text-gray-200 mb-4 border-b pb-2">Dados da Ata</h3>
+                      <div className="flex flex-wrap gap-3 mb-4">
+                          {[{ val: 'propria', label: 'Ata própria' }, { val: 'participe', label: 'Partícipe' }].map(op => {
+                              const ativo = (data.participacaoAta || 'propria') === op.val;
+                              return (
+                                  <button key={op.val} type="button" onClick={() => setData(prev => ({ ...prev, participacaoAta: op.val as 'propria' | 'participe' }))}
+                                      className={`px-4 py-2 rounded-lg border font-semibold transition ${ativo ? 'bg-cbmpa-red text-white border-cbmpa-red' : 'bg-gray-100 text-gray-700 border-gray-300 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600'}`}>
+                                      {op.label}
+                                  </button>
+                              );
+                          })}
+                      </div>
                       <div className="grid md:grid-cols-2 gap-4">
-                          <Field label="Número da Ata" required><input type="text" name="numeroAta" value={data.numeroAta} onChange={handleChange} className={inputClasses} placeholder="Ex: 001" /></Field>
-                          <Field label="Ano da Ata" required>
+                          {data.participacaoAta === 'participe' && (
+                              <>
+                                  <Field label="Órgão Gerenciador" required><input type="text" name="orgaoAta" value={data.orgaoAta} onChange={handleChange} className={inputClasses} placeholder="Ex: Secretaria de Estado..." /></Field>
+                                  <Field label="Estado" required>
+                                      <select name="estadoAta" value={data.estadoAta} onChange={handleChange} className={inputClasses}>
+                                          <option value="">Selecione um Estado</option>{ufOptions.map(uf => (<option key={uf.val} value={uf.val}>{uf.val} - {uf.label}</option>))}
+                                      </select>
+                                  </Field>
+                              </>
+                          )}
+                          <Field label={data.participacaoAta === 'participe' ? 'Número da ARP' : 'Número da Ata'} required><input type="text" name="numeroAta" value={data.numeroAta} onChange={handleChange} className={inputClasses} placeholder="Ex: 001" /></Field>
+                          <Field label={data.participacaoAta === 'participe' ? 'Ano da ARP' : 'Ano da Ata'} required>
                               <select name="anoAta" value={data.anoAta} onChange={handleChange} className={inputClasses}>
                                  <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                               </select>

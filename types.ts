@@ -145,6 +145,7 @@ export interface OrcamentoItemGroup {
   tipoValor?: 'moeda' | 'percentual'; // Tipo do valor da pesquisa de preços
   aplicarCotaMeEpp?: boolean; // <-- ADICIONE ESTA LINHA
   numeroAtaAditivo?: string; // NOVO: Número da ata de origem (por item)
+  quantidadeRegistrada?: number; // Gerenciador/Partícipe: quantidade registrada na ata para o item
 }
 
 export interface OrcamentoPrice {
@@ -217,6 +218,7 @@ export interface OrcamentoData {
   anoAta: string;
   orgaoAta: string;
   estadoAta: string;
+  participacaoAta?: 'propria' | 'participe'; // Gerenciador/Partícipe: ata própria ou partícipe de ata de outro órgão
   modalidadeLicitacao: 'pregao_eletronico_comum' | 'pregao_eletronico_rp' | 'outra';
   tipoObjetoOrcamento?: 'bem_divisivel' | 'bem_nao_divisivel' | 'servico';
   itemGroups: OrcamentoItemGroup[];

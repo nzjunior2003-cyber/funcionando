@@ -126,6 +126,7 @@ const initialOrcamentoState: OrcamentoData = {
     anoAta: '2024',
     orgaoAta: '',
     estadoAta: '',
+    participacaoAta: 'propria',
     modalidadeLicitacao: 'pregao_eletronico_comum',
     tipoObjetoOrcamento: 'bem_divisivel',
     itemGroups: [],

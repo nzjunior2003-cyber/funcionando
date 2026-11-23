@@ -1,22 +1,25 @@
 import jsPDF from 'jspdf';
-import autoTable, { RowInput } from 'jspdf-autotable';
-import { OrcamentoData, OrcamentoItemGroup } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, isSoPesquisaDireta } from '../pdfUtils';
+import autoTable from 'jspdf-autotable';
+import { OrcamentoData } from '../../../types';
+import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
 const YELLOW: [number, number, number] = [252, 230, 157];
 const GRAY: [number, number, number] = [240, 240, 240];
 const LBLUE: [number, number, number] = [207, 226, 243];
-const ZEBRA_BLUE: [number, number, number] = [244, 249, 255]; // Azul Clarinho para as zebras das tabelas
+const ZEBRA_BLUE: [number, number, number] = [244, 249, 255];
 const USABLE_WIDTH = PAGE_WIDTH - MARGIN_LEFT - MARGIN_RIGHT;
 const SAFE_BOTTOM_MARGIN = 45; // Margem de segurança para o rodapé
 
+// Orçamento Estimado do Gerenciador/Partícipe da Ata de Registro de Preços:
+// os preços já estão registrados na ata, então não há pesquisa de preço. O número de cada item
+// é o que foi digitado no formulário (o mesmo da ata) e cada item traz a quantidade registrada
+// na ata e a quantidade solicitada.
 export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoData) => {
     let y = MARGIN_TOP;
     setDefaultFont(doc);
 
-    // Atualizado para respeitar a SAFE_BOTTOM_MARGIN
     const addPage = (h: number) => { if (y + h > PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) { doc.addPage(); y = MARGIN_TOP; } };
 
     const drawHeader = (title: string, sub: string) => {
@@ -33,202 +36,131 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         doc.setTextColor(0); y += h;
     };
 
-    // Header
+    const { willDrawCell: justifyWillDrawCell, didDrawCell: justifyDrawCell } = createJustifiedCellHooks(doc);
+
+    // Itens na ordem do número digitado (o da ata), não na ordem em que foram cadastrados.
+    const itens = [...(data.itemGroups || [])].sort((a, b) =>
+        String(a.itemTR ?? '').localeCompare(String(b.itemTR ?? ''), undefined, { numeric: true }));
+
     y = drawInstitutionalHeader(doc, data.setor || '', 'ORÇAMENTO ESTIMADO', `PAE n° ${data.pae || 'NNNN'}`);
+
+    // Dados da ata (própria ou partícipe)
+    const numAta = data.numeroAta || 'NNN';
+    const anoAta = data.anoAta || 'AAAA';
+    const textoAta = data.participacaoAta === 'participe'
+        ? `ARP nº ${numAta}/${anoAta} — Órgão gerenciador: ${data.orgaoAta || 'ÓRGÃO'}/${data.estadoAta || 'UF'} — participação como partícipe`
+        : `ARP nº ${numAta}/${anoAta} — ata própria (órgão gerenciador: CBMPA)`;
+    autoTable(doc, {
+        startY: y,
+        body: [[{ content: textoAta, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]],
+        theme: 'grid',
+        styles: { fontSize: 9, cellPadding: 2.5, lineColor: 0, lineWidth: 0.1 },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+    });
+    y = (doc as any).lastAutoTable.finalY + 8;
 
     // Sec 1
     drawHeader('1 - DESCRIÇÃO DA CONTRATAÇÃO', '(art. 2º, I, do Decreto Estadual nº 2.734/2022)');
-    const s1Body = data.itemGroups.map((g, i) => {
-        const row: any[] = [];
-        if (i === 0) row.push({ content: 'O QUE SERÁ\nPESQUISADO?', rowSpan: data.itemGroups.length, styles: { valign: 'middle', halign: 'right', fillColor: [255,255,255] } });
-        row.push({ content: g.itemTR, styles: { fillColor: GRAY } }, g.descricao, g.codigoSimas || '-', g.unidade, g.quantidadeTotal);
-        return row;
-    });
+    const qtdFmt = (v: any) => (v === undefined || v === null || v === '' ? '-' : Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4 }));
     autoTable(doc, {
-        startY: y, theme: 'grid', head: [['', 'Item', 'Descrição', 'Código\nSIMAS', 'Und', 'Qtd']], body: s1Body,
-        headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center' },
-        styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1, halign: 'center', valign: 'middle' },
+        startY: y,
+        theme: 'grid',
+        head: [['Item', 'Descrição', 'Código\nSIMAS', 'Und', 'Qtd\nRegistrada', 'Qtd\nSolicitada']],
+        body: itens.map(g => [
+            { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center', valign: 'middle' } },
+            { content: g.descricao, styles: { halign: 'justify', valign: 'middle' } },
+            { content: g.codigoSimas || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: g.unidade || '-', styles: { halign: 'center', valign: 'middle' } },
+            { content: qtdFmt((g as any).quantidadeRegistrada), styles: { halign: 'center', valign: 'middle' } },
+            { content: qtdFmt(g.quantidadeTotal), styles: { halign: 'center', valign: 'middle' } }
+        ]),
+        headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' },
+        styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 35 }, 2: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
-        didParseCell: (d) => { if (d.section === 'head' && d.column.index === 0) d.cell.styles.fillColor = [255,255,255]; }
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
-    // Sec 2
-    drawHeader('2 - FONTES CONSULTADAS PARA A PESQUISA DE PREÇO', '(art. 2º, III, e art. 4º do Decreto Estadual nº 2.734/2022)');
-    const fMap = [
-        ['simas', 'SIMAS (banco referencial de preço).'], ['nfe', 'Base nacional de notas fiscais eletrônicas.'],
-        ['pncp', 'Portal Nacional de Compras Públicas (PNCP).'], ['siteEspecializado', 'Mídia especializada.'],
-        ['contratacaoSimilar', 'Contratações similares feitas pela administração pública.'], ['direta', 'Pesquisa direta com fornecedores.']
-    ];
-    y += 4;
-    fMap.forEach((f, i) => {
-        const isR = i % 2 !== 0; const cx = MARGIN_LEFT + (isR ? USABLE_WIDTH / 2 : 0); const cy = y + Math.floor(i / 2) * 6;
-        doc.rect(cx, cy - 3, 4, 4);
-        if (data.fontesPesquisa.includes(f[0])) { doc.setFont('helvetica', 'bold'); doc.text('X', cx + 1, cy + 0.5); doc.setFont('helvetica', 'normal'); }
-        doc.setFontSize(9); doc.text(f[1], cx + 5, cy);
-    });
-    y += 22;
-
-    // Sec 3
-    drawHeader('3 - JUSTIFICATIVA DA AUSÊNCIA DE PESQUISA DE PREÇO NO SIMAS, PORTAL NACIONAL DE\nCOMPRAS PÚBLICAS OU EM CONTRATAÇÕES SIMILARES', '(art. 4°, §1°, do Decreto Estadual nº 2.734/2022)');
-    autoTable(doc, { startY: y, body: [[(isSoPesquisaDireta(data.fontesPesquisa) ? data.justificativaAusenciaFonte?.trim() : '') || 'Não se aplica.']], theme: 'grid', styles: { fontSize: 9, lineColor: 0, lineWidth: 0.1 }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
-    // Sec 4
-    drawHeader('4 - JUSTIFICATIVAS DA PESQUISA DIRETA COM FORNECEDORES', '(art. 2º, VIII, e art. 4º, V e §2º, do Decreto Estadual nº 2.734/2022)');
-    const isDir = data.fontesPesquisa.includes('direta');
-    const boxDirSim = isDir ? '[ X ]' : '[   ]';
-    const boxDirNao = !isDir ? '[ X ]' : '[   ]';
-
-    const s4b: any[] = [[
-        { content: '4.1 - É CABÍVEL A UTILIZAÇÃO DA\nPESQUISA DIRETA COM FORNECEDORES?', styles: { halign: 'left' } },
-        { content: `${boxDirSim} Sim\n${boxDirNao} Não`, styles: { halign: 'center' } },
-        { content: `Justificativa: ${isSoPesquisaDireta(data.fontesPesquisa) ? (data.justificativaPesquisaDireta || 'Não se aplica.') : 'Não se aplica.'}`, styles: { halign: 'left' } }
-    ]];
-    if (isSoPesquisaDireta(data.fontesPesquisa) && data.fornecedoresDiretos?.length) {
-        data.fornecedoresDiretos.forEach((f, i) => {
-            s4b.push([
-                i === 0 ? { content: '4.2 – QUAIS AS RAZÕES DA ESCOLHA DOS FORNECEDORES COTADOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `Justificativa: ${f.justificativa}` }
-            ]);
-        });
-        data.fornecedoresDiretos.forEach((f, i) => {
-            const boxReqSim = f.requisitos === 'sim' ? '[ X ]' : '[   ]';
-            const boxReqNao = f.requisitos === 'nao' ? '[ X ]' : '[   ]';
-            s4b.push([
-                i === 0 ? { content: '4.3 - AS PROPOSTAS FORMAIS CONTÊM OS REQUISITOS?', rowSpan: data.fornecedoresDiretos.length } : '',
-                { content: f.nome, styles: { halign: 'center' } }, { content: `${boxReqSim} Sim\n${boxReqNao} Não`, styles: { halign: 'center' } }
-            ]);
-        });
-    }
-    autoTable(doc, { startY: y, body: s4b, theme: 'grid', styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, columnStyles: { 0: { cellWidth: 70 }, 1: { cellWidth: 45 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
-    // Sec 5
-    drawHeader('5 - METODOLOGIA DA ESTIMATIVA DE PREÇO', '(art. 2º, V, e art. 5º do Decreto Estadual nº 2.734/2022)');
-    const met = data.metodologia;
-    const bMenor = met === 'menor' ? '[ X ]' : '[   ]';
-    const bMedia = met === 'media' ? '[ X ]' : '[   ]';
-    const bMediana = met === 'mediana' ? '[ X ]' : '[   ]';
-
-    autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 9, halign: 'center', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: `${bMenor} Menor preço\n(mercado restrito)`, styles: { fontStyle: met === 'menor' ? 'bold' : 'normal' } },
-            { content: `${bMedia} Média\n(preços semelhantes)`, styles: { fontStyle: met === 'media' ? 'bold' : 'normal' } },
-            { content: `${bMediana} Mediana\n(preços com grande variação)`, styles: { fontStyle: met === 'mediana' ? 'bold' : 'normal' } }
-        ]]
-    });
-    y = (doc as any).lastAutoTable.finalY + 8;
-
-    // Sec 6
-    drawHeader('6 - RESULTADO DA PESQUISA', '(art. 2º, IV, VI e VII, do Decreto Estadual nº 2.734/2022)');
-    const s6b: any[] = [];
-    data.itemGroups.forEach(g => {
-        const p = (data.precosEncontrados[g.id] || []).filter(x => data.precosIncluidos[x.id] !== false);
-        s6b.push([{ content: g.itemTR, styles: { halign: 'center' } }, p.length ? p.map(x => formatValue(x.value, g.tipoValor)).join(' | ') : '-']);
-    });
-    autoTable(doc, { startY: y, head: [['Item', 'Preços Encontrados']], body: s6b, theme: 'grid', headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, alternateRowStyles: { fillColor: ZEBRA_BLUE }, styles: { fontSize: 8, lineColor: 0, lineWidth: 0.1, halign: 'center' }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN } });
-    y = (doc as any).lastAutoTable.finalY;
-
-    const desc = data.houveDescarte;
-    const bDescSim = desc === 'sim' ? '[ X ]' : '[   ]';
-    const bDescNao = desc === 'nao' ? '[ X ]' : '[   ]';
-
-    autoTable(doc, {
-        startY: y, theme: 'grid', margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }, styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        body: [[
-            { content: 'HOUVE DESCARTE DE\nPREÇO?', styles: { fillColor: LBLUE, fontStyle: 'bold', halign: 'center', cellWidth: 40 } },
-            { content: `${bDescSim} Sim.\n${bDescNao} Não.`, styles: { cellWidth: 30, halign: 'center' } },
-            { content: `Justificativa: ${desc === 'sim' ? data.justificativaDescarte : 'Não se aplica.'}` }
-        ]]
-    });
-    y = (doc as any).lastAutoTable.finalY + 12;
-
-    // Final Table
-    addPage(40);
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-    doc.text('PREÇO ESTIMADO DE MERCADO', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
-    
-    // CORREÇÃO: acumulador do total em centavos (inteiro) para evitar
-    // erros de ponto flutuante na soma de múltiplas parcelas.
-    let totalCentavos = 0;
-    const fb: any[] = [];
-    
-    data.itemGroups.forEach(g => {
-        // CORREÇÃO PRINCIPAL: arredondar estimativaUnitaria para 2 casas
-        // decimais ANTES de qualquer multiplicação.
-        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
-        const qtdTotal = Number(g.quantidadeTotal) || 0;
-        const totalLinha = Math.round(est * qtdTotal * 100) / 100;
-        
-        const cotasValidas = g.cotas?.filter(c => Number(c.quantidade) > 0);
-
-        if (cotasValidas && cotasValidas.length > 0) {
-            cotasValidas.forEach((c, i) => {
-                const cQtd = Number(c.quantidade) || 0;
-                const cTotal = Math.round(cQtd * est * 100) / 100;
-                
-                // Acumula em centavos para evitar drift de ponto flutuante
-                totalCentavos += Math.round(cTotal * 100);
-                
-                fb.push([
-                    i === 0 ? { content: g.itemTR, styles: { fillColor: GRAY } } : '',
-                    i === 0 ? g.descricao : '',
-                    c.id === 'cota_ampla' ? 'AMPLA' : 'ME/EPP',
-                    formatValue(est, g.tipoValor), 
-                    cQtd, 
-                    formatValue(cTotal, g.tipoValor)
-                ]);
-            });
-        } else {
-            // Acumula em centavos para evitar drift de ponto flutuante
-            totalCentavos += Math.round(totalLinha * 100);
-            
-            fb.push([
-                { content: g.itemTR, styles: { fillColor: GRAY } }, 
-                g.descricao, 
-                'AMPLA', 
-                formatValue(est, g.tipoValor), 
-                qtdTotal, 
-                formatValue(totalLinha, g.tipoValor)
-            ]);
-        }
-    });
-    
-    // Converte centavos de volta para reais com precisão exata
-    const total = totalCentavos / 100;
-
-    fb.push([{ content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }]);
-    
-    autoTable(doc, {
-        startY: y, head: [['Item', 'Descrição', 'AMPLA OU\nME/EPP', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
-        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, 
-        styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 1: { halign: 'left' } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN }
+        columnStyles: { 0: { cellWidth: 14 }, 2: { cellWidth: 24 }, 3: { cellWidth: 14 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 } },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
     });
     y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Assinaturas Verticalizadas e Centralizadas
-    addPage(50);
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' }); 
-    
-    const sigX = PAGE_WIDTH / 2;
-    
-    y += 30;
-    drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, sigX, y, !!data.assinadoPae);
-    
-    if (data.assinante2Nome) {
-        y += 15;
-        addPage(40);
-        y += 25;
-        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, sigX, y, !!data.assinadoPae);
+    // Quadro de preços (valor registrado na ata x quantidade solicitada)
+    addPage(40);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('PREÇO ESTIMADO (PREÇOS REGISTRADOS NA ATA)', PAGE_WIDTH / 2, y, { align: 'center' }); y += 6;
+
+    let totalCentavos = 0;
+    const fb: any[] = itens.map(g => {
+        const est = Math.round((Number(g.estimativaUnitaria) || 0) * 100) / 100;
+        const qtdSolicitada = Number(g.quantidadeTotal) || 0;
+        const totalItem = Math.round(est * qtdSolicitada * 100) / 100;
+        totalCentavos += Math.round(totalItem * 100);
+        return [
+            { content: g.itemTR, styles: { fillColor: GRAY } },
+            { content: g.descricao, styles: { halign: 'justify' } },
+            formatValue(est, g.tipoValor),
+            qtdFmt((g as any).quantidadeRegistrada),
+            qtdFmt(g.quantidadeTotal),
+            formatValue(totalItem, g.tipoValor)
+        ];
+    });
+    fb.push([
+        { content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+        { content: formatValue(totalCentavos / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }
+    ]);
+    autoTable(doc, {
+        startY: y,
+        head: [['Item', 'Descrição', 'Valor Unit.\nRegistrado', 'Qtd\nRegistrada', 'Qtd\nSolicitada', 'Total']],
+        body: fb,
+        theme: 'grid',
+        headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' },
+        styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
+        alternateRowStyles: { fillColor: ZEBRA_BLUE },
+        columnStyles: { 0: { cellWidth: 14 }, 2: { minCellWidth: 28 }, 3: { cellWidth: 22 }, 4: { cellWidth: 22 }, 5: { minCellWidth: 32 } },
+        margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        rowPageBreak: 'avoid',
+        willDrawCell: justifyWillDrawCell,
+        didDrawCell: justifyDrawCell
+    });
+    y = (doc as any).lastAutoTable.finalY + 10;
+
+    // Assinaturas: mantém o espaço "ideal" quando cabe; senão usa o compacto (mínimo de 24 mm acima
+    // de cada linha, 34 mm entre assinantes) antes de pular de página — data e assinaturas sempre juntas.
+    const hasSig2 = !!data.assinante2Nome;
+    const idealGapAfterDate = 35, compactGapAfterDate = 24;
+    const idealGapEntreAssinantes = 45, compactGapEntreAssinantes = 34;
+    const sigLineHeight = 15;
+    const idealHeight = idealGapAfterDate + sigLineHeight + (hasSig2 ? idealGapEntreAssinantes + sigLineHeight : 0);
+    const compactHeight = compactGapAfterDate + sigLineHeight + (hasSig2 ? compactGapEntreAssinantes + sigLineHeight : 0);
+    const remaining = (PAGE_HEIGHT - SAFE_BOTTOM_MARGIN) - y;
+
+    let gapAfterDate = idealGapAfterDate;
+    let gapEntreAssinantes = idealGapEntreAssinantes;
+    if (remaining < idealHeight) {
+        if (remaining >= compactHeight) {
+            gapAfterDate = compactGapAfterDate;
+            gapEntreAssinantes = compactGapEntreAssinantes;
+        } else {
+            doc.addPage();
+            y = MARGIN_TOP;
+        }
     }
 
-    // CARIMBO DE RODAPÉ APENAS NA ÚLTIMA PÁGINA COM NUMERAÇÃO EM TODAS
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+    doc.text(`${data.cidade || 'Belém'} (PA), ${formatDate(data.data)}.`, PAGE_WIDTH - MARGIN_RIGHT, y, { align: 'right' });
+    y += gapAfterDate;
+
+    const centerX = PAGE_WIDTH / 2;
+    if (data.assinante1Nome) {
+        drawFormattedSignature(doc, data.assinante1Nome, data.assinante1NomeGuerra, data.assinante1Cargo, data.assinante1Funcao, centerX, y, !!data.assinadoPae);
+    }
+    if (data.assinante2Nome) {
+        y += gapEntreAssinantes;
+        drawFormattedSignature(doc, data.assinante2Nome, data.assinante2NomeGuerra, data.assinante2Cargo, data.assinante2Funcao, centerX, y, !!data.assinadoPae);
+    }
+
+    // Rodapé institucional apenas na última página, com numeração em todas
     const totalPages = (doc as any).internal.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
