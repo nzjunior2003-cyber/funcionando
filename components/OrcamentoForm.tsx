@@ -81,7 +81,7 @@ const orcamentoCargoOptions = [
     'Vol. Civil', 'SD QBM', 'CB QBM', '3° SGT QBM', '2° SGT QBM', '1° SGT QBM', 'ST QBM',
     '2° TEN QOBM', '2° TEN QOABM', '1° TEN QOBM', '1° TEN QOABM',
     'CAP QOBM', 'CAP QOABM', 'MAJ QOBM', 'MAJ QOABM',
-    'TEN CEL QOBM', 'TEN CEL QOCBM', 'TEN CEL QOSBM',
+    'TEN CEL QOBM', 'TEN CEL QOCBM', 'TEN CEL QOSBM', 'TCEL QOCBM',
     'CEL QOCBM', 'CEL QOSBM', 'CEL QOBM'
 ];
 
