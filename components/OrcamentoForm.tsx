@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { OrcamentoData, OrcamentoItemGroup } from '../types';
 import { inputClasses, Field } from './formCommon';
+import { SeletorEquipe } from './SeletorEquipe';
 
 // Máscara de CNPJ: 00.000.000/0000-00 (aceita colar com ou sem pontuação).
 const formatCnpj = (valor: string): string => {
@@ -1142,6 +1143,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
         <div className="grid md:grid-cols-2 gap-6 mt-6">
              <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 1 (Responsável)</p>
+                <SeletorEquipe nomeAtual={data.assinante1Nome} onSelect={(m) => setData(prev => ({ ...prev, assinante1Nome: m.nome, assinante1NomeGuerra: m.nomeGuerra, assinante1Cargo: m.cargo, assinante1Funcao: m.funcao }))} />
                 <Field label="Nome Completo do Servidor"><input type="text" name="assinante1Nome" value={data.assinante1Nome || ''} onChange={handleChange} className={inputClasses} placeholder="Nome Civil Completo" /></Field>
                 <Field label="Nome de Guerra"><input type="text" name="assinante1NomeGuerra" value={data.assinante1NomeGuerra || ''} onChange={handleChange} className={inputClasses} placeholder="Ex: L. Rodrigues" /></Field>
                 <Field label="Cargo"><select name="assinante1Cargo" value={data.assinante1Cargo || ''} onChange={handleChange} className={inputClasses}>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
@@ -1149,6 +1151,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
             </div>
             <div className="p-4 border rounded-md bg-white dark:bg-gray-800 shadow-sm">
                 <p className="font-bold mb-2 text-cbmpa-red border-b pb-1">Assinante 2 (Opcional)</p>
+                <SeletorEquipe nomeAtual={data.assinante2Nome} onSelect={(m) => setData(prev => ({ ...prev, assinante2Nome: m.nome, assinante2NomeGuerra: m.nomeGuerra, assinante2Cargo: m.cargo, assinante2Funcao: m.funcao }))} />
                 <Field label="Nome Completo do Servidor"><input type="text" name="assinante2Nome" value={data.assinante2Nome || ''} onChange={handleChange} className={inputClasses} /></Field>
                 <Field label="Nome de Guerra"><input type="text" name="assinante2NomeGuerra" value={data.assinante2NomeGuerra || ''} onChange={handleChange} className={inputClasses} /></Field>
                 <Field label="Cargo"><select name="assinante2Cargo" value={data.assinante2Cargo || ''} onChange={handleChange} className={inputClasses}><option value="">Selecione...</option>{orcamentoCargoOptions.map(c => <option key={c} value={c}>{c}</option>)}</select></Field>
