@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks, isSoPesquisaDireta } from '../pdfUtils';
+import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, createCheckboxCellHooks, isSoPesquisaDireta, fornecedorDoItem, textoFornecedor } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP, MARGIN_BOTTOM } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -241,6 +241,9 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
     if (met === 'menor') metLabel = 'Menor Preço';
     if (met === 'mediana') metLabel = 'Mediana';
 
+    // Coluna "Fornecedor / CNPJ" (do item, ou o padrão da ata) quando houver fornecedor informado.
+    const temFornecedor = data.itemGroups.some(g => { const f = fornecedorDoItem(data, g); return f.nome || f.cnpj; });
+    const oF = temFornecedor ? 1 : 0;
     const itensAdotados = new Map<string, number>(); 
 
     const qcb: any[] = [];
@@ -262,6 +265,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
         qcb.push([
             { content: g.itemTR, styles: { halign: 'center' } },
             { content: g.descricao, styles: { halign: 'justify' } },
+            ...(temFornecedor ? [{ content: textoFornecedor(fornecedorDoItem(data, g)), styles: { halign: 'center' } }] : []),
             { content: valMercado > 0 ? formatValue(valMercado, g.tipoValor) : '-', styles: { halign: 'center' } },
             { content: valAta > 0 ? formatValue(valAta, g.tipoValor) : '-', styles: { halign: 'center' } },
             { content: formatValue(adotado, g.tipoValor), styles: { halign: 'center', fontStyle: 'bold' } }
@@ -270,13 +274,17 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
 
     autoTable(doc, {
         startY: y,
-        head: [['Item', 'Descrição', `Valor de Mercado (${metLabel})`, 'Preço da Ata', 'Preço Adotado']],
+        head: [temFornecedor
+            ? ['Item', 'Descrição', 'Fornecedor / CNPJ', `Valor de Mercado (${metLabel})`, 'Preço da Ata', 'Preço Adotado']
+            : ['Item', 'Descrição', `Valor de Mercado (${metLabel})`, 'Preço da Ata', 'Preço Adotado']],
         body: qcb,
         theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
         styles: { fontSize: 8, valign: 'middle', lineColor: 0, lineWidth: 0.1 },
-        columnStyles: { 0: { cellWidth: 12 }, 2: { minCellWidth: 35 }, 3: { minCellWidth: 32 }, 4: { minCellWidth: 32 } },
+        columnStyles: temFornecedor
+            ? { 0: { cellWidth: 12 }, 2: { cellWidth: 36 }, 3: { minCellWidth: 28 }, 4: { minCellWidth: 26 }, 5: { minCellWidth: 26 } }
+            : { 0: { cellWidth: 12 }, 2: { minCellWidth: 35 }, 3: { minCellWidth: 32 }, 4: { minCellWidth: 32 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
@@ -321,6 +329,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
         fb.push([
             { content: g.itemTR, styles: { fillColor: GRAY, halign: 'center' } },
             { content: g.descricao, styles: { halign: 'justify' } },
+            ...(temFornecedor ? [textoFornecedor(fornecedorDoItem(data, g))] : []),
             formatValue(adotadoArredondado, g.tipoValor),
             qtdTotal,
             formatValue(t, g.tipoValor),
@@ -333,23 +342,25 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
 
     if (temPeriodoValido) {
         fb.push([
-            { content: 'TOTAL MENSAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: ZEBRA_BLUE } },
+            { content: 'TOTAL MENSAL', colSpan: 4 + oF, styles: { halign: 'right', fontStyle: 'bold', fillColor: ZEBRA_BLUE } },
             { content: formatValue(totalMensalCentavos / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: ZEBRA_BLUE } },
             { content: '', colSpan: 2, styles: { fillColor: ZEBRA_BLUE } }
         ]);
         fb.push([
-            { content: periodosDistintos ? 'TOTAL GLOBAL' : `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})`, colSpan: 6, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+            { content: periodosDistintos ? 'TOTAL GLOBAL' : `TOTAL PARA O PERÍODO (${stringPeriodoGlobal})`, colSpan: 6 + oF, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
             { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }
         ]);
     } else {
-        fb.push([{ content: 'TOTAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }])
+        fb.push([{ content: 'TOTAL', colSpan: 4 + oF, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } }, { content: formatValue(total, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }])
     };
 
     autoTable(doc, {
-        startY: y, head: [temPeriodoValido ? ['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Valor Mensal', 'Período', 'Total no Período'] : ['Item', 'Descrição', 'Valor Unit.', 'Qtd', 'Total']], body: fb, theme: 'grid',
+        startY: y, head: [[...(['Item', 'Descrição'] as string[]), ...(temFornecedor ? ['Fornecedor / CNPJ'] : []), ...(temPeriodoValido ? ['Valor Unit.', 'Qtd', 'Valor Mensal', 'Período', 'Total no Período'] : ['Valor Unit.', 'Qtd', 'Total'])]], body: fb, theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center' }, styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: temPeriodoValido ? { 0: { cellWidth: 12 }, 2: { minCellWidth: 24 }, 4: { minCellWidth: 26 }, 5: { cellWidth: 20 }, 6: { minCellWidth: 28 } } : { 0: { cellWidth: 15 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        columnStyles: (temPeriodoValido
+            ? { 0: { cellWidth: 12 }, [2 + oF]: { minCellWidth: 24 }, [4 + oF]: { minCellWidth: 26 }, [5 + oF]: { cellWidth: 20 }, [6 + oF]: { minCellWidth: 28 }, ...(temFornecedor ? { 2: { cellWidth: 34 } } : {}) }
+            : { 0: { cellWidth: 15 }, ...(temFornecedor ? { 2: { cellWidth: 36 } } : {}) }), margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
         didDrawCell: justifyDrawCell

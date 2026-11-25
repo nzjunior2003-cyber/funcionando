@@ -145,6 +145,8 @@ export interface OrcamentoItemGroup {
   tipoValor?: 'moeda' | 'percentual'; // Tipo do valor da pesquisa de preços
   aplicarCotaMeEpp?: boolean; // <-- ADICIONE ESTA LINHA
   numeroAtaAditivo?: string; // NOVO: Número da ata de origem (por item)
+  fornecedorItem?: string; // Gerenciador/Partícipe e Adesão: fornecedor deste item (se vazio, vale o fornecedor padrão da ata)
+  cnpjFornecedorItem?: string;
   quantidadeRegistrada?: number; // Gerenciador/Partícipe: quantidade registrada na ata para o item
 }
 

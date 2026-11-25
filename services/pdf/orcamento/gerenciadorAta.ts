@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { OrcamentoData } from '../../../types';
-import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks } from '../pdfUtils';
+import { formatDate, setDefaultFont, drawFormattedSignature, formatValue, drawInstitutionalHeader, drawInstitutionalFooter, createJustifiedCellHooks, fornecedorDoItem, textoFornecedor } from '../pdfUtils';
 import { PAGE_WIDTH, PAGE_HEIGHT, MARGIN_LEFT, MARGIN_RIGHT, MARGIN_TOP } from '../pdfConstants';
 
 const BLUE: [number, number, number] = [31, 78, 121];
@@ -50,12 +50,14 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
     const textoAta = data.participacaoAta === 'participe'
         ? `ARP nº ${numAta}/${anoAta} — Órgão gerenciador: ${data.orgaoAta || 'ÓRGÃO'}/${data.estadoAta || 'UF'} — participação como partícipe`
         : `ARP nº ${numAta}/${anoAta} — ata própria (órgão gerenciador: CBMPA)`;
-    const fornecedor = (data.fornecedorAta || '').trim();
-    const cnpj = (data.cnpjFornecedorAta || '').trim();
+    // Fornecedor de cada item (o do item, ou o padrão da ata). Se todos forem o mesmo, a linha do
+    // fornecedor fica no quadro da ata; se houver fornecedores diferentes, aparece a coluna "Fornecedor / CNPJ".
+    const chaveFornecedor = (g: any) => { const f = fornecedorDoItem(data, g); return `${f.nome}|${f.cnpj}`; };
+    const fornecedoresDistintos = new Set(itens.map(chaveFornecedor)).size > 1;
     const linhasAta: any[] = [[{ content: textoAta, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]];
-    if (fornecedor || cnpj) {
-        const textoFornecedor = fornecedor && cnpj ? `${fornecedor} — CNPJ ${cnpj}` : (fornecedor || `CNPJ ${cnpj}`);
-        linhasAta.push([{ content: `Fornecedor registrado na ata: ${textoFornecedor}`, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]);
+    const fornecedorUnico = itens.length ? fornecedorDoItem(data, itens[0]) : { nome: '', cnpj: '' };
+    if (!fornecedoresDistintos && (fornecedorUnico.nome || fornecedorUnico.cnpj)) {
+        linhasAta.push([{ content: `Fornecedor registrado na ata: ${fornecedorUnico.nome && fornecedorUnico.cnpj ? `${fornecedorUnico.nome} — CNPJ ${fornecedorUnico.cnpj}` : (fornecedorUnico.nome || `CNPJ ${fornecedorUnico.cnpj}`)}`, styles: { halign: 'center', fontStyle: 'bold', fillColor: LBLUE } }]);
     }
     autoTable(doc, {
         startY: y,
@@ -105,7 +107,8 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         totalCentavos += Math.round(totalItem * 100);
         return [
             { content: g.itemTR, styles: { fillColor: GRAY } },
-            { content: g.descricao, styles: { halign: 'justify' } },
+            { content: g.descricao, styles: { halign: fornecedoresDistintos ? 'left' : 'justify' } },
+            ...(fornecedoresDistintos ? [textoFornecedor(fornecedorDoItem(data, g))] : []),
             formatValue(est, g.tipoValor),
             qtdFmt((g as any).quantidadeRegistrada),
             qtdFmt(g.quantidadeTotal),
@@ -113,18 +116,22 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         ];
     });
     fb.push([
-        { content: 'TOTAL', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
+        { content: 'TOTAL', colSpan: fornecedoresDistintos ? 6 : 5, styles: { halign: 'right', fontStyle: 'bold', fillColor: YELLOW } },
         { content: formatValue(totalCentavos / 100, 'moeda'), styles: { fontStyle: 'bold', fillColor: YELLOW } }
     ]);
     autoTable(doc, {
         startY: y,
-        head: [['Item', 'Descrição', 'Valor Unit.\nRegistrado', 'Qtd\nRegistrada', 'Qtd\nSolicitada', 'Total']],
+        head: [fornecedoresDistintos
+            ? ['Item', 'Descrição', 'Fornecedor / CNPJ', 'Valor Unit.\nRegistrado', 'Qtd\nRegistrada', 'Qtd\nSolicitada', 'Total']
+            : ['Item', 'Descrição', 'Valor Unit.\nRegistrado', 'Qtd\nRegistrada', 'Qtd\nSolicitada', 'Total']],
         body: fb,
         theme: 'grid',
         headStyles: { fillColor: YELLOW, textColor: 0, halign: 'center', valign: 'middle' },
         styles: { fontSize: 8, halign: 'center', valign: 'middle', lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 14 }, 2: { minCellWidth: 28 }, 3: { cellWidth: 22 }, 4: { cellWidth: 22 }, 5: { minCellWidth: 32 } },
+        columnStyles: fornecedoresDistintos
+            ? { 0: { cellWidth: 12 }, 2: { cellWidth: 38 }, 3: { minCellWidth: 24 }, 4: { cellWidth: 20 }, 5: { cellWidth: 20 }, 6: { minCellWidth: 26 } }
+            : { 0: { cellWidth: 14 }, 2: { minCellWidth: 28 }, 3: { cellWidth: 22 }, 4: { cellWidth: 22 }, 5: { minCellWidth: 32 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
