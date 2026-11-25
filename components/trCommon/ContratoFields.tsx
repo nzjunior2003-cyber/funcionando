@@ -1,6 +1,7 @@
 import React from 'react';
 import { cargoOptions, inputClasses, Field, SectionWithHelp as Section } from '../formCommon';
 import { Checkbox, RadioGroup, TrFormProps } from './common';
+import { SeletorEquipe } from '../SeletorEquipe';
 
 // Garantia do contrato (art. 96). `naoHaJustificativa` exige a justificativa quando "Não há".
 export const GarantiaContratoField: React.FC<TrFormProps & { sec: number; n: number; naoHaJustificativa?: boolean }> = ({ data, h, sec, n, naoHaJustificativa = false }) => (
@@ -61,6 +62,7 @@ export const PrevisaoOrcamentariaSection: React.FC<TrFormProps & { sec: number }
 export const AssinaturaSection: React.FC<TrFormProps> = ({ data, setData, h }) => (
       <Section title="ASSINATURA">
         <div className="grid md:grid-cols-2 gap-6">
+          <div className="md:col-span-2"><SeletorEquipe nomeAtual={data.nome} onSelect={(m) => setData((prev: any) => ({ ...prev, nome: m.nome, nomeGuerra: m.nomeGuerra, cargo: m.cargo, funcao: m.funcao }))} /></div>
           <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade} onChange={h.handleChange} required className={inputClasses} /></Field>
           <Field label="Data" required><input type="date" name="data" value={data.data} onChange={h.handleChange} required className={inputClasses} /></Field>
           <Field label="Nome Completo do Servidor" required><input type="text" name="nome" value={data.nome} onChange={h.handleChange} required className={inputClasses} /></Field>

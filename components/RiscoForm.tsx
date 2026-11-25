@@ -2,6 +2,7 @@
 import React from 'react';
 import { RiscoData, RiskItem } from '../types';
 import { cargoOptions, inputClasses, Field, SectionSimple as Section } from './formCommon';
+import { SeletorEquipe } from './SeletorEquipe';
 
 interface RiscoFormProps {
   data: RiscoData;
@@ -33,7 +34,10 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
         setData(prev => ({ ...prev, riscos: prev.riscos.filter(r => r.id !== id) }));
     };
 
-    return (
+    const aplicarMembro = (m: { nome: string; nomeGuerra: string; cargo: string; funcao: string }) =>
+    setData(prev => ({ ...prev, nome: m.nome, nomeGuerra: m.nomeGuerra, cargo: m.cargo, funcao: m.funcao }));
+
+  return (
         <div className="space-y-6">
             <Section title="Identificação do Documento">
                 <Field label="PAE nº" required>
@@ -102,6 +106,7 @@ export const RiscoForm: React.FC<RiscoFormProps> = ({ data, setData }) => {
 
             <Section title="Assinatura">
                 <div className="grid md:grid-cols-2 gap-6">
+        <div className="md:col-span-2"><SeletorEquipe nomeAtual={data.nome} onSelect={aplicarMembro} /></div>
                     <Field label="Cidade" required><input type="text" name="cidade" value={data.cidade} onChange={handleChange} required className={inputClasses} /></Field>
                     <Field label="Data" required><input type="date" name="data" value={data.data} onChange={handleChange} required className={inputClasses} /></Field>
                     <Field label="Nome do Servidor" required><input type="text" name="nome" value={data.nome} onChange={handleChange} required className={inputClasses} /></Field>
