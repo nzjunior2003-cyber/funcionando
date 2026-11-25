@@ -900,3 +900,15 @@ export const printSection = (doc: jsPDF, title: string, content: string | undefi
 // a justificativa da ausência de pesquisa em outras fontes e o detalhamento dos fornecedores cotados.
 export const isSoPesquisaDireta = (fontes?: string[]): boolean =>
     (fontes || []).length === 1 && (fontes || []).includes('direta');
+
+// Fornecedor (e CNPJ) de um item do orçamento de ata: se o item tem dados próprios, valem só eles;
+// senão vale o fornecedor padrão da ata.
+export const fornecedorDoItem = (data: any, g: any): { nome: string; cnpj: string } => {
+    const nome = String(g?.fornecedorItem || '').trim();
+    const cnpj = String(g?.cnpjFornecedorItem || '').trim();
+    if (nome || cnpj) return { nome, cnpj };
+    return { nome: String(data?.fornecedorAta || '').trim(), cnpj: String(data?.cnpjFornecedorAta || '').trim() };
+};
+
+export const textoFornecedor = (f: { nome: string; cnpj: string }): string =>
+    f.nome && f.cnpj ? `${f.nome}\nCNPJ ${f.cnpj}` : (f.nome || (f.cnpj ? `CNPJ ${f.cnpj}` : '-'));

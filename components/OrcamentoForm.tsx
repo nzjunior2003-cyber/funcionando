@@ -127,7 +127,8 @@ const ItemForm: React.FC<{
     onPriceInclusionToggle: (priceId: string, included: boolean) => void;
     valorReferencia: number;
     isLoteItem?: boolean;
-}> = ({ group, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onPriceInclusionToggle, valorReferencia, isLoteItem }) => {
+    fornecedorPadrao?: { nome: string; cnpj: string };
+}> = ({ group, fornecedorPadrao, onRemove, onGroupChange, inputClasses, isSelected, onToggleSelect, tipoOrcamento, subTipoAditivo, precos, precosIncluidos, fontesDisponiveis, onAddPrice, onPriceChange, onRemovePrice, onPriceInclusionToggle, valorReferencia, isLoteItem }) => {
     
     const [localPrice, setLocalPrice] = useState(group.estimativaUnitaria ? formatCurrencyInput(group.estimativaUnitaria) : '');
     const [contractPrice, setContractPrice] = useState(group.valorUnitarioContrato ? formatCurrencyInput(group.valorUnitarioContrato) : '');
@@ -287,6 +288,19 @@ const ItemForm: React.FC<{
                                     <input type="text" value={localPrice} onChange={(e) => setLocalPrice(e.target.value.replace(group.tipoValor === 'percentual' ? /[^\d,-]/g : /[^\d,]/g, ''))} onBlur={handlePriceBlur} className={`${inputClasses} pl-9`} placeholder="0,00" />
                                 </div>
                             </div>
+                        )}
+
+                        {(tipoOrcamento === 'gerenciador_ata' || tipoOrcamento === 'adesao_ata') && (
+                            <>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">Fornecedor do item</label>
+                                    <input type="text" value={group.fornecedorItem || ''} onChange={(e) => onGroupChange(group.id, 'fornecedorItem', e.target.value)} className={inputClasses} placeholder={fornecedorPadrao?.nome ? `Padrão da ata: ${fornecedorPadrao.nome}` : 'Razão social (deixe em branco para usar o padrão da ata)'} />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1 dark:text-gray-300">CNPJ do fornecedor</label>
+                                    <input type="text" inputMode="numeric" value={group.cnpjFornecedorItem || ''} onChange={(e) => onGroupChange(group.id, 'cnpjFornecedorItem', formatCnpj(e.target.value))} className={inputClasses} placeholder={fornecedorPadrao?.cnpj ? `Padrão: ${fornecedorPadrao.cnpj}` : '00.000.000/0000-00'} maxLength={18} />
+                                </div>
+                            </>
                         )}
 
                         {tipoOrcamento === 'aditivo_contratual' && (
@@ -707,6 +721,12 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                  <option value="">Selecione um Estado</option>{ufOptions.map(uf => (<option key={uf.val} value={uf.val}>{uf.val} - {uf.label}</option>))}
                              </select>
                          </Field>
+                         <Field label="Fornecedor da Ata (padrão para os itens)" note="Vale para os itens que não tiverem fornecedor próprio; cada item pode indicar outro fornecedor e CNPJ.">
+                             <input type="text" name="fornecedorAta" value={data.fornecedorAta || ''} onChange={handleChange} className={inputClasses} placeholder="Razão social da empresa registrada" />
+                         </Field>
+                         <Field label="CNPJ do Fornecedor">
+                             <input type="text" inputMode="numeric" value={data.cnpjFornecedorAta || ''} onChange={(e) => setData(prev => ({ ...prev, cnpjFornecedorAta: formatCnpj(e.target.value) }))} className={inputClasses} placeholder="00.000.000/0000-00" maxLength={18} />
+                         </Field>
                      </div>
                  </div>
               )}
@@ -741,7 +761,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                  <option value="2023">2023</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
                               </select>
                           </Field>
-                          <Field label="Fornecedor da Ata" note="Empresa detentora do registro de preços nesta ata.">
+                          <Field label="Fornecedor da Ata (padrão para os itens)" note="Vale para os itens que não tiverem fornecedor próprio; cada item pode indicar outro fornecedor e CNPJ.">
                               <input type="text" name="fornecedorAta" value={data.fornecedorAta || ''} onChange={handleChange} className={inputClasses} placeholder="Razão social da empresa registrada" />
                           </Field>
                           <Field label="CNPJ do Fornecedor">
@@ -831,7 +851,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                   sortedItems.map(g => {
                       const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
                       return (
-                          <ItemForm 
+                          <ItemForm fornecedorPadrao={{ nome: data.fornecedorAta || '', cnpj: data.cnpjFornecedorAta || '' }} 
                               key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                               tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                               onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
@@ -905,7 +925,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                                       {itemsLote.map(g => {
                                           const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
                                           return (
-                                              <ItemForm 
+                                              <ItemForm fornecedorPadrao={{ nome: data.fornecedorAta || '', cnpj: data.cnpjFornecedorAta || '' }} 
                                                   key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                                                   tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                                                   onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
@@ -921,7 +941,7 @@ export const OrcamentoForm: React.FC<OrcamentoFormProps> = ({ data, setData }) =
                       {avulsos.map(g => {
                           const valorRef = (Number(g.quantidadeTotal) || 0) * (Number(g.estimativaUnitaria) || 0);
                           return (
-                              <ItemForm 
+                              <ItemForm fornecedorPadrao={{ nome: data.fornecedorAta || '', cnpj: data.cnpjFornecedorAta || '' }} 
                                   key={g.id} group={g} onRemove={removeGroup} onGroupChange={handleGroupChange} inputClasses={inputClasses} isSelected={selectedItemIds.has(g.id)} onToggleSelect={toggleSelect}
                                   tipoOrcamento={data.tipoOrcamento || ''} subTipoAditivo={data.subTipoAditivo || ''} precos={(data.precosEncontrados || {})[g.id] || []} precosIncluidos={data.precosIncluidos || {}} fontesDisponiveis={selectedFontes}
                                   onAddPrice={addPrice} onPriceChange={handlePriceChange} onRemovePrice={removePrice} onPriceInclusionToggle={handleInclusionChange}
