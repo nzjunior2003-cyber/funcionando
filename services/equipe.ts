@@ -31,4 +31,5 @@ export const equipeSecao: MembroEquipe[] = [
     { grupo: 'Voluntários Civis', nome: 'Arnon e Silva dos Santos', nomeGuerra: 'Arnon', cargo: 'Vol. Civil', funcao: VC },
     { grupo: 'Voluntários Civis', nome: 'Angela Hikaru Miyamoto', nomeGuerra: 'Angela', cargo: 'Vol. Civil', funcao: VC },
     { grupo: 'Voluntários Civis', nome: 'Giovanna Louise Miranda Rodrigues Morais', nomeGuerra: 'Louise', cargo: 'Vol. Civil', funcao: VC },
+    { grupo: 'Voluntários Civis', nome: 'Ingrid Helena Correa Pantoja', nomeGuerra: 'Helena', cargo: 'Vol. Civil', funcao: VC },
 ];
