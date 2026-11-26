@@ -232,7 +232,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
             { content: item.descricao || '', colSpan: 2, styles: { halign: 'justify', valign: 'middle' } },
             { content: item.unidade, styles: { halign: 'center' } },
-            { content: item.quantidade.toString(), styles: { halign: 'center' } }
+            { content: String(Number(item.quantidade) || 0), styles: { halign: 'center' } }
         ]);
     });
 
@@ -254,7 +254,7 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
     ]);
 
     // 6.2 Estimativa de Preço
-    const totalGeral = items.reduce((sum, item) => sum + (item.quantidade * item.valorUnitario), 0);
+    const totalGeral = items.reduce((sum, item) => sum + ((Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)), 0);
     body.push([
         { content: '6.2 - ESTIMATIVA DE PREÇO', rowSpan: items.length + 2, styles: questionStyle(getNextLabelColor()) },
         { content: 'Item', styles: { fillColor: colorYellowHeader, fontStyle: 'bold', halign: 'center', fontSize: 8 } },
@@ -268,8 +268,8 @@ export const generateEtpPdf = (doc: jsPDF, data: EtpData) => {
             { content: (idx + 1).toString(), styles: { halign: 'center' } },
             { content: item.descricao || '', styles: { halign: 'justify', valign: 'middle' } },
             { content: formatCurrency(item.valorUnitario), styles: { halign: 'right' } },
-            { content: item.quantidade.toString(), styles: { halign: 'center' } },
-            { content: formatCurrency(item.quantidade * item.valorUnitario), styles: { halign: 'right' } }
+            { content: String(Number(item.quantidade) || 0), styles: { halign: 'center' } },
+            { content: formatCurrency((Number(item.quantidade) || 0) * (Number(item.valorUnitario) || 0)), styles: { halign: 'right' } }
         ]);
     });
     body.push([
