@@ -556,7 +556,12 @@ function App() {
       reader.onload = (e) => {
           try {
               const content = e.target?.result as string;
-              const parsed = JSON.parse(content);
+              let parsed: any;
+              try {
+                  parsed = JSON.parse(content);
+              } catch (jsonError) {
+                  throw new Error(`O arquivo não é um JSON válido — parece incompleto ou cortado no final (comum quando uma IA interrompe a resposta). Gere o arquivo novamente. Detalhe: ${(jsonError as Error).message}`);
+              }
 
               if (!parsed.type || !parsed.data) {
                    throw new Error('Formato de arquivo inválido. O arquivo deve ser um JSON gerado por este sistema.');
