@@ -86,7 +86,7 @@ export const generateOrcamentoGerenciadorAtaPdf = (doc: jsPDF, data: OrcamentoDa
         headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center', valign: 'middle' },
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1 },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 14 }, 2: { cellWidth: 24 }, 3: { cellWidth: 14 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 } },
+        columnStyles: { 0: { cellWidth: 14 }, 2: { cellWidth: 24 }, 3: { cellWidth: 19 }, 4: { cellWidth: 22 }, 5: { cellWidth: 22 } },
         margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
