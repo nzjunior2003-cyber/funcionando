@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { DocumentType, DfdData, EtpData, RiscoData, OrcamentoData, TrBensData, TrServicosData } from './types';
+import { DocumentType, DfdData, EtpData, RiscoData, OrcamentoData, TrBensData, TrServicosData, ControlePeca } from './types';
 import { generatePdf } from './services/pdfGenerator';
 import { DfdForm } from './components/DfdForm';
 import { EtpForm } from './components/EtpForm';
@@ -7,6 +7,8 @@ import { RiscoForm } from './components/RiscoForm';
 import { OrcamentoForm } from './components/OrcamentoForm';
 import { TrBensForm } from './components/TrBensForm';
 import { TrServicosForm } from './components/TrServicosForm';
+import { RegistrarPecaModal } from './components/RegistrarPecaModal';
+import { CatalogoPecas } from './components/CatalogoPecas';
 import { useFormWithHistory } from './hooks/useFormWithHistory';
 import { logoCBMPABase64 } from './assets/logoBase64';
 
@@ -456,6 +458,8 @@ function App() {
   const [orcamentoData, setOrcamentoData, undoOrcamento, canUndoOrcamento, resetOrcamentoData] = useFormWithHistory<OrcamentoData>(initialOrcamentoState);
   const [trBensData, setTrBensData, undoTrBens, canUndoTrBens, resetTrBensData] = useFormWithHistory<TrBensData>(initialTrBensState);
   const [trServicosData, setTrServicosData, undoTrServicos, canUndoTrServicos, resetTrServicosData] = useFormWithHistory<TrServicosData>(initialTrServicosState);
+  const [registrarAberto, setRegistrarAberto] = useState(false);
+  const [catalogoAberto, setCatalogoAberto] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
   
@@ -637,6 +641,34 @@ function App() {
       reader.readAsText(file);
   };
 
+  // Dados e registro (número de controle) da peça aberta no momento.
+  const dadosAtuais = (): any => {
+    switch (docType) {
+      case DocumentType.DFD: return dfdData;
+      case DocumentType.ETP: return etpData;
+      case DocumentType.RISCO: return riscoData;
+      case DocumentType.ORCAMENTO: return orcamentoData;
+      case DocumentType.TR_BENS: return trBensData;
+      case DocumentType.TR_SERVICOS: return trServicosData;
+      default: return null;
+    }
+  };
+
+  // Grava o número de controle na peça. No DFD e no ETP, que já têm o campo de número, ele é preenchido ali.
+  const aplicarControle = (c: ControlePeca) => {
+    const numeroTexto = String(c.numero).padStart(4, '0');
+    switch (docType) {
+      case DocumentType.DFD: setDfdData(prev => ({ ...prev, controle: c, numeroMemo: numeroTexto, ano: String(c.ano) })); break;
+      case DocumentType.ETP: setEtpData(prev => ({ ...prev, controle: c, numero: numeroTexto, ano: String(c.ano) })); break;
+      case DocumentType.RISCO: setRiscoData(prev => ({ ...prev, controle: c })); break;
+      case DocumentType.ORCAMENTO: setOrcamentoData(prev => ({ ...prev, controle: c })); break;
+      case DocumentType.TR_BENS: setTrBensData(prev => ({ ...prev, controle: c })); break;
+      case DocumentType.TR_SERVICOS: setTrServicosData(prev => ({ ...prev, controle: c })); break;
+    }
+    setRegistrarAberto(false);
+    setToast({ message: `Peça registrada no catálogo: nº ${c.codigo}.`, type: 'success' });
+  };
+
   const handleGeneratePdf = async () => {
     if (!docType) {
         setToast({ message: 'Por favor, selecione um tipo de documento.', type: 'error' });
@@ -722,6 +754,17 @@ function App() {
         onChange={handleFileImport} 
       />
 
+      {registrarAberto && docType !== DocumentType.NONE && (
+        <RegistrarPecaModal
+          docType={docType}
+          data={dadosAtuais()}
+          controle={dadosAtuais()?.controle}
+          onClose={() => setRegistrarAberto(false)}
+          onRegistrada={aplicarControle}
+        />
+      )}
+      {catalogoAberto && <CatalogoPecas onClose={() => setCatalogoAberto(false)} />}
+
       <div className="w-full max-w-6xl bg-white dark:bg-slate-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-200 dark:border-slate-700">
         <header className="bg-white text-red-700 p-3 sm:p-4 flex items-center justify-center gap-3 shadow-md border-b-4 border-red-700 relative">
           <img src={logoCBMPABase64} alt="Brasão do Corpo de Bombeiros Militar do Pará" className="h-12 w-12 sm:h-14 sm:w-14 object-contain flex-shrink-0" />
@@ -756,6 +799,12 @@ function App() {
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
                         Importar Arquivo (.json)
                     </button>
+                    <button
+                        onClick={() => setCatalogoAberto(true)}
+                        className="ml-0 sm:ml-3 mt-3 sm:mt-0 bg-emerald-700 hover:bg-emerald-800 text-white font-bold py-2.5 px-7 rounded-xl transition transform hover:scale-105 hover:shadow-lg"
+                    >
+                        Catálogo de peças
+                    </button>
                 </div>
              </>
           ) : (
@@ -778,7 +827,7 @@ function App() {
                 
                 {/* Footer de Ações Repaginado (Grid Responsivo) */}
                 <div className="mt-10 pt-8 border-t-2 border-gray-200 dark:border-slate-700">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                         <button onClick={exportData} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-gray-200 font-semibold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 border border-slate-300 dark:border-slate-600">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
                             Exportar
@@ -803,6 +852,11 @@ function App() {
                             Limpar Tudo
                         </button>
                         
+                        <button onClick={() => setRegistrarAberto(true)} className="w-full bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 dark:bg-emerald-900/30 dark:hover:bg-emerald-900/50 dark:text-emerald-300 dark:border-emerald-800 font-semibold py-3 px-4 rounded-xl transition flex items-center justify-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {dadosAtuais()?.controle ? `Peça nº ${dadosAtuais().controle.codigo}` : 'Registrar peça'}
+                        </button>
+
                         {/* Botão Principal em Destaque */}
                         <button onClick={handleGeneratePdf} className="w-full lg:col-span-1 bg-gradient-to-r from-red-600 to-red-800 hover:from-red-700 hover:to-red-900 text-white font-extrabold py-3 px-4 rounded-xl transition transform hover:-translate-y-1 shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>

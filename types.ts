@@ -10,6 +10,14 @@ export enum DocumentType {
   TR_SERVICOS = 'tr_servicos',
 }
 
+// Registro da peça no catálogo da Seção (número de controle nnnn/aaaa, um contador por tipo).
+export interface ControlePeca {
+  id: number;
+  codigo: string; // ex.: 0012/2026
+  numero: number;
+  ano: number;
+}
+
 export interface Signatory {
   cidade: string;
   data: string;
@@ -21,6 +29,7 @@ export interface Signatory {
 }
 
 export interface DfdData extends Signatory {
+  controle?: ControlePeca;
   setor: string;
   numeroMemo: string;
   ano: string;
@@ -46,6 +55,7 @@ export interface EtpQualidadeItem {
 }
 
 export interface EtpData extends Signatory {
+  controle?: ControlePeca;
   setor: string;
   numero: string;
   ano: string;
@@ -116,6 +126,7 @@ export interface RiskItem {
 }
 
 export interface RiscoData extends Signatory {
+  controle?: ControlePeca;
   pae: string;
   riscos: RiskItem[];
 }
@@ -211,6 +222,7 @@ export interface TabelaConsupItem {
 // ===== FIM dos Tipos de Credenciamento =====
 
 export interface OrcamentoData {
+  controle?: ControlePeca;
   setor: string;
   cidade: string;
   data: string;
@@ -285,6 +297,7 @@ export interface TrBensItem extends EtpItem {
 // blocos de formulário compartilhados (components/trCommon, services/pdf/trCommonGenerator)
 // trabalham apenas com este contrato.
 export interface TrCommonData extends Signatory {
+  controle?: ControlePeca;
   pae: string;
   setor: string;
   itens: TrBensItem[];
@@ -363,6 +376,7 @@ export interface TrServicosData extends TrCommonData {
 }
 
 export interface TrBensData extends Signatory {
+  controle?: ControlePeca;
   pae: string;
   setor: string;
   itens: TrBensItem[];

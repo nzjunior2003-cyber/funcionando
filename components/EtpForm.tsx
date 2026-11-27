@@ -107,8 +107,8 @@ export const EtpForm: React.FC<EtpFormProps> = ({ data, setData }) => {
       <Section title="Identificação do Documento">
         <div className="grid md:grid-cols-4 gap-6">
           <Field label="Setor" required><input type="text" name="setor" value={data.setor || ''} onChange={handleChange} required className={inputClasses} placeholder="Ex: DAL, BMRS..." /></Field>
-          <Field label="Número do ETP" required><input type="text" name="numero" value={data.numero} onChange={handleChange} required className={inputClasses} /></Field>
-          <Field label="Ano" required><input type="text" name="ano" value={data.ano} onChange={handleChange} required className={inputClasses} /></Field>
+          <Field label="Número do ETP" required><input type="text" name="numero" value={data.numero} onChange={handleChange} required readOnly={!!data.controle} title={data.controle ? 'Número definido pelo registro da peça no catálogo' : undefined} className={`${inputClasses} ${data.controle ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`} /></Field>
+          <Field label="Ano" required><input type="text" name="ano" value={data.ano} onChange={handleChange} required readOnly={!!data.controle} className={`${inputClasses} ${data.controle ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`} /></Field>
           <Field label="PAE nº" required><input type="text" name="pae" value={data.pae} onChange={handleChange} required className={inputClasses} /></Field>
         </div>
       </Section>
