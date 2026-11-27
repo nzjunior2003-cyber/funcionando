@@ -91,7 +91,7 @@ export const generateOrcamentoAdesaoAtaPdf = (doc: jsPDF, data: OrcamentoData) =
         headStyles: { fillColor: YELLOW, textColor: 0, fontStyle: 'bold', halign: 'center' },
         styles: { fontSize: 8, cellPadding: 1.5, lineColor: 0, lineWidth: 0.1, halign: 'center', valign: 'middle' },
         alternateRowStyles: { fillColor: ZEBRA_BLUE },
-        columnStyles: { 0: { cellWidth: 15 }, 2: { minCellWidth: 28 }, 4: { minCellWidth: 32 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
+        columnStyles: { 0: { cellWidth: 15 }, 2: { minCellWidth: 28 }, 3: { minCellWidth: 19 }, 4: { minCellWidth: 32 } }, margin: { left: MARGIN_LEFT, right: MARGIN_RIGHT, bottom: SAFE_BOTTOM_MARGIN },
         rowPageBreak: 'avoid',
         willDrawCell: justifyWillDrawCell,
         didDrawCell: justifyDrawCell
