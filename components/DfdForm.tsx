@@ -26,10 +26,10 @@ export const DfdForm: React.FC<DfdFormProps> = ({ data, setData }) => {
       <Section title="Identificação do Memorando">
         <div className="grid md:grid-cols-2 gap-6">
           <Field label="Número do Memorando" required>
-            <input type="text" name="numeroMemo" value={data.numeroMemo} onChange={handleChange} required className={inputClasses} />
+            <input type="text" name="numeroMemo" value={data.numeroMemo} onChange={handleChange} required readOnly={!!data.controle} title={data.controle ? 'Número definido pelo registro da peça no catálogo' : undefined} className={`${inputClasses} ${data.controle ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`} />
           </Field>
           <Field label="Ano" required>
-            <input type="text" name="ano" value={data.ano} onChange={handleChange} required className={inputClasses} />
+            <input type="text" name="ano" value={data.ano} onChange={handleChange} required readOnly={!!data.controle} className={`${inputClasses} ${data.controle ? 'bg-gray-100 dark:bg-gray-800 cursor-not-allowed' : ''}`} />
           </Field>
         </div>
         <Field label="Setor" required note="Nome do setor que faz a solicitação. Aparece no cabeçalho do documento.">
