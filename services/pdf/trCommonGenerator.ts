@@ -511,7 +511,7 @@ export const generateTrPdf = (doc: jsPDF, data: TrCommonData, opts: TrPdfOptions
         theme: 'grid',
         styles: { fontSize: 8, lineColor: [0,0,0], lineWidth: 0.1, textColor: 0 },
         columnStyles: {
-            0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 10 },
+            0: { cellWidth: 10 }, 1: { cellWidth: 'auto' }, 2: { cellWidth: 15 }, 3: { cellWidth: 19 },
             4: { cellWidth: 10 }, 5: { cellWidth: 28 }, 6: { cellWidth: 30 }, 7: { cellWidth: 22 }
         },
         margin: { left: L_MARGIN, right: R_MARGIN },
