@@ -562,35 +562,58 @@ function App() {
                    throw new Error('Formato de arquivo inválido. O arquivo deve ser um JSON gerado por este sistema.');
               }
 
-              const isTypeSupported = Object.values(DocumentType).includes(parsed.type);
-              if (!isTypeSupported) {
-                   throw new Error(`Tipo de documento desconhecido: ${parsed.type}`);
+              // Aceita variações de escrita do tipo (maiúsculas, hífen em vez de sublinhado).
+              const tipoNormalizado = String(parsed.type).trim().toLowerCase().replace(/[\s-]+/g, '_');
+              const tiposValidos = Object.values(DocumentType).filter(t => t !== DocumentType.NONE) as string[];
+              if (!tiposValidos.includes(tipoNormalizado)) {
+                   throw new Error(`Tipo de documento desconhecido: ${parsed.type}. Tipos aceitos: ${tiposValidos.join(', ')}.`);
               }
+              parsed.type = tipoNormalizado;
+              if (typeof parsed.data !== 'object' || Array.isArray(parsed.data)) {
+                   throw new Error('O campo "data" do arquivo está inválido.');
+              }
+
+              // Cada documento é completado com os valores padrão: campos que faltam no arquivo
+              // (arquivo de versão antiga ou gerado por outra ferramenta) não derrubam mais a tela.
+              const doArquivo = parsed.data;
+              const listaOuPadrao = (lista: any, padrao: any[]) => Array.isArray(lista) ? lista : padrao;
 
               setDocType(parsed.type);
 
               switch(parsed.type) {
-                  case DocumentType.DFD: resetDfdData({ ...initialDfdState, ...parsed.data }); break;
+                  case DocumentType.DFD: resetDfdData({ ...initialDfdState, ...doArquivo }); break;
                   case DocumentType.ETP:
                       resetEtpData({
-                          ...parsed.data,
-                          itens: regenerateIds(parsed.data.itens),
-                          padraoQualidade: regenerateIds(parsed.data.padraoQualidade),
+                          ...initialEtpState,
+                          ...doArquivo,
+                          itens: regenerateIds(listaOuPadrao(doArquivo.itens, initialEtpState.itens)) as any,
+                          padraoQualidade: regenerateIds(listaOuPadrao(doArquivo.padraoQualidade, initialEtpState.padraoQualidade)) as any,
                       });
                       break;
-                  case DocumentType.RISCO: resetRiscoData(parsed.data); break;
-                  case DocumentType.ORCAMENTO: resetOrcamentoData(parsed.data); break;
+                  case DocumentType.RISCO: resetRiscoData({ ...initialRiscoState, ...doArquivo }); break;
+                  case DocumentType.ORCAMENTO:
+                      resetOrcamentoData({
+                          ...initialOrcamentoState,
+                          ...doArquivo,
+                          itemGroups: listaOuPadrao(doArquivo.itemGroups, initialOrcamentoState.itemGroups).map((g: any) => ({ ...g, cotas: Array.isArray(g?.cotas) ? g.cotas : [] })),
+                          fontesPesquisa: listaOuPadrao(doArquivo.fontesPesquisa, initialOrcamentoState.fontesPesquisa),
+                          fornecedoresDiretos: listaOuPadrao(doArquivo.fornecedoresDiretos, initialOrcamentoState.fornecedoresDiretos),
+                          precosEncontrados: doArquivo.precosEncontrados && typeof doArquivo.precosEncontrados === 'object' ? doArquivo.precosEncontrados : initialOrcamentoState.precosEncontrados,
+                          precosIncluidos: doArquivo.precosIncluidos && typeof doArquivo.precosIncluidos === 'object' ? doArquivo.precosIncluidos : initialOrcamentoState.precosIncluidos,
+                      });
+                      break;
                   case DocumentType.TR_BENS:
                       resetTrBensData({
-                          ...parsed.data,
-                          itens: regenerateIds(parsed.data.itens),
+                          ...initialTrBensState,
+                          ...doArquivo,
+                          itens: regenerateIds(listaOuPadrao(doArquivo.itens, initialTrBensState.itens)) as any,
                       });
                       break;
                   case DocumentType.TR_SERVICOS:
                       resetTrServicosData({
                           ...initialTrServicosState,
-                          ...parsed.data,
-                          itens: regenerateIds(parsed.data.itens || []),
+                          ...doArquivo,
+                          itens: regenerateIds(listaOuPadrao(doArquivo.itens, initialTrServicosState.itens)) as any,
                       });
                       break;
               }
